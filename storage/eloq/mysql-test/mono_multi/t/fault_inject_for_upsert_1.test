@@ -1,0 +1,36 @@
+# This case is to test what will happen if remote node 1 crash before it acquire and send message.
+
+--source include/have_eloq.inc
+--sleep 2 #Here is bug, If not sleep, the mysqld will not return result.
+
+--let $mono_server_count= 3
+--source include/mono_init.inc
+
+--disable_warnings
+DROP TABLE IF EXISTS t2;
+--enable_warnings
+
+--connection serv_1
+create table t2(i int primary key, j int) engine= eloq;
+insert into t2 values(1,1);
+select * from t2;
+
+# The row(2,2) will be located on server3(ng2). 
+SET SESSION debug_dbug="+d,eloq;remote_acquire_before_sendmessage;node_id=2;action=panic";
+# Write file to make mysql-test-run.pl expect crash
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.3.expect
+
+# insert transaction will timeout when waiting for the acquire write response.
+--error 199
+insert into t2 values(2,2);
+
+select * from t2;
+sleep 2;
+select * from t2;
+select count(*) from t2;
+
+# sleep ensure the ng1's leader transfer back to node_id 1.
+--sleep 5
+drop table t2;
+
+SET SESSION debug_dbug="-d,eloq;remote_acquire_before_sendmessage";

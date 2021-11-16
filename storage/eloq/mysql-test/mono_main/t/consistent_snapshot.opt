@@ -1,0 +1,2 @@
+--eloq_enable_mvcc=on
+--eloq_cc_protocol=OCC

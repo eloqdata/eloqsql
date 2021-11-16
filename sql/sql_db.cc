@@ -49,6 +49,10 @@
 #endif
 #include "debug.h"                       // debug_crash_here
 
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+#include "eloq_db_dl.h"
+#endif
+
 #define MAX_DROP_TABLE_Q_LEN      1024
 
 const char *del_exts[]= {".BAK", ".opt", NullS};
@@ -441,6 +445,11 @@ end:
   Deletes database options from the hash.
 */
 
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+// This is an attribute since C++17, which is used to suppress warnings on
+// unused entities.
+[[maybe_unused]]
+#endif
 static void del_dbopt(const char *path)
 {
   my_dbopt_t *opt;
@@ -464,6 +473,9 @@ static void del_dbopt(const char *path)
   1	Could not create file or write to it.  Error sent through my_error()
 */
 
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+[[maybe_unused]]
+#endif
 static bool write_db_opt(THD *thd, const char *path,
                          Schema_specification_st *create)
 {
@@ -666,7 +678,18 @@ bool load_db_opt_by_name(THD *thd, const char *db_name,
   (void) build_table_filename(db_opt_path, sizeof(db_opt_path) - 1,
                               db_name, "", MY_DB_OPT_FILE, 0);
 
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+  LEX_CSTRING db= {db_name, strlen(db_name)};
+  int mono_errno= eloq_discover_database(thd, db, db_create_info);
+  if (mono_errno && mono_errno != HA_ERR_KEY_NOT_FOUND)
+  {
+    my_printf_error(mono_errno, "Eloq discover database '%s' failed",
+        MYF(0), db_name);
+  }
+  return mono_errno;
+#else
   return load_db_opt(thd, db_opt_path, db_create_info);
+#endif
 }
 
 
@@ -755,6 +778,22 @@ mysql_create_db_internal(THD *thd, const LEX_CSTRING *db,
   path[path_len-1]= 0;                    // Remove last '/' from path
 
   long affected_rows= 1;
+
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+  (void)stat_info;
+  bool mono_exist= false;
+  int mono_errno= eloq_exist_database(thd, *db, mono_exist);
+  if (mono_errno || !mono_exist)
+  {
+    if (mono_errno)
+    {
+      my_printf_error(mono_errno,
+          "Eloq check whether database '%s' exist failed",
+          MYF(0), db->str);
+      DBUG_RETURN(1);
+    }
+  }
+#else
   if (!mysql_file_stat(key_file_misc, path, &stat_info, MYF(0)))
   {
     // The database directory does not exist, or my_file_stat() failed
@@ -764,6 +803,7 @@ mysql_create_db_internal(THD *thd, const LEX_CSTRING *db,
       DBUG_RETURN(1);
     }
   }
+#endif
   else if (options.or_replace())
   {
     if (mysql_rm_db_internal(thd, db, 0, true)) // Removing the old database
@@ -789,6 +829,15 @@ mysql_create_db_internal(THD *thd, const LEX_CSTRING *db,
     DBUG_RETURN(-1);
   }
 
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+  mono_errno= eloq_create_database(thd, *db, create_info);
+  if (mono_errno)
+  {
+    my_printf_error(mono_errno, "Eloq create database '%s' failed",
+        MYF(0), db->str);
+    DBUG_RETURN(-1);
+  }
+#else
   if (my_mkdir(path, 0777, MYF(0)) < 0)
   {
     my_error(ER_CANT_CREATE_DB, MYF(0), db->str, my_errno);
@@ -813,6 +862,7 @@ mysql_create_db_internal(THD *thd, const LEX_CSTRING *db,
     */
     thd->clear_error();
   }
+#endif
 
   /* Log command to ddl log */
   backup_log_info ddl_log;
@@ -886,6 +936,18 @@ mysql_alter_db_internal(THD *thd, const LEX_CSTRING *db,
   if (lock_schema_name(thd, db->str))
     DBUG_RETURN(TRUE);
 
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+  (void)path;
+  int mono_errno= eloq_update_database(thd, *db, create_info);
+  if (mono_errno)
+  {
+    my_printf_error(mono_errno, "Eloq alter database '%s' failed",
+        MYF(0), db->str);
+
+    error= mono_errno;
+    goto exit;
+  }
+#else
   /* 
      Recreate db options file: /dbpath/.db.opt
      We pass MY_DB_OPT_FILE as "extension" to avoid
@@ -894,6 +956,7 @@ mysql_alter_db_internal(THD *thd, const LEX_CSTRING *db,
   build_table_filename(path, sizeof(path) - 1, db->str, "", MY_DB_OPT_FILE, 0);
   if (unlikely((error=write_db_opt(thd, path, create_info))))
     goto exit;
+#endif
 
   /* Change options if current database is being altered. */
 
@@ -1059,6 +1122,35 @@ mysql_rm_db_internal(THD *thd, const LEX_CSTRING *db, bool if_exists,
 
   path_length= build_table_filename(path, sizeof(path) - 1, db->str, "", "", 0);
 
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+  dirp= my_dir(path,MYF(MY_DONT_SORT));
+
+  bool mono_exist= false;
+  int mono_errno= eloq_exist_database(thd, *db, mono_exist);
+  if (mono_errno)
+  {
+    my_printf_error(mono_errno,
+        "Eloq check whether database '%s' exist failed", MYF(0), db->str);
+    DBUG_RETURN(true);
+  }
+  if (!mono_exist)
+  {
+    if (!if_exists)
+    {
+      my_error(ER_DB_DROP_EXISTS, MYF(0), db->str);
+      DBUG_RETURN(true);
+    }
+    else
+    {
+      push_warning_printf(thd, Sql_condition::WARN_LEVEL_NOTE,
+			  ER_DB_DROP_EXISTS, ER_THD(thd, ER_DB_DROP_EXISTS),
+                          db->str);
+      error= false;
+      goto update_binlog;
+    }
+
+  }
+#else
   /* See if the directory exists */
   if (!(dirp= my_dir(path,MYF(MY_DONT_SORT))))
   {
@@ -1076,6 +1168,7 @@ mysql_rm_db_internal(THD *thd, const LEX_CSTRING *db, bool if_exists,
       goto update_binlog;
     }
   }
+#endif
 
   if (find_db_tables_and_rm_known_files(thd, dirp, dbnorm, path, &tables))
     goto exit;
@@ -1131,6 +1224,22 @@ mysql_rm_db_internal(THD *thd, const LEX_CSTRING *db, bool if_exists,
 
     drop_database_objects(thd, &cpath, &rm_db, rm_mysql_schema);
 
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+    mono_errno= eloq_drop_database(thd, *db);
+    if (mono_errno)
+    {
+      thd->pop_internal_handler();
+      my_printf_error(mono_errno, "Eloq drop database '%s' failed",
+          MYF(0), db->str);
+      error= true;
+      ddl_log_complete(&ddl_log_state);
+      goto end;
+    }
+    else
+    {
+      error= false;
+    }
+#else
     /*
       Now remove the db.opt file.
       The 'find_db_tables_and_rm_known_files' doesn't remove this file
@@ -1158,6 +1267,7 @@ mysql_rm_db_internal(THD *thd, const LEX_CSTRING *db, bool if_exists,
     debug_crash_here("ddl_log_drop_before_drop_dir");
     error= rm_dir_w_symlink(path, true);
     debug_crash_here("ddl_log_drop_after_drop_dir");
+#endif
   }
 
   thd->pop_internal_handler();
@@ -1320,7 +1430,12 @@ static bool find_db_tables_and_rm_known_files(THD *thd, MY_DIR *dirp,
   DBUG_PRINT("enter",("path: %s", path));
 
   /* first, get the list of tables */
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+  /* dirp maybe NULL, if database exists but directory not exists */
+  Dynamic_array<LEX_CSTRING*> files(PSI_INSTRUMENT_MEM);
+#else
   Dynamic_array<LEX_CSTRING*> files(PSI_INSTRUMENT_MEM, dirp->number_of_files);
+#endif
   Discovered_table_list tl(thd, &files);
   if (ha_discover_table_names(thd, &db, dirp, &tl, true))
     DBUG_RETURN(1);
@@ -1362,6 +1477,9 @@ static bool find_db_tables_and_rm_known_files(THD *thd, MY_DIR *dirp,
   }
   *tables= tot_list;
 
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+  if (dirp) /* dirp maybe NULL, if database exists but directory not exists */
+#endif
   /* and at last delete all non-table files */
   for (uint idx=0 ;
        idx < (uint) dirp->number_of_files && !thd->killed ;
@@ -1704,6 +1822,12 @@ uint mysql_change_db(THD *thd, const LEX_CSTRING *new_db_name,
   Security_context *sctx= thd->security_ctx;
   privilege_t db_access(sctx->db_access);
   CHARSET_INFO *db_default_cl;
+
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+  int mono_errno= 0;
+  bool mono_exist= false;
+#endif
+
   DBUG_ENTER("mysql_change_db");
 
   if (new_db_name->length == 0)
@@ -1809,7 +1933,26 @@ uint mysql_change_db(THD *thd, const LEX_CSTRING *new_db_name,
 
   DEBUG_SYNC(thd, "before_db_dir_check");
 
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+  mono_errno= eloq_exist_database(thd, *new_db_name, mono_exist);
+  if (mono_errno)
+  {
+    /* Report an error and free new_db_file_name. */
+
+    my_printf_error(mono_errno,
+        "Eloq check whether database '%s' exist failed",
+        MYF(0), new_db_name->str);
+    my_free(const_cast<char*>(new_db_file_name.str));
+
+    /* The operation failed. */
+
+    DBUG_RETURN(mono_errno);
+  }
+
+  if (!mono_exist)
+#else
   if (check_db_dir_existence(new_db_file_name.str))
+#endif
   {
     if (force_switch)
     {

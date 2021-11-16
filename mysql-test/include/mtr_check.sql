@@ -96,7 +96,9 @@ BEGIN
     mysql.time_zone_name,
     mysql.time_zone_transition,
     mysql.time_zone_transition_type,
-    mysql.global_priv;
+    mysql.global_priv,
+--  checksum for eloq system table
+    mysql.mono_view;
 
   -- verify that no plugin changed its disabled/enabled state
   SELECT * FROM INFORMATION_SCHEMA.PLUGINS;

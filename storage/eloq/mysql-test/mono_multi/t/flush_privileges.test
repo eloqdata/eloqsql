@@ -1,0 +1,53 @@
+--source include/have_eloq.inc
+set @@default_storage_engine=eloq;
+
+--let $mono_server_count=3
+--source include/mono_init.inc
+
+--disable_warnings
+DROP DATABASE IF EXISTS db1;
+--enable_warnings
+
+CREATE DATABASE db1;
+
+--connection serv_1
+CREATE USER 'new_user'@'127.0.0.1' IDENTIFIED BY 'new_user';
+
+# When connect access denied, mtr outputs a wrong connect information with $MONO_SOCK_1.
+# Replace that wrong message with const value.
+--replace_result $MONO_SOCK_1 MONO_SOCK_2
+--error ER_ACCESS_DENIED_ERROR
+connect(new_user_serv_2,127.0.0.1,new_user,new_user,db1,$MONO_PORT_2);
+--replace_result $MONO_SOCK_1 MONO_SOCK_3
+--error ER_ACCESS_DENIED_ERROR
+connect(new_user_serv_3,127.0.0.1,new_user,new_user,db1,$MONO_PORT_3);
+
+GRANT ALL PRIVILEGES ON db1.* TO new_user@'127.0.0.1';
+SHOW GRANTS FOR 'new_user'@'127.0.0.1';
+FLUSH PRIVILEGES;
+connect(new_user_serv_2,127.0.0.1,new_user,new_user,db1,$MONO_PORT_2);
+connect(new_user_serv_3,127.0.0.1,new_user,new_user,db1,$MONO_PORT_3);
+disconnect new_user_serv_2;
+disconnect new_user_serv_3;
+
+--connection serv_1
+REVOKE ALL ON db1.* FROM 'new_user'@'127.0.0.1';
+FLUSH PRIVILEGES;
+--replace_result $MONO_SOCK_1 MONO_SOCK_2
+--error ER_DBACCESS_DENIED_ERROR
+connect(new_user_serv_2,127.0.0.1,new_user,new_user,db1,$MONO_PORT_2);
+--replace_result $MONO_SOCK_1 MONO_SOCK_3
+--error ER_DBACCESS_DENIED_ERROR
+connect(new_user_serv_3,127.0.0.1,new_user,new_user,db1,$MONO_PORT_3);
+
+--connection serv_1
+DROP USER 'new_user'@'127.0.0.1';
+FLUSH PRIVILEGES;
+--replace_result $MONO_SOCK_1 MONO_SOCK_2
+--error ER_ACCESS_DENIED_ERROR
+connect(new_user_serv_2,127.0.0.1,new_user,new_user,db1,$MONO_PORT_2);
+--replace_result $MONO_SOCK_1 MONO_SOCK_3
+--error ER_ACCESS_DENIED_ERROR
+connect(new_user_serv_3,127.0.0.1,new_user,new_user,db1,$MONO_PORT_3);
+
+DROP DATABASE db1;

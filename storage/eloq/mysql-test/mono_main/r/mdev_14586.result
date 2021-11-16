@@ -1,0 +1,42 @@
+create table t1(a bit(1), b int auto_increment ,id int, index(a,b),key(b));
+insert into t1 values(1,null,1);
+insert into t1 values(1,null,2);
+insert into t1 values(0,null,3);
+insert into t1 values(0,null,4);
+select a+0, b as auto_increment , id from t1 order by id;
+a+0	auto_increment	id
+1	1	1
+1	2	2
+0	3	3
+0	4	4
+drop table t1;
+create table t1(a int auto_increment, b bit(5) ,id int, index (b,a),key(a));
+insert into t1 values(null,b'1',1);
+insert into t1 values(null,b'1',2);
+insert into t1 values(null,b'11',3);
+insert into t1 values(null,b'11',4);
+select a as auto_increment, b+0, id from t1 order by id;
+auto_increment	b+0	id
+1	1	1
+2	1	2
+3	3	3
+4	3	4
+drop table t1;
+create table t1(a bit(1), b int auto_increment , c bit(1) , d bit(1), id int,index(a,c,b,d),key(b));
+insert into t1 values(1,null,1,1,1);
+insert into t1 values(1,null,1,1,2);
+insert into t1 values(0,null,1,1,3);
+insert into t1 values(1,null,0,1,4);
+select a+0, b as auto_increment, c+0, d+0, id from t1 order by id;
+a+0	auto_increment	c+0	d+0	id
+1	1	1	1	1
+1	2	1	1	2
+0	3	1	1	3
+1	4	0	1	4
+drop table t1;
+CREATE TABLE t1 (b BIT(1), pk INTEGER AUTO_INCREMENT,INDEX(b,pk),key(pk));
+INSERT INTO t1 VALUES (1,b'1');
+select b+0, pk as auto_increment from t1;
+b+0	auto_increment
+1	1
+DROP TABLE t1;

@@ -1,0 +1,4 @@
+If:
+  PathMatch: .*
+CompileFlags:
+  CompilationDatabase: ./build

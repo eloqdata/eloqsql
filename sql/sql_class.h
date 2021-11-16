@@ -51,6 +51,7 @@
 #include "backup.h"
 #include "xa.h"
 #include "ddl_log.h"                            /* DDL_LOG_STATE */
+#include "../storage/eloq/eloq_metrics/include/metrics.h"
 
 extern "C"
 void set_thd_stage_info(void *thd,
@@ -83,6 +84,14 @@ enum wsrep_consistency_check_mode {
     CONSISTENCY_CHECK_RUNNING,
 };
 #endif /* WITH_WSREP */
+
+#ifdef COROUTINE_ENABLED
+#include <boost/context/continuation.hpp>
+#include <boost/context/stack_context.hpp>
+#include <bthread/moodycamelqueue.h>
+#endif
+#include <functional>
+#include <atomic>
 
 class Reprepare_observer;
 class Relay_log_info;
@@ -1090,39 +1099,6 @@ static inline bool is_supported_parser_charset(CHARSET_INFO *cs)
 {
   return MY_TEST(cs->mbminlen == 1 && cs->number != 17 /* filename */);
 }
-
-/** THD registry */
-class THD_list_iterator
-{
-protected:
-  I_List<THD> threads;
-  mutable mysql_rwlock_t lock;
-
-public:
-
-  /**
-    Iterates registered threads.
-
-    @param action      called for every element
-    @param argument    opque argument passed to action
-
-    @return
-      @retval 0 iteration completed successfully
-      @retval 1 iteration was interrupted (action returned 1)
-  */
-  template <typename T> int iterate(my_bool (*action)(THD *thd, T *arg), T *arg= 0)
-  {
-    int res= 0;
-    mysql_rwlock_rdlock(&lock);
-    I_List_iterator<THD> it(threads);
-    while (auto tmp= it++)
-      if ((res= action(tmp, arg)))
-        break;
-    mysql_rwlock_unlock(&lock);
-    return res;
-  }
-  static THD_list_iterator *iterator();
-};
 
 /**
   A counter of THDs
@@ -2573,6 +2549,193 @@ struct thd_async_state
 extern "C" void thd_increment_pending_ops(MYSQL_THD);
 extern "C" void thd_decrement_pending_ops(MYSQL_THD);
 
+#ifdef COROUTINE_ENABLED
+class StackPool
+{
+public:
+  static StackPool &Instance(size_t stack_size = 0)
+  {
+    static StackPool ins(stack_size);
+    return ins;
+  }
+
+  std::unique_ptr<char[]> GetStack()
+  {
+    std::unique_ptr<char[]> stack = nullptr;
+    bool success = pool_.try_dequeue(stack);
+    if (success)
+    {
+      assert(stack != nullptr);
+      return stack;
+    }
+    else
+    {
+      return std::make_unique<char[]>(stack_size_);
+    }
+  }
+
+  void Recycle(std::unique_ptr<char[]> stack)
+  {
+    if (stack != nullptr)
+    {
+      pool_.enqueue(std::move(stack));
+    }
+  }
+
+private:
+  StackPool(size_t stack_size) : stack_size_(stack_size)
+  {
+  }
+
+  ~StackPool() = default;
+
+  moodycamel::ConcurrentQueue<std::unique_ptr<char[]>> pool_;
+  size_t stack_size_;
+};
+#endif
+
+#ifdef COROUTINE_ENABLED
+
+int coro_mutex_trylock(
+  mysql_mutex_t *that
+#if defined(SAFE_MUTEX) || defined (HAVE_PSI_MUTEX_INTERFACE)
+  , const char *src_file, uint src_line
+#endif
+  );
+
+int coro_mutex_lock(
+  mysql_mutex_t *that
+#if defined(SAFE_MUTEX) || defined (HAVE_PSI_MUTEX_INTERFACE)
+  , const char *src_file, uint src_line
+#endif
+  );
+
+int coro_mutex_unlock(
+  mysql_mutex_t *that
+#ifdef SAFE_MUTEX
+  , const char *src_file, uint src_line
+#endif
+  );
+
+int coro_cond_timedwait(
+  mysql_cond_t *that,
+  mysql_mutex_t *mutex,
+  const struct timespec *abstime
+#if defined(SAFE_MUTEX) || defined(HAVE_PSI_COND_INTERFACE)
+  , const char *src_file, uint src_line
+#endif
+  );
+
+int coro_cond_wait(
+  mysql_cond_t *that,
+  mysql_mutex_t *mutex
+#if defined(SAFE_MUTEX) || defined(HAVE_PSI_COND_INTERFACE)
+  , const char *src_file, uint src_line
+#endif
+  );
+
+#endif
+
+#ifdef COROUTINE_ENABLED
+#ifdef mysql_mutex_unlock
+  #undef mysql_mutex_unlock
+  #ifdef SAFE_MUTEX
+    #define mysql_mutex_unlock(M) \
+      coro_mutex_unlock(M, __FILE__, __LINE__)
+  #else
+    #define mysql_mutex_unlock(M) \
+      coro_mutex_unlock(M)
+  #endif
+#else
+  #ifdef SAFE_MUTEX
+    #define mysql_mutex_unlock(M) \
+      coro_mutex_unlock(M, __FILE__, __LINE__)
+  #else
+    #define mysql_mutex_unlock(M) \
+      coro_mutex_unlock(M)
+  #endif
+#endif
+
+#ifdef mysql_mutex_lock
+  #undef mysql_mutex_lock
+  #if defined(SAFE_MUTEX) || defined (HAVE_PSI_MUTEX_INTERFACE)
+    #define mysql_mutex_lock(M) \
+      coro_mutex_lock(M, __FILE__, __LINE__)
+  #else
+    #define mysql_mutex_lock(M) \
+      coro_mutex_lock(M)
+  #endif
+#else
+  #if defined(SAFE_MUTEX) || defined (HAVE_PSI_MUTEX_INTERFACE)
+    #define mysql_mutex_lock(M) \
+      coro_mutex_lock(M, __FILE__, __LINE__)
+  #else
+    #define mysql_mutex_lock(M) \
+      coro_mutex_lock(M)
+  #endif
+#endif
+
+#ifdef mysql_mutex_trylock
+  #undef mysql_mutex_trylock
+  #if defined(SAFE_MUTEX) || defined (HAVE_PSI_MUTEX_INTERFACE)
+    #define mysql_mutex_trylock(M) \
+      coro_mutex_trylock(M, __FILE__, __LINE__)
+  #else
+    #define mysql_mutex_trylock(M) \
+      coro_mutex_trylock(M)
+  #endif
+#else
+  #if defined(SAFE_MUTEX) || defined (HAVE_PSI_MUTEX_INTERFACE)
+    #define mysql_mutex_trylock(M) \
+      coro_mutex_trylock(M, __FILE__, __LINE__)
+  #else
+    #define mysql_mutex_trylock(M) \
+      coro_mutex_trylock(M)
+  #endif
+#endif
+
+#ifdef mysql_cond_timedwait
+  #undef mysql_cond_timedwait
+  #if defined(SAFE_MUTEX) || defined(HAVE_PSI_COND_INTERFACE)
+    #define mysql_cond_timedwait(C, M, W) \
+      coro_cond_timedwait(C, M, W, __FILE__, __LINE__)
+  #else
+    #define mysql_cond_timedwait(C, M, W) \
+      coro_cond_timedwait(C, M, W)
+  #endif
+#else
+  #if defined(SAFE_MUTEX) || defined(HAVE_PSI_COND_INTERFACE)
+    #define mysql_cond_timedwait(C, M, W) \
+      coro_cond_timedwait(C, M, W, __FILE__, __LINE__)
+  #else
+    #define mysql_cond_timedwait(C, M, W) \
+      coro_cond_timedwait(C, M, W)
+  #endif
+#endif
+
+#ifdef mysql_cond_wait
+  #undef mysql_cond_wait
+  #if defined(SAFE_MUTEX) || defined(HAVE_PSI_COND_INTERFACE)
+    #define mysql_cond_wait(C, M) \
+      coro_cond_wait(C, M, __FILE__, __LINE__)
+  #else
+    #define mysql_cond_timedwait(C, M) \
+      coro_cond_wait(C, M)
+  #endif
+#else
+  #if defined(SAFE_MUTEX) || defined(HAVE_PSI_COND_INTERFACE)
+    #define mysql_cond_wait(C, M) \
+      coro_cond_wait(C, M, __FILE__, __LINE__)
+  #else
+    #define mysql_cond_timedwait(C, M) \
+      coro_cond_wait(C, M)
+  #endif
+#endif
+
+#if defined(IOURING_ENABLED)
+class IoUringWrapper;
+#endif
+#endif
 
 /**
   @class THD
@@ -3057,6 +3220,8 @@ public:
       }
     } start_time;
 
+    metrics::TimePoint tx_start_;
+    bool tx_registered_{false};
     /*
        Tables changed in transaction (that must be invalidated in query cache).
        List contain only transactional tables, that not invalidated in query
@@ -5547,7 +5712,6 @@ public:
     lex= &main_lex;
   }
 
-
   /**
     Restore current lex to its original value it had before calling the method
     backup_and_reset_current_lex().
@@ -5559,8 +5723,65 @@ public:
   {
     lex= backup_lex;
   }
-};
 
+#ifdef COROUTINE_ENABLED
+  boost::context::continuation cmd_coroutine_;
+
+  struct NoopAllocator
+  {
+    NoopAllocator()= default;
+
+    boost::context::stack_context allocate()
+    {
+      boost::context::stack_context sctx;
+      return sctx;
+    }
+
+    void deallocate(boost::context::stack_context &sctx) {}
+  };
+
+  static const size_t sql_coro_stack_size= 1024 * 320;
+
+  std::unique_ptr<char[]> coro_stack_mem_{nullptr};
+
+  boost::context::stack_context CoroStackContext();
+#endif
+
+  std::function<void()> yield_func_;
+  std::function<void()> resume_func_;
+  std::function<void()> long_resume_func_;
+
+  enum struct CoroStatus
+  {
+    Empty= 0,
+    Ongoing,
+    Finished
+  };
+  CoroStatus coro_status_{CoroStatus::Empty};
+  uint8_t coro_ret_;
+
+  std::pair<const std::function<void()> *, const std::function<void()> *>
+  CoroFunctors() const;
+  const std::function<void()> *CoroLongResumeFunctor() const;
+
+  int16_t ThdGroupId() const
+  {
+    return thd_group_id_;
+  }
+
+  void SetThdGroupId(int16_t group_id)
+  {
+    thd_group_id_ = group_id;
+  }
+
+#if defined(COROUTINE_ENABLED) && defined(IOURING_ENABLED)
+  IoUringWrapper *iouring_{nullptr};
+  int32_t iouring_cqe_res_{0};
+#endif
+
+private:
+  int16_t thd_group_id_{-1};
+};
 
 /*
   Start a new independent transaction for the THD.
@@ -7819,6 +8040,38 @@ private:
   THD *const thd;
 };
 
+/** THD registry */
+class THD_list_iterator
+{
+protected:
+  I_List<THD> threads;
+  mutable mysql_rwlock_t lock;
+
+public:
+
+  /**
+    Iterates registered threads.
+
+    @param action      called for every element
+    @param argument    opque argument passed to action
+
+    @return
+      @retval 0 iteration completed successfully
+      @retval 1 iteration was interrupted (action returned 1)
+  */
+  template <typename T> int iterate(my_bool (*action)(THD *thd, T *arg), T *arg= 0)
+  {
+    int res= 0;
+    mysql_rwlock_rdlock(&lock);
+    I_List_iterator<THD> it(threads);
+    while (auto tmp= it++)
+      if ((res= action(tmp, arg)))
+        break;
+    mysql_rwlock_unlock(&lock);
+    return res;
+  }
+  static THD_list_iterator *iterator();
+};
 
 /** THD registry */
 class THD_list: public THD_list_iterator

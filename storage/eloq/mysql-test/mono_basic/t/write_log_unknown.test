@@ -1,0 +1,47 @@
+# This test is to simulate the case that log service is unreachable and write log returns unknown error.
+--source include/have_eloq.inc
+
+set @@default_storage_engine= eloq;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(1,1);
+select * from t1;
+
+SET SESSION debug_dbug="+d,eloq;log_closure_result_unknown;node_id=-1";
+
+SET SESSION debug_dbug="+d,eloq;write_log_result_unknown;node_id=-1";
+
+# this fault inject is necessary to recover local txn's lock
+SET SESSION debug_dbug="+d,eloq;recover_local_txn;node_id=-1";
+
+# log service unreachable
+--error 199
+insert into t1 values(2,2);
+
+# verify write lock remains on (2,2)
+
+--disable_result_log
+# Under OCC protocol, fails to acquirring write intent and return error;
+# Under OccRead/Locking protocol, tx fails to acquire lock first and block until other tx release write lock. But tx fails to commit because log-service is unreachable. 
+--error 213
+insert into t1 values(2,2);
+--enable_result_log
+
+SET SESSION debug_dbug="-d,eloq;log_closure_result_unknown;node_id=-1";
+
+SET SESSION debug_dbug="-d,eloq;write_log_result_unknown;node_id=-1";
+
+# wait for the lock to be recovered by checkpointer
+sleep 20;
+
+SET SESSION debug_dbug="-d,eloq;recover_local_txn;node_id=-1";
+
+insert into t1 values(3,3);
+
+select * from t1;
+
+drop table t1;

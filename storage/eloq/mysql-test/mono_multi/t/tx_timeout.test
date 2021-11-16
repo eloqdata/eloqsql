@@ -1,0 +1,26 @@
+#test
+--source include/have_eloq.inc
+--let $mono_server_count= 3
+--source include/mono_init.inc
+--sleep 3 #Here is bug, If not sleep, the mysqld will not return result.
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+--connection serv_2
+CREATE TABLE t1 (pk int primary key, sk int) ENGINE=eloq;
+INSERT INTO t1 VALUES (1, 1),(2, 2),(3,3);
+SELECT * FROM t1;
+
+# Skip executing PostReadCc to timeout transaction. 
+# Be careful to use `action=sleep`, because it will hang tx_processor in some scenarios.
+SET SESSION debug_dbug="+d,eloq;before_post_read;node_id=0";
+SET SESSION debug_dbug="+d,eloq;before_post_read;node_id=2";
+
+--error 199
+SELECT * FROM t1;
+SET SESSION debug_dbug="-d,eloq;before_post_read";
+
+SELECT * FROM t1;
+DROP TABLE t1;

@@ -66,6 +66,9 @@
 #include "opt_trace.h"
 #include "my_cpu.h"
 
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+#include "eloq_db_dl.h"
+#endif
 
 #include "lex_symbol.h"
 #define KEYWORD_SIZE 64
@@ -877,6 +880,9 @@ continue_loop:
   @retval FALSE not found
 */
 
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+[[maybe_unused]]
+#endif
 static inline bool
 is_in_ignore_db_dirs_list(const char *directory)
 {
@@ -943,15 +949,51 @@ find_files(THD *thd, Dynamic_array<LEX_CSTRING*> *files, LEX_CSTRING *db,
 
   if (!(dirp = my_dir(path, MY_THREAD_SPECIFIC | (db ? 0 : MY_WANT_STAT))))
   {
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+    if (my_errno == ENOENT)
+    {
+      dirp= NULL;
+
+      int mono_errno= 0;
+      bool mono_exists= false;
+      mono_errno= eloq_exist_database(thd, *db, mono_exists);
+      if (mono_errno)
+      {
+        my_printf_error(mono_errno,
+            "Eloq read databases '%s' failed", MYF(0), db->str);
+        DBUG_RETURN(FIND_FILES_DIR);
+      }
+      if (!mono_exists)
+      {
+        my_error(ER_BAD_DB_ERROR, MYF(0), db->str);
+        DBUG_RETURN(FIND_FILES_DIR);
+      }
+    }
+    else
+    {
+      my_error(ER_CANT_READ_DIR, MYF(0), path, my_errno);
+      DBUG_RETURN(FIND_FILES_DIR);
+    }
+#else
     if (my_errno == ENOENT)
       my_error(ER_BAD_DB_ERROR, MYF(0), db->str);
     else
       my_error(ER_CANT_READ_DIR, MYF(0), path, my_errno);
     DBUG_RETURN(FIND_FILES_DIR);
+#endif
   }
 
   if (!db)                                           /* Return databases */
   {
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+    int mono_errno= eloq_discover_database_names_wild(thd, tl);
+    if (mono_errno)
+    {
+      my_printf_error(mono_errno,
+          "Eloq discover databases failed", MYF(0));
+      DBUG_RETURN(FIND_FILES_DIR);
+    }
+#else
     for (uint i=0; i < (uint) dirp->number_of_files; i++)
     {
       FILEINFO *file= dirp->dir_entry+i;
@@ -980,6 +1022,7 @@ find_files(THD *thd, Dynamic_array<LEX_CSTRING*> *files, LEX_CSTRING *db,
       if (tl.add_file(file->name))
         goto err;
     }
+#endif
   }
   else
   {
@@ -1424,11 +1467,31 @@ bool mysqld_show_create_db(THD *thd, LEX_CSTRING *dbname,
   }
   else
   {
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+    bool mono_exist= false;
+    int mono_errno= eloq_exist_database(thd, *dbname, mono_exist);
+    if (mono_errno)
+    {
+      my_printf_error(mono_errno,
+          "Eloq check whether database '%s' exist failed",
+          MYF(0), dbname->str);
+      DBUG_RETURN(TRUE);
+    }
+    else
+    {
+      if (!mono_exist)
+      {
+        my_error(ER_BAD_DB_ERROR, MYF(0), dbname->str);
+        DBUG_RETURN(TRUE);
+      }
+    }
+#else
     if (check_db_dir_existence(dbname->str))
     {
       my_error(ER_BAD_DB_ERROR, MYF(0), dbname->str);
       DBUG_RETURN(TRUE);
     }
+#endif
 
     load_db_opt_by_name(thd, dbname->str, &create);
   }
@@ -5443,11 +5506,22 @@ int fill_schema_schemata(THD *thd, TABLE_LIST *tables, COND *cond)
   /*
     If we have lookup db value we should check that the database exists
   */
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+  bool mono_exists= false;
+  if(lookup_field_vals.db_value.str && !lookup_field_vals.wild_db_value &&
+     (!db_names.elements() /* The database name was too long */||
+      (db_names.at(0) != &INFORMATION_SCHEMA_NAME &&
+       verify_database_directory_exists(lookup_field_vals.db_value) &&
+       (eloq_exist_database(thd, lookup_field_vals.db_value, mono_exists),
+        !mono_exists))))
+    DBUG_RETURN(0);
+#else
   if(lookup_field_vals.db_value.str && !lookup_field_vals.wild_db_value &&
      (!db_names.elements() /* The database name was too long */||
       (db_names.at(0) != &INFORMATION_SCHEMA_NAME &&
        verify_database_directory_exists(lookup_field_vals.db_value))))
     DBUG_RETURN(0);
+#endif
 
   for (size_t i=0; i < db_names.elements(); i++)
   {

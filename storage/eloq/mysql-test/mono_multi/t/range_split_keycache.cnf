@@ -1,0 +1,54 @@
+
+# Use default setting for mysqld processes
+!include include/default_mysqld.cnf
+!include include/default_client.cnf
+!include include/eloq_kv_keyspace.cnf
+
+[mysqld]
+performance_schema=OFF
+default_storage_engine=eloq
+plugin-maturity=experimental
+plugin_load_add=ha_eloq
+skip-log-bin
+thread_handling=pool-of-threads
+thread_pool_size=2
+thread_pool_dedicated_listener=1
+table_open_cache_instances=20
+
+eloq_core_num=2
+eloq_logserver_rocksdb_scan_thread_num=3
+eloq_cass_user=cassandra
+eloq_cass_password=cassandra
+eloq_cc_protocol=OCC
+eloq_enable_mvcc=off
+eloq_use_key_cache=true
+use_stat_tables=complementary
+eloq_rocksdb_cloud_bucket_name = eloqdb-mysql-test
+eloq_rocksdb_cloud_bucket_prefix = rocksdb-cloud-
+eloq_rocksdb_cloud_region = ap-northeast-1
+eloq_hm_bin_path = @ENV.MYSQLTEST_VARDIR/../../storage/eloq/host_manager
+
+[mysqld.1]
+eloq_local_ip=127.0.0.1:8000
+eloq_ip_list=127.0.0.1:8000,127.0.0.1:8010,127.0.0.1:8020
+eloq_metrics_port=18081
+
+[mysqld.2]
+eloq_local_ip=127.0.0.1:8010
+eloq_ip_list=127.0.0.1:8000,127.0.0.1:8010,127.0.0.1:8020
+eloq_metrics_port=18082
+
+[mysqld.3]
+eloq_local_ip=127.0.0.1:8020
+eloq_ip_list=127.0.0.1:8000,127.0.0.1:8010,127.0.0.1:8020
+eloq_metrics_port=18083
+
+[ENV]
+MONO_PORT_1=              @mysqld.1.port
+MONO_SOCK_1=              @mysqld.1.socket
+
+MONO_PORT_2=              @mysqld.2.port
+MONO_SOCK_2=              @mysqld.2.socket
+
+MONO_PORT_3=              @mysqld.3.port
+MONO_SOCK_3=              @mysqld.3.socket

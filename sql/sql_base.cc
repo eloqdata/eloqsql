@@ -63,6 +63,9 @@
 #include "wsrep_trans_observer.h"
 #endif /* WITH_WSREP */
 
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+#include "eloq_db_dl.h"
+#endif
 
 bool
 No_such_table_error_handler::handle_condition(THD *,
@@ -595,7 +598,7 @@ bool flush_tables(THD *thd, flush_tables_type flag)
     {
       (void) table->file->extra(HA_EXTRA_FLUSH);
       DEBUG_SYNC(table->in_use, "before_tc_release_table");
-      tc_release_table(table);
+      tc_release_table(table, thd);
     }
     else
     {
@@ -816,9 +819,11 @@ int close_thread_tables(THD *thd)
   if (thd->debug_sync_control)
     DEBUG_SYNC(thd, "before_close_thread_tables");
 #endif
-
-  DBUG_ASSERT(thd->transaction->stmt.is_empty() || thd->in_sub_stmt ||
-              (thd->state_flags & Open_tables_state::BACKUPS_AVAIL));
+  // thd->transaction->stmt is not empty even if the open table fails.
+  // In ha_fugue, we need to start transaction at discovery table, which
+  // is different from mariadb, which is at external_lock.
+  // DBUG_ASSERT(thd->transaction->stmt.is_empty() || thd->in_sub_stmt ||
+  //            (thd->state_flags & Open_tables_state::BACKUPS_AVAIL));
 
   for (table= thd->open_tables; table; table= table->next)
   {
@@ -1007,7 +1012,7 @@ void close_thread_table(THD *thd, TABLE **table_ptr)
   */
   MYSQL_UNBIND_TABLE(table->file);
 
-  tc_release_table(table);
+  tc_release_table(table, thd);
   DBUG_VOID_RETURN;
 }
 
@@ -1707,6 +1712,11 @@ bool open_table(THD *thd, TABLE_LIST *table_list, Open_table_context *ot_ctx)
 #endif
   DBUG_ENTER("open_table");
 
+#ifdef  WITH_ELOQ_STORAGE_ENGINE
+  int mono_errno= 0;
+  bool mono_view_eq= false;
+  LEX_CSTRING mono_old_view;
+#endif
   /*
     The table must not be opened already. The table can be pre-opened for
     some statements if it is a temporary table.
@@ -1933,6 +1943,33 @@ retry_share:
                table_list->alias.str);
       goto err_lock;
     }
+
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+    mono_old_view= {share->view_def->data(), share->view_def->size()};
+    mono_errno= eloq_check_view_p(thd, share->normalized_path,
+                                       mono_old_view, mono_view_eq);
+    if (mono_errno)
+    {
+      if (mono_errno == HA_ERR_KEY_NOT_FOUND)
+      {
+        my_error(ER_UNKNOWN_VIEW, MYF(0), share->normalized_path.str);
+      }
+      else
+      {
+        my_error(ER_VIEW_CHECK_FAILED, MYF(0),
+            share->db.str, share->table_name.str);
+      }
+      goto err_lock;
+    }
+    if (!mono_view_eq)
+    {
+      tdc_release_share(share);
+      (void) ot_ctx->request_backoff_action(Open_table_context::OT_DISCOVER,
+                                            table_list);
+      DBUG_RETURN(TRUE);
+    }
+#endif
+
     /*
       This table is a view. Validate its metadata version: in particular,
       that it was a view when the statement was prepared.
@@ -1971,7 +2008,7 @@ retry_share:
         share goes away and then try to get new version of table share.
       */
       if (table)
-        tc_release_table(table);
+        tc_release_table(table, thd);
       else
         tdc_release_share(share);
 
@@ -2000,7 +2037,7 @@ retry_share:
         changed only during FLUSH TABLES.
       */
       if (table)
-        tc_release_table(table);
+        tc_release_table(table, thd);
       else
         tdc_release_share(share);
       (void)ot_ctx->request_backoff_action(Open_table_context::OT_REOPEN_TABLES,
@@ -2014,7 +2051,7 @@ retry_share:
     DBUG_ASSERT(table->file != NULL);
     if (table->file->discover_check_version())
     {
-      tc_release_table(table);
+      tc_release_table(table, thd);
       (void) ot_ctx->request_backoff_action(Open_table_context::OT_DISCOVER,
                                             table_list);
       DBUG_RETURN(TRUE);
@@ -2112,7 +2149,7 @@ retry_share:
       if (thd->has_read_only_protection())
       {
         MYSQL_UNBIND_TABLE(table->file);
-        tc_release_table(table);
+        tc_release_table(table, thd);
         DBUG_RETURN(TRUE);
       }
 
@@ -2131,7 +2168,7 @@ retry_share:
       if (result)
       {
         MYSQL_UNBIND_TABLE(table->file);
-        tc_release_table(table);
+        tc_release_table(table, thd);
         DBUG_RETURN(TRUE);
       }
 
@@ -3254,8 +3291,15 @@ Open_table_context::recover_from_failed_open()
           if (open_if_exists)
             m_thd->push_internal_handler(&no_such_table_handler);
 
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+          // When view version changed, eloq-mariadb would refetch view
+          // frm. Thus flag GTS_VIEW should be enabled.
+          result= !tdc_acquire_share(m_thd, m_failed_table,
+                      GTS_TABLE | GTS_VIEW | GTS_FORCE_DISCOVERY | GTS_NOLOCK);
+#else
           result= !tdc_acquire_share(m_thd, m_failed_table,
                                  GTS_TABLE | GTS_FORCE_DISCOVERY | GTS_NOLOCK);
+#endif
           if (open_if_exists)
           {
             m_thd->pop_internal_handler();
@@ -5368,14 +5412,7 @@ bool open_normal_and_derived_tables(THD *thd, TABLE_LIST *tables, uint flags,
 
   DBUG_RETURN(0);
 end:
-  /*
-    No need to commit/rollback the statement transaction: it's
-    either not started or we're filling in an INFORMATION_SCHEMA
-    table on the fly, and thus mustn't manipulate with the
-    transaction of the enclosing statement.
-  */
-  DBUG_ASSERT(thd->transaction->stmt.is_empty() ||
-              (thd->state_flags & Open_tables_state::BACKUPS_AVAIL));
+
   close_thread_tables(thd);
   /* Don't keep locks for a failed statement. */
   thd->mdl_context.rollback_to_savepoint(mdl_savepoint);
@@ -5732,8 +5769,11 @@ void close_tables_for_reopen(THD *thd, TABLE_LIST **tables,
     table on the fly, and thus mustn't manipulate with the
     transaction of the enclosing statement.
   */
-  DBUG_ASSERT(thd->transaction->stmt.is_empty() ||
-              (thd->state_flags & Open_tables_state::BACKUPS_AVAIL));
+  // thd->transaction->stmt is not empty even if the open table fails.
+  // In ha_fugue, we need to start transaction at discovery table, which
+  // is different from mariadb, which is at external_lock.
+  // DBUG_ASSERT(thd->transaction->stmt.is_empty() ||
+  //            (thd->state_flags & Open_tables_state::BACKUPS_AVAIL));
   close_thread_tables(thd);
   thd->mdl_context.rollback_to_savepoint(start_of_statement_svp);
 }

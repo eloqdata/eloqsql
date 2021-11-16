@@ -1,0 +1,68 @@
+--source include/have_eloq.inc
+
+set @@default_storage_engine= eloq;
+select @@default_storage_engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (pk INT , sk1 INT, sk2 INT, PRIMARY KEY (pk), INDEX sk1 (sk1), INDEX sk2 (sk2)) ENGINE=eloq;
+INSERT INTO t1 VALUES (1, 2, 3);
+update t1 set sk1=4, sk2=5 where pk=1;
+begin;
+update t1 set sk1=6, sk2=7 where pk=1;
+update t1 set sk1=8, sk2=9 where pk=1;
+commit;
+select * from t1;
+
+# how to wait for checkpoint to finish?
+# --sleep 15
+
+
+# change schema
+drop table t1;
+CREATE TABLE t1 (pk1 INT , pk2 INT, sk1 INT, sk2 INT, sk3 INT, PRIMARY KEY (pk1, pk2), INDEX sk1 (sk1), INDEX sk2 (sk2, sk3)) ENGINE=eloq;
+INSERT INTO t1 VALUES (1, 2, 3, 4, 5);
+INSERT INTO t1 VALUES (2, 2, 3, 4, 6);
+select * from t1;
+
+
+begin;
+update t1 set sk1=6, sk2=7 where pk1=1;
+update t1 set sk1=8 where pk2=2;
+update t1 set sk3=9 where pk1=1;
+update t1 set sk3=10 where pk1=1 and pk2=2;
+commit;
+select * from t1;
+
+--replace_column 9 #
+explain select * from t1 where sk1=8;
+select * from t1 where sk1=8;
+--replace_column 9 #
+explain select * from t1 where sk2=4;
+select * from t1 where sk2=4;
+--replace_column 9 #
+explain select * from t1 where sk3=10;
+select * from t1 where sk3=10;
+
+# how to wait for checkpoint to finish?
+--sleep 15
+
+--source include/restart_mysqld.inc
+select * from t1;
+
+--replace_column 9 #
+explain select * from t1 where sk1=8;
+select * from t1 where sk1=8;
+--replace_column 9 #
+explain select * from t1 where sk2=4;
+select * from t1 where sk2=4;
+--replace_column 9 #
+explain select * from t1 where sk3=10;
+select * from t1 where sk3=10;
+
+drop table t1;
+
+
+

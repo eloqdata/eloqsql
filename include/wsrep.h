@@ -24,6 +24,8 @@
 #define DBUG_ASSERT_IF_WSREP(A) DBUG_ASSERT(A)
 
 extern ulong wsrep_debug; // wsrep_mysqld.cc
+
+#ifndef WITH_GLOG
 extern void WSREP_LOG(void (*fun)(const char* fmt, ...), const char* fmt, ...);
 
 #define WSREP_DEBUG(...)                                                \
@@ -32,6 +34,23 @@ extern void WSREP_LOG(void (*fun)(const char* fmt, ...), const char* fmt, ...);
 #define WSREP_WARN(...)  WSREP_LOG(sql_print_warning,     ##__VA_ARGS__)
 #define WSREP_ERROR(...) WSREP_LOG(sql_print_error,       ##__VA_ARGS__)
 #define WSREP_UNKNOWN(fmt, ...) WSREP_ERROR("UNKNOWN: " fmt, ##__VA_ARGS__)
+
+#else
+
+extern void WSREP_LOG(void (*fun)(const char *file, int line, const char *fmt,
+                                  ...),
+                      const char *file, int line, const char *fmt, ...);
+#define WSREP_DEBUG(...)                                                      \
+  if (wsrep_debug)                                                            \
+  WSREP_LOG(glog_print_information, __FILE__, __LINE__, ##__VA_ARGS__)
+#define WSREP_INFO(...)                                                       \
+  WSREP_LOG(glog_print_information, __FILE__, __LINE__, ##__VA_ARGS__)
+#define WSREP_WARN(...)                                                       \
+  WSREP_LOG(glog_print_warning, __FILE__, __LINE__, ##__VA_ARGS__)
+#define WSREP_ERROR(...)                                                      \
+  WSREP_LOG(glog_print_error, __FILE__, __LINE__, ##__VA_ARGS__)
+#define WSREP_UNKNOWN(fmt, ...) WSREP_ERROR("UNKNOWN: " fmt, ##__VA_ARGS__)
+#endif /* WITH_GLOG */
 
 #define WSREP_LOG_CONFLICT_THD(thd, role)                               \
   WSREP_INFO("%s: \n "                                                  \

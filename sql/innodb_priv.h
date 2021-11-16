@@ -20,14 +20,17 @@
 
 #include <sql_priv.h>
 #include <strfunc.h>                            /* strconvert */
-
 class THD;
 
 int get_quote_char_for_identifier(THD *thd, const char *name, size_t length);
 bool schema_table_store_record(THD *thd, TABLE *table);
 void localtime_to_TIME(MYSQL_TIME *to, struct tm *from);
 
+#ifndef WITH_GLOG
 void sql_print_error(const char *format, ...);
+#else
+void sql_print_error_(const char *format, ...);
+#endif /* WITH_GLOG */
 
 #define thd_binlog_pos(X, Y, Z) mysql_bin_log_commit_pos(X, Z, Y)
 

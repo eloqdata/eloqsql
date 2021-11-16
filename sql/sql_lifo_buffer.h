@@ -67,6 +67,7 @@ public:
 protected:
   uchar *start; /**< points to start of buffer space */
   uchar *end;   /**< points to just beyond the end of buffer space */
+  uchar *last_write_pos; /**< to save the last write position for read again*/
 public:
 
   enum enum_direction {
@@ -125,6 +126,8 @@ public:
   }
 
   virtual void reset() = 0;
+  virtual void read_reset() = 0;
+  virtual void stop_write() = 0;
   virtual uchar *end_of_space() = 0;
 protected:
   virtual size_t used_size() = 0;
@@ -170,6 +173,14 @@ public:
   void reset()
   {
     pos= start;
+  }
+  void read_reset() override
+  {
+    pos= last_write_pos;
+  }
+  void stop_write() override
+  {
+    last_write_pos= pos;
   }
   uchar *end_of_space() { return pos; }
   bool have_space_for(size_t bytes)
@@ -231,6 +242,7 @@ public:
   uchar *used_area() { return start; }
   friend class Lifo_buffer_iterator;
   uchar *get_pos() { return pos; }
+
 };
 
 
@@ -263,6 +275,14 @@ public:
   void reset()
   {
     pos= end;
+  }
+  void read_reset() override
+  {
+    pos= last_write_pos;
+  }
+  void stop_write() override
+  {
+    last_write_pos= pos;
   }
   uchar *end_of_space() { return end; }
   bool have_space_for(size_t bytes)

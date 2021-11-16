@@ -1,0 +1,106 @@
+--source include/have_eloq.inc
+
+set @@default_storage_engine= eloq;
+select @@default_storage_engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+--enable_warnings
+
+############ test: flush archives while checkpointing.
+
+create table t1(i int primary key, j int) engine= eloq;
+
+SET SESSION debug_dbug="+d,eloq;stop_safely_clean_archives;";
+
+insert into t1 values(1,1);
+insert into t1 values(2,2);
+insert into t1 values(3,3);
+insert into t1 values(5,5);
+insert into t1 values(7,7);
+
+update t1 set j=11;
+update t1 set j=12;
+update t1 set j=13;
+select * from t1;      # 1,13 | 2,13 | 3,13 | 5,13 | 7,13
+
+#### test mvcc PkScan
+set session transaction isolation level repeatable read;
+select @@tx_isolation;
+
+--connect (conn-tx1,localhost,root,,test,$MONO1_PORT)
+set session transaction isolation level repeatable read;
+select @@tx_isolation;
+
+begin;
+select * from t1 where i=1;              # 1,13
+select * from t1;               # 1,13 | 2,13 | 3,13 | 5,13 | 7,13
+
+--connection default
+update t1 set j=21;
+update t1 set j=31 where i=1;
+update t1 set j=33 where i=3;
+select * from t1;               # 1,31 | 2,21 | 3,33 | 5,21 | 7,21
+
+--connection conn-tx1
+select * from t1 where i=1;     # 1,13
+select * from t1 where i=3;     # 3,13
+select * from t1;              # 1,13 | 2,13 | 3,13 | 5,13 | 7,13
+
+#### [ckpt and flush undo]
+--connection default
+SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
+--sleep 1
+
+#### Clean ccentry without flush payload to kvstore.
+SET SESSION debug_dbug="+d,eloq_test;ccentry_clean_without_flush_test;./test/t1;1;";
+SET SESSION debug_dbug="+d,eloq_test;ccentry_clean_without_flush_test;./test/t1;3;";
+
+select * from t1 where i=1;     # 1,31
+select * from t1 where i=3;     # 3,33
+
+--connection conn-tx1
+#### Check that historical versions can also be fecthed after ccentry kicked out.
+select * from t1 where i=1;     # 1,13
+select * from t1 where i=3;     # 3,13
+select * from t1;              # 1,13 | 2,13 | 3,13 | 5,13 | 7,13
+commit;
+
+SET SESSION debug_dbug="-d,eloq;stop_safely_clean_archives;";
+drop table t1;
+
+############ test: historical versions are also restored while replaying redo log.
+
+create table t2(i int primary key, j int) engine= eloq;
+
+SET SESSION debug_dbug="+d,eloq;stop_safely_clean_archives;";
+SET SESSION debug_dbug="+d,eloq;checkpointer_skip_ckpt;node_id=-1";
+
+insert into t2 values(1,1);
+insert into t2 values(2,2);
+insert into t2 values(3,3);
+insert into t2 values(5,5);
+insert into t2 values(7,7);
+
+update t2 set j=11;
+update t2 set j=12;
+update t2 set j=13;
+select * from t2;      # 1,13 | 2,13 | 3,13 | 5,13 | 7,13
+
+#### restart mysqld to triger 'RedoLogReplay'.
+--source include/restart_mysqld.inc
+--sleep 1
+
+select * from t2 where i=5;
+select * from t2;
+
+#### check historical versions has been restored through "ccentry_clean_test".
+SET SESSION debug_dbug="+d,eloq_test;ccentry_clean_test;./test/t2;2;";
+SET SESSION debug_dbug="+d,eloq_test;ccentry_clean_test;./test/t2;5;";
+
+select * from t2;
+
+SET SESSION debug_dbug="-d,eloq;stop_safely_clean_archives;";
+SET SESSION debug_dbug="-d,eloq;checkpointer_skip_ckpt;node_id=-1";
+drop table t2;

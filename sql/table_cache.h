@@ -55,7 +55,7 @@ struct TDC_element
   char pad[CPU_LEVEL1_DCACHE_LINESIZE];
   Share_free_tables free_tables[1];
 
-  inline void wait_for_refs(uint my_refs);
+  inline void wait_for_refs(uint my_refs, THD *thd);
   void flush(THD *thd, bool mark_flushed);
   void flush_unused(bool mark_flushed);
 };
@@ -91,7 +91,7 @@ int show_tc_active_instances(THD *thd, SHOW_VAR *var, char *buff,
                              enum enum_var_type scope);
 extern void tc_purge();
 extern void tc_add_table(THD *thd, TABLE *table);
-extern void tc_release_table(TABLE *table);
+extern void tc_release_table(TABLE *table, THD *thd);
 extern TABLE *tc_acquire_table(THD *thd, TDC_element *element);
 
 /**

@@ -1,0 +1,41 @@
+set @@default_storage_engine=eloq;
+include/mono_init.inc
+DROP DATABASE IF EXISTS db1;
+CREATE DATABASE db1;
+connection serv_1;
+CREATE USER 'new_user'@'127.0.0.1' IDENTIFIED BY 'new_user';
+connect(127.0.0.1,new_user,new_user,db1,16001,MONO_SOCK_2);
+connect new_user_serv_2,127.0.0.1,new_user,new_user,db1,$MONO_PORT_2;
+ERROR 28000: Access denied for user 'new_user'@'localhost' (using password: YES)
+connect(127.0.0.1,new_user,new_user,db1,16002,MONO_SOCK_3);
+connect new_user_serv_3,127.0.0.1,new_user,new_user,db1,$MONO_PORT_3;
+ERROR 28000: Access denied for user 'new_user'@'localhost' (using password: YES)
+GRANT ALL PRIVILEGES ON db1.* TO new_user@'127.0.0.1';
+SHOW GRANTS FOR 'new_user'@'127.0.0.1';
+Grants for new_user@127.0.0.1
+GRANT USAGE ON *.* TO `new_user`@`127.0.0.1` IDENTIFIED BY PASSWORD '*B1998499EBB74D92B14F3F4C059652FBEBE35DE6'
+GRANT ALL PRIVILEGES ON `db1`.* TO `new_user`@`127.0.0.1`
+FLUSH PRIVILEGES;
+connect new_user_serv_2,127.0.0.1,new_user,new_user,db1,$MONO_PORT_2;
+connect new_user_serv_3,127.0.0.1,new_user,new_user,db1,$MONO_PORT_3;
+disconnect new_user_serv_2;
+disconnect new_user_serv_3;
+connection serv_1;
+REVOKE ALL ON db1.* FROM 'new_user'@'127.0.0.1';
+FLUSH PRIVILEGES;
+connect(127.0.0.1,new_user,new_user,db1,16001,MONO_SOCK_2);
+connect new_user_serv_2,127.0.0.1,new_user,new_user,db1,$MONO_PORT_2;
+ERROR 42000: Access denied for user 'new_user'@'127.0.0.1' to database 'db1'
+connect(127.0.0.1,new_user,new_user,db1,16002,MONO_SOCK_3);
+connect new_user_serv_3,127.0.0.1,new_user,new_user,db1,$MONO_PORT_3;
+ERROR 42000: Access denied for user 'new_user'@'127.0.0.1' to database 'db1'
+connection serv_1;
+DROP USER 'new_user'@'127.0.0.1';
+FLUSH PRIVILEGES;
+connect(127.0.0.1,new_user,new_user,db1,16001,MONO_SOCK_2);
+connect new_user_serv_2,127.0.0.1,new_user,new_user,db1,$MONO_PORT_2;
+ERROR 28000: Access denied for user 'new_user'@'localhost' (using password: YES)
+connect(127.0.0.1,new_user,new_user,db1,16002,MONO_SOCK_3);
+connect new_user_serv_3,127.0.0.1,new_user,new_user,db1,$MONO_PORT_3;
+ERROR 28000: Access denied for user 'new_user'@'localhost' (using password: YES)
+DROP DATABASE db1;

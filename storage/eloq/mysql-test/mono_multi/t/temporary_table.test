@@ -1,0 +1,43 @@
+--source include/have_eloq.inc
+set @@default_storage_engine=eloq;
+
+--let $mono_server_count=3
+--source include/mono_init.inc
+
+# Connect to serv_1: Create temporary table t1;
+--connection serv_1
+CREATE TEMPORARY TABLE t1 (
+  i INT PRIMARY KEY,
+  dt DATETIME(3) DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+INSERT INTO t1 (i) values(10001), (10002), (10003), (10004), (10005);
+
+# Connect to serv_2: Create temporary table t1;
+--connection serv_2
+CREATE TEMPORARY TABLE t1 (
+  i INT PRIMARY KEY,
+  dt DATETIME(3) DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+INSERT INTO t1 (i) values(10001), (10002), (10003), (10004), (10005);
+
+# Connect to serv_3: Create temporary table t1;
+--connection serv_3
+CREATE TEMPORARY TABLE t1 (
+  i INT PRIMARY KEY,
+  dt DATETIME(3) DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+INSERT INTO t1 (i) values(10001), (10002), (10003), (10004), (10005);
+
+# Show node of temporary table;
+SELECT SUBSTRING_INDEX(name, '-', -1) AS NODE_ID
+FROM INFORMATION_SCHEMA.ELOQ_TEMP_TABLE_INFO ORDER BY NODE_ID;
+
+# Kill and restart serv_3.
+# Temporary table created and only created on serv_3 would be dropped
+# automatically.
+--source include/kill_and_restart_mysqld.inc
+SELECT SUBSTRING_INDEX(name, '-', -1) AS NODE_ID
+FROM INFORMATION_SCHEMA.ELOQ_TEMP_TABLE_INFO ORDER BY NODE_ID;

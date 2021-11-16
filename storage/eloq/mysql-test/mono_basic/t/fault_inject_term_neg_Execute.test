@@ -1,0 +1,93 @@
+# This case is to test what will happen if remote a single node crash before it acquire and send message.
+--source include/have_eloq.inc
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+#Without following 2 sentences, the errors in logs will make this testcase fail.
+#The 2 sentences will tell mtr the errors in logs are expected.
+call mtr.add_suppression("Got error 127 when reading table './test/t1'");
+call mtr.add_suppression("mariadbd: Table 't1' is marked as crashed and should be repaired");
+--enable_warnings
+
+#Test in CatalogCcMap.Execute term return -1 one time, it will not affect create table
+SET SESSION debug_dbug="+d,eloq;term_CatalogCcMap_Execute_PostWriteAllCc;node_id=-1";
+create table t1(i int primary key, j int) engine= eloq;
+insert into t1 values(1,1);
+select * from t1;
+drop table t1;
+
+SET SESSION debug_dbug="+d,eloq;term_CatalogCcMap_Execute_ReadCc;node_id=-1";
+create table t1(i int primary key, j int) engine= eloq;
+insert into t1 values(1,1);
+select * from t1;
+
+SET SESSION debug_dbug="+d,eloq;term_TemplateCcMap_Execute_AcquireCc;node_id=-1";
+--error 199
+insert into t1 values(2,2);
+select * from t1;
+
+SET SESSION debug_dbug="-d,eloq;term_TemplateCcMap_Execute_AcquireCc";
+insert into t1 values(2,3);
+select * from t1;
+drop table t1;
+
+create table t1(i int primary key, j int) engine= eloq;
+insert into t1 values(2,1);
+drop table t1;
+
+SET SESSION debug_dbug="+d,eloq;term_TemplateCcMap_Execute_AcquireAllCc;node_id=-1";
+--error 200
+create table t1(i int primary key, j int) engine= eloq;
+
+SET SESSION debug_dbug="-d,eloq;term_TemplateCcMap_Execute_AcquireAllCc;node_id=-1";
+create table t1(i int primary key, j int) engine= eloq;
+
+
+SET SESSION debug_dbug="+d,eloq;term_TemplateCcMap_Execute_AcquireAllCc;node_id=-1";
+--error ER_GET_ERRMSG
+drop table t1;
+
+SET SESSION debug_dbug="-d,eloq;term_TemplateCcMap_Execute_AcquireAllCc;node_id=-1";
+drop table t1;
+
+
+create table t1(i int primary key, j int) engine= eloq;
+insert into t1 values(1,1);
+insert into t1 values(2,2);
+select * from t1;
+
+SET SESSION debug_dbug="+d,eloq;term_TemplateCcMap_Execute_ReadCc;node_id=-1";
+--error 216
+select * from t1 where i=1;
+
+SET SESSION debug_dbug="-d,eloq;term_TemplateCcMap_Execute_ReadCc;node_id=-1";
+--sleep 6
+update t1 set j=3 where i=2;
+select * from t1 where i=2;
+drop table t1;
+
+
+create table t1(i int primary key, j int) engine= eloq;
+insert into t1 values(1,1);
+insert into t1 values(2,2);
+select * from t1;
+drop table t1;
+
+create table t1(i int primary key, j int) engine= eloq;
+insert into t1 values(1,1);
+insert into t1 values(2,2);
+insert into t1 values(3,3);
+select * from t1;
+
+SET SESSION debug_dbug="+d,eloq;term_TemplateCcMap_Execute_ScanOpenBatchCc;node_id=-1";
+select * from t1;
+
+SET SESSION debug_dbug="-d,eloq;term_TemplateCcMap_Execute_ScanOpenBatchCc;node_id=-1";
+select * from t1;
+
+SET SESSION debug_dbug="+d,eloq;term_TemplateCcMap_Execute_RemoteScanOpen;node_id=-1";
+select * from t1;
+
+SET SESSION debug_dbug="-d,eloq;term_TemplateCcMap_Execute_RemoteScanOpen;node_id=-1";
+select * from t1;
+drop table t1;

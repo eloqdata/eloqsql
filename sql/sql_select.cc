@@ -25,6 +25,7 @@
   @{
 */
 
+#include "eloq_errors.h"
 #ifdef USE_PRAGMA_IMPLEMENTATION
 #pragma implementation				// gcc: Class implementation
 #endif
@@ -68,6 +69,8 @@
 #include "my_json_writer.h"
 #include "opt_trace.h"
 #include "create_tmp_table.h"
+
+#include "mysql_metrics.h"
 
 /*
   A key part number that means we're using a fulltext scan.
@@ -339,7 +342,9 @@ void dbug_serve_apcs(THD *thd, int n_calls)
   {
     /* This is so that mysqltest knows we're ready to serve requests: */
     thd_proc_info(thd, "show_explain_trap");
+    thd_wait_begin(thd, THD_WAIT_SLEEP);
     my_sleep(30000);
+    thd_wait_end(thd);
     thd_proc_info(thd, save_proc_info);
     if (unlikely(thd->check_killed(1)))
       break;
@@ -537,6 +542,10 @@ bool handle_select(THD *thd, LEX *lex, select_result *result,
   bool res;
   SELECT_LEX *select_lex= lex->first_select_lex();
   DBUG_ENTER("handle_select");
+
+  metrics::TimePoint dml_start;
+  TRACK_DML_METRICS(lex->sql_command, dml_start);
+
   MYSQL_SELECT_START(thd->query());
 
   if (select_lex->master_unit()->is_unit_op() ||
@@ -590,6 +599,9 @@ bool handle_select(THD *thd, LEX *lex, select_result *result,
   thd->lex->limit_rows_examined_cnt= ULONGLONG_MAX;
 
   MYSQL_SELECT_DONE((int) res, (ulong) thd->limit_found_rows);
+
+  TRACK_DML_METRICS_DONE(lex->sql_command, dml_start);
+
   DBUG_RETURN(res);
 }
 
@@ -21661,8 +21673,11 @@ int report_error(TABLE *table, int error)
     Locking reads can legally return also these errors, do not
     print them to the .err log
   */
-  if (error != HA_ERR_LOCK_DEADLOCK && error != HA_ERR_LOCK_WAIT_TIMEOUT
-      && error != HA_ERR_TABLE_DEF_CHANGED && !table->in_use->killed)
+  if (error != HA_ERR_LOCK_DEADLOCK && error != HA_ERR_LOCK_WAIT_TIMEOUT &&
+      error != HA_ERR_ELOQ_RW_CONFLICT &&
+      error != HA_ERR_ELOQ_WW_CONFLICT &&
+      error != HA_ERR_ELOQ_RECORD_WAS_UPDATED &&
+      error != HA_ERR_TABLE_DEF_CHANGED && !table->in_use->killed)
     sql_print_error("Got error %d when reading table '%s'",
 		    error, table->s->path.str);
   table->file->print_error(error,MYF(0));
@@ -30225,7 +30240,8 @@ void JOIN::init_join_cache_and_keyread()
           c, which is not a problem as we read all the columns from the index
           tuple.
       */
-      if (!(table->file->index_flags(table->file->keyread, 0, 1) & HA_CLUSTERED_INDEX))
+      if (!(table->file->index_flags(table->file->keyread, 0, 1) & HA_CLUSTERED_INDEX)
+          && table->index_contains_some_virtual_gcol(table->file->keyread))
         table->mark_index_columns(table->file->keyread, table->read_set);
     }
     if (tab->cache && tab->cache->init(select_options & SELECT_DESCRIBE))

@@ -476,6 +476,31 @@ void thd_set_ha_data(THD *thd, const struct handlerton *hton,
   }
 }
 
+/**
+  Check whether the current statement is PREPARE statement.
+*/
+extern bool thd_is_stmt_prepare(const THD *thd)
+{
+  return thd->stmt_arena->is_stmt_prepare();
+}
+
+extern int16_t thd_get_group_id(const THD *thd)
+{
+  return thd->ThdGroupId();
+}
+
+extern
+std::pair<const std::function<void()> *, const std::function<void()> *>
+thd_get_coro_functors(const THD *thd)
+{
+  return thd->CoroFunctors();
+}
+
+extern
+const std::function<void()> *thd_get_long_resume_func(const THD *thd)
+{
+  return thd->CoroLongResumeFunctor();
+}
 
 /**
   Allow storage engine to wakeup commits waiting in THD::wait_for_prior_commit.
@@ -1752,6 +1777,15 @@ THD::~THD()
   }
   update_global_memory_status(status_var.global_memory_used);
   set_current_thd(orig_thd == this ? 0 : orig_thd);
+
+#ifdef COROUTINE_ENABLED
+  if (coro_stack_mem_ != nullptr)
+  {
+    StackPool::Instance().Recycle(std::move(coro_stack_mem_));
+    coro_stack_mem_ = nullptr;
+  }
+#endif
+
   DBUG_VOID_RETURN;
 }
 
@@ -2446,6 +2480,38 @@ bool THD::copy_fix(CHARSET_INFO *dstcs, LEX_STRING *dst,
   DBUG_RETURN(false);
 }
 
+#ifdef COROUTINE_ENABLED
+boost::context::stack_context THD::CoroStackContext()
+{
+  if (coro_stack_mem_ == nullptr)
+  {
+    coro_stack_mem_ = StackPool::Instance(sql_coro_stack_size).GetStack();
+  }
+
+  boost::context::stack_context scx;
+  scx.size= sql_coro_stack_size;
+  scx.sp= coro_stack_mem_.get() + sql_coro_stack_size;
+  return scx;
+}
+#endif
+
+std::pair<const std::function<void()> *, const std::function<void()> *>
+THD::CoroFunctors() const
+{
+  if (coro_status_ == CoroStatus::Ongoing)
+  {
+    return {&yield_func_, &resume_func_};
+  }
+  else
+  {
+    return {nullptr, nullptr};
+  }
+}
+
+const std::function<void()> *THD::CoroLongResumeFunctor() const
+{
+  return &long_resume_func_;
+}
 
 class String_copier_with_error: public String_copier
 {

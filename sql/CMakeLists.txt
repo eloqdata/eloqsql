@@ -49,6 +49,58 @@ ELSE()
   ADD_DEPENDENCIES(wsrep GenError)
 ENDIF()
 
+option(EXT_TX_PROC_ENABLED "Allows SQL threads to move forward the tx service." ON)
+if (EXT_TX_PROC_ENABLED)
+  add_definitions(-DEXT_TX_PROC_ENABLED)
+endif()
+
+option(IOURING_ENABLED "Use io_uring to send socket." ON)
+if (CMAKE_SYSTEM_NAME MATCHES "Linux")
+  # if not specified LINUX_KERNEL_VERSION, then fetch os kernel version.
+  if ("${LINUX_KERNEL_VERSION}" STREQUAL "")
+    execute_process(
+        COMMAND uname -r
+        OUTPUT_VARIABLE LINUX_KERNEL_VERSION
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+      )
+  endif()  
+
+  message(STATUS "Linux Kernel Version: ${LINUX_KERNEL_VERSION}")
+  # fetch major and minor version
+  string(REGEX MATCH "([0-9]+)\\.([0-9]+)\\..*" ${LINUX_KERNEL_VERSION} ${LINUX_KERNEL_VERSION})
+  set(LINUX_KERNEL_MAJOR_VERSION ${CMAKE_MATCH_1})
+  set(LINUX_KERNEL_MINOR_VERSION ${CMAKE_MATCH_2})
+  
+  if (${LINUX_KERNEL_MAJOR_VERSION} MATCHES "([0-9]+)")
+    message(STATUS "Linux Kernel Major Version: ${LINUX_KERNEL_MAJOR_VERSION}")
+  else()
+    message(FATAL_ERROR "Linux Kernel Major Version: ${LINUX_KERNEL_MAJOR_VERSION}")
+  endif()
+  if (${LINUX_KERNEL_MAJOR_VERSION} MATCHES "([0-9]+)")
+    message(STATUS "Linux Kernel Minor Version: ${LINUX_KERNEL_MINOR_VERSION}")
+  else()
+    message(FATAL_ERROR "Linux Kernel Minor Version: ${LINUX_KERNEL_MINOR_VERSION}")
+  endif()
+
+  add_compile_definitions(LINUX_KERNEL_MAJOR_VERSION=${LINUX_KERNEL_MAJOR_VERSION})
+  add_compile_definitions(LINUX_KERNEL_MINOR_VERSION=${LINUX_KERNEL_MINOR_VERSION})
+
+  if ( (NOT (${LINUX_KERNEL_VERSION} VERSION_LESS "5.6.0")) AND IOURING_ENABLED )
+    message(STATUS "IOURING_ENABLED: ${IOURING_ENABLED}")
+    add_definitions(-DIOURING_ENABLED)
+    find_package(URING REQUIRED)
+  else()
+    remove_definitions(-DIOURING_ENABLED)
+  endif()
+
+else()
+  remove_definitions(-DIOURING_ENABLED)
+endif()
+
+IF(COROUTINE_ENABLED)
+  find_package(Boost REQUIRED COMPONENTS context)
+ENDIF()
+
 INCLUDE_DIRECTORIES(
 ${CMAKE_SOURCE_DIR}/include
 ${CMAKE_SOURCE_DIR}/sql
@@ -57,6 +109,7 @@ ${ZLIB_INCLUDE_DIR}
 ${SSL_INCLUDE_DIRS}
 ${CMAKE_BINARY_DIR}/sql
 ${CMAKE_SOURCE_DIR}/tpool
+${Boost_INCLUDE_DIRS}
 )
 
 ADD_CUSTOM_COMMAND(
@@ -143,6 +196,7 @@ SET (SQL_SOURCE
                sql_signal.cc mdl.cc sql_admin.cc
                transaction.cc sys_vars.cc sql_truncate.cc datadict.cc
                sql_reload.cc
+               mysql_metrics.cc
 
                # added in MariaDB:
                grant.cc
@@ -163,7 +217,7 @@ SET (SQL_SOURCE
                sql_type_string.cc
                sql_type_geom.cc
                item_windowfunc.cc sql_window.cc
-	       sql_cte.cc
+	           sql_cte.cc
                item_vers.cc
                sql_sequence.cc sql_sequence.h ha_sequence.h
                sql_tvc.cc sql_tvc.h
@@ -202,15 +256,46 @@ RECOMPILE_FOR_EMBEDDED)
 MYSQL_ADD_PLUGIN(sql_sequence ha_sequence.cc STORAGE_ENGINE MANDATORY STATIC_ONLY
 RECOMPILE_FOR_EMBEDDED)
 
-ADD_LIBRARY(sql STATIC ${SQL_SOURCE})
-MAYBE_DISABLE_IPO(sql)
-DTRACE_INSTRUMENT(sql)
-TARGET_LINK_LIBRARIES(sql
+SET(SQL_DEP_LIBS 
   mysys mysys_ssl dbug strings vio pcre2-8
   tpool
   ${LIBWRAP} ${LIBCRYPT} ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT}
   ${SSL_LIBRARIES}
-  ${LIBSYSTEMD})
+  ${LIBSYSTEMD}
+  ${LIBSYSTEMD}
+)
+
+IF(COROUTINE_ENABLED)
+  SET(SQL_DEP_LIBS ${SQL_DEP_LIBS} Boost::context)
+  set(SQL_INCLUDE_DIR ${Boost_INCLUDE_DIRS})
+ENDIF()
+
+IF(MARIA_WITH_GLOG)
+  add_compile_definitions (GLOG_USE_GLOG_EXPORT=1)
+  message(NOTICE "MariaDB ues Glog for error logging.")
+  find_package(gflags REQUIRED)
+  find_path(GLOG_INCLUDE_PATH NAMES glog/logging.h)
+  find_library(GLOG_LIB NAMES glog VERSION ">=0.6.0" REQUIRED)
+  if((NOT GLOG_INCLUDE_PATH) OR (NOT GLOG_LIB))
+    message(FATAL_ERROR "Fail to find glog")
+  endif()
+  include_directories(${GLOG_INCLUDE_PATH})
+  set(SQL_DEP_LIBS ${SQL_DEP_LIBS} ${GLOG_LIB} gflags)
+  set(SQL_SOURCE ${SQL_SOURCE} glog_error_logging.cc)
+ENDIF()
+
+ADD_LIBRARY(sql STATIC ${SQL_SOURCE})
+MAYBE_DISABLE_IPO(sql)
+DTRACE_INSTRUMENT(sql)
+TARGET_LINK_LIBRARIES(sql ${SQL_DEP_LIBS})
+
+IF(PLUGIN_ELOQ)
+  ADD_DEFINITIONS(-DWITH_ELOQ_STORAGE_ENGINE)
+  SET(ELOQ_SOURCE_DIR ${CMAKE_SOURCE_DIR}/storage/eloq)
+  set(SQL_INCLUDE_DIR ${SQL_INCLUDE_DIR} ${ELOQ_SOURCE_DIR})
+ENDIF()
+
+TARGET_INCLUDE_DIRECTORIES(sql PRIVATE ${SQL_INCLUDE_DIR})
 
 IF(TARGET pcre2)
   ADD_DEPENDENCIES(sql pcre2)

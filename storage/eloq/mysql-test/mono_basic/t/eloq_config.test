@@ -1,0 +1,46 @@
+
+--source include/have_eloq.inc
+
+--disable_warnings
+DROP DATABASE IF EXISTS mono_test;
+--enable_warnings
+--enable_info
+set @@default_storage_engine= eloq;
+
+SHOW VARIABLES LIKE 'eloq_high_compression_ratio';
+
+CREATE DATABASE IF NOT EXISTS mono_test;
+
+USE mono_test;
+CREATE TABLE t1 (c0 INT PRIMARY KEY, c1 CHAR(32), c2 INT, key idx_c1c2(c1,c2));
+SHOW CREATE TABLE t1;
+--echo Insert data...
+let $counter= 0;
+--disable_query_log
+--disable_result_log
+while($counter < 100)
+{
+    let $charv= charval_$counter;
+    let $q=INSERT INTO t1 VALUES ($counter + 1, '$charv', $counter);
+    eval $q;
+    inc $counter;
+}
+--enable_result_log
+--enable_query_log
+
+--replace_column 9 #
+EXPLAIN SELECT COUNT(*) FROM t1;
+SELECT COUNT(*) FROM t1;
+
+CREATE INDEX idx_c2 ON t1(c2);
+SHOW CREATE TABLE t1;
+
+--replace_column 9 #
+EXPLAIN SELECT COUNT(*) FROM t1 FORCE INDEX(idx_c2);
+SELECT COUNT(*) FROM t1 FORCE INDEX(idx_c2);
+
+--echo # clean up
+
+DROP TABLE t1;
+DROP DATABASE mono_test;
+

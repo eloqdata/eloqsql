@@ -1,0 +1,66 @@
+--source include/have_eloq.inc
+
+set @@default_storage_engine= eloq;
+select @@default_storage_engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1,t2;
+--enable_warnings
+
+
+CREATE TABLE t1(
+  c1 int, 
+  c2 int, 
+  PRIMARY KEY(c1)
+);
+insert into t1 values(1,1);
+insert into t1 values(3,3);
+insert into t1 values(5,5);
+insert into t1 values(7,7);
+insert into t1 values(9,9);
+
+CREATE TABLE t2(
+  c1 int, 
+  c2 int, 
+  PRIMARY KEY(c1)
+);
+insert into t2 values(2,2);
+insert into t2 values(4,4);
+insert into t2 values(6,6);
+insert into t2 values(8,8);
+
+
+
+# conn-tx1 holding pk readlock on t1, wants to acquire pk readlock on t2.
+--connect (conn-tx1,localhost,root,,test,$MONO1_PORT)
+# conn-tx2 holding pk writelock on t2, wants to acquire pk writelock on t1.
+--connect (conn-tx2,localhost,root,,test,$MONO1_PORT)
+
+
+
+--connection conn-tx1
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+START TRANSACTION READ ONLY;
+begin;
+select count(*) from t1;
+
+--connection conn-tx2
+begin;
+delete from t2 where c1=2;
+update t1 set c2=3 where c1=1;
+send commit;     # detecting and processing deadlock, got aborted. hangs after this line
+
+sleep 1;
+--connection conn-tx1
+send select count(*) from t2;  # detecting and processing deadlock, got committed.
+
+--connection conn-tx2
+--error 199
+reap;
+
+--connection conn-tx1
+reap;
+commit;
+
+drop table t1,t2;
+

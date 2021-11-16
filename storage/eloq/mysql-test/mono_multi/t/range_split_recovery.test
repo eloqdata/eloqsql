@@ -1,0 +1,152 @@
+--source include/have_eloq.inc
+--source include/have_range_partition.inc
+--sleep 2 #Here is bug, If not sleep, the mysqld will not return result.
+
+--let $mono_server_count= 3
+--source include/mono_init.inc
+--connection serv_3
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+set @@default_storage_engine= eloq;
+create table t1 (c0 int, c1 char(250), c2 char(250), c3 char(250), c4 int, primary key(c0));
+
+# Write file to make mysql-test-run.pl expect crash
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.3.expect
+
+let $counter= 6000;
+--disable_result_log
+--disable_query_log
+while($counter > 3000)
+{
+    let $q=insert into t1 values ($counter, 'abc', 'abc', 'abc', $counter);
+    eval $q;
+    dec $counter;
+}
+--enable_query_log
+--enable_result_log
+SET SESSION debug_dbug="+d,eloq;range_split_commit_acquire_all;node_id=2;action=panic";
+--enable_reconnect
+SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
+--sleep 2
+--source include/wait_until_connected_again.inc
+--sleep 2
+select count(*) from t1;
+
+# Test replay for multiple range splits on same table.
+# Write file to make mysql-test-run.pl expect crash
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.3.expect
+let $counter= 3000;
+--disable_result_log
+--disable_query_log
+while($counter > 0)
+{
+    let $q=insert into t1 values ($counter, 'abc', 'abc', 'abc', $counter);
+    eval $q;
+    dec $counter;
+}
+let $counter= 12000;
+while($counter > 9000)
+{
+    let $q=insert into t1 values ($counter, 'abc', 'abc', 'abc', $counter);
+    eval $q;
+    dec $counter;
+}
+--enable_query_log
+--enable_result_log
+
+--connection serv_3
+--enable_reconnect
+SET SESSION debug_dbug="+d,eloq;range_split_commit_acquire_all;node_id=2;action=panic";
+SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
+--sleep 2
+--source include/wait_until_connected_again.inc
+--sleep 2
+select count(*) from t1;
+
+SET SESSION debug_dbug="-d,eloq;range_split_commit_acquire_all;node_id=-1;action=panic";
+
+--connection serv_1
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--disable_result_log
+--disable_query_log
+let $counter= 15000;
+while($counter > 12000)
+{
+    let $q=insert into t1 values ($counter, 'abc', 'abc', 'abc', $counter);
+    eval $q;
+    dec $counter;
+}
+--enable_query_log
+--enable_result_log
+SET SESSION debug_dbug="+d,eloq;range_split_participant_prepare_post_all;node_id=0;action=panic";
+--enable_reconnect
+SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
+--sleep 2
+--source include/wait_until_connected_again.inc
+--sleep 2
+select count(*) from t1;
+SET SESSION debug_dbug="-d,eloq;range_split_participant_prepare_post_all;node_id=-1;action=panic";
+drop table t1;
+
+--connection serv_3
+create table t1 (c0 int, c1 char(250), c2 char(250), c3 char(250), c4 int, primary key(c0));
+
+# Write file to make mysql-test-run.pl expect crash
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.3.expect
+
+let $counter= 6000;
+--disable_result_log
+--disable_query_log
+while($counter > 3000)
+{
+    let $q=insert into t1 values ($counter, 'abc', 'abc', 'abc', $counter);
+    eval $q;
+    dec $counter;
+}
+--enable_query_log
+--enable_result_log
+SET SESSION debug_dbug="+d,eloq;range_split_post_commit;node_id=2;action=panic";
+--enable_reconnect
+SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
+--sleep 2
+--source include/wait_until_connected_again.inc
+--sleep 2
+select count(*) from t1;
+
+# Test replay for multiple range splits on same table.
+# Write file to make mysql-test-run.pl expect crash
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.2.expect
+let $counter= 3000;
+--disable_result_log
+--disable_query_log
+while($counter > 0)
+{
+    let $q=insert into t1 values ($counter, 'abc', 'abc', 'abc', $counter);
+    eval $q;
+    dec $counter;
+}
+let $counter= 12000;
+while($counter > 9000)
+{
+    let $q=insert into t1 values ($counter, 'abc', 'abc', 'abc', $counter);
+    eval $q;
+    dec $counter;
+}
+--enable_query_log
+--enable_result_log
+
+# Test for participant crash after  commit log
+--connection serv_3
+
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.3.expect
+SET SESSION debug_dbug="+d,eloq;range_split_post_commit_participant;node_id=2;action=panic";
+--enable_reconnect
+SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
+--sleep 2
+--source include/wait_until_connected_again.inc
+--sleep 2
+select count(*) from t1;
+SET SESSION debug_dbug="-d,eloq;range_split_post_commit_participant;node_id=-1;action=panic";
+
+drop table t1;

@@ -1,0 +1,77 @@
+set @@default_storage_engine= eloq;
+select @@default_storage_engine;
+@@default_storage_engine
+ELOQ
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (pk INT , sk1 INT, sk2 INT, PRIMARY KEY (pk), INDEX sk1 (sk1), INDEX sk2 (sk2)) ENGINE=eloq;
+INSERT INTO t1 VALUES (1, 2, 3);
+update t1 set sk1=4, sk2=5 where pk=1;
+begin;
+update t1 set sk1=6, sk2=7 where pk=1;
+update t1 set sk1=8, sk2=9 where pk=1;
+commit;
+select * from t1;
+pk	sk1	sk2
+1	8	9
+drop table t1;
+CREATE TABLE t1 (pk1 INT , pk2 INT, sk1 INT, sk2 INT, sk3 INT, PRIMARY KEY (pk1, pk2), INDEX sk1 (sk1), INDEX sk2 (sk2, sk3)) ENGINE=eloq;
+INSERT INTO t1 VALUES (1, 2, 3, 4, 5);
+INSERT INTO t1 VALUES (2, 2, 3, 4, 6);
+select * from t1;
+pk1	pk2	sk1	sk2	sk3
+1	2	3	4	5
+2	2	3	4	6
+begin;
+update t1 set sk1=6, sk2=7 where pk1=1;
+update t1 set sk1=8 where pk2=2;
+update t1 set sk3=9 where pk1=1;
+update t1 set sk3=10 where pk1=1 and pk2=2;
+commit;
+select * from t1;
+pk1	pk2	sk1	sk2	sk3
+1	2	8	7	10
+2	2	8	4	6
+explain select * from t1 where sk1=8;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	ref	sk1	sk1	5	const	#	
+select * from t1 where sk1=8;
+pk1	pk2	sk1	sk2	sk3
+1	2	8	7	10
+2	2	8	4	6
+explain select * from t1 where sk2=4;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	ref	sk2	sk2	5	const	#	
+select * from t1 where sk2=4;
+pk1	pk2	sk1	sk2	sk3
+2	2	8	4	6
+explain select * from t1 where sk3=10;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	#	Using where
+select * from t1 where sk3=10;
+pk1	pk2	sk1	sk2	sk3
+1	2	8	7	10
+# restart
+select * from t1;
+pk1	pk2	sk1	sk2	sk3
+1	2	8	7	10
+2	2	8	4	6
+explain select * from t1 where sk1=8;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	ref	sk1	sk1	5	const	#	
+select * from t1 where sk1=8;
+pk1	pk2	sk1	sk2	sk3
+1	2	8	7	10
+2	2	8	4	6
+explain select * from t1 where sk2=4;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	ref	sk2	sk2	5	const	#	
+select * from t1 where sk2=4;
+pk1	pk2	sk1	sk2	sk3
+2	2	8	4	6
+explain select * from t1 where sk3=10;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	#	Using where
+select * from t1 where sk3=10;
+pk1	pk2	sk1	sk2	sk3
+1	2	8	7	10
+drop table t1;

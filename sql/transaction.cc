@@ -31,6 +31,8 @@
 #include "wsrep_trans_observer.h"
 #endif /* WITH_WSREP */
 
+#include "mysql_metrics.h"
+
 /**
   Helper: Tell tracker (if any) that transaction ended.
 */
@@ -221,6 +223,8 @@ bool trans_begin(THD *thd, uint flags)
 #endif //EMBEDDED_LIBRARY
     res= ha_start_consistent_snapshot(thd);
   }
+
+  TRACK_TX_METRICS(thd)
   /*
     Register transaction start in performance schema if not done already.
     We handle explicitly started transactions here, implicitly started
@@ -329,6 +333,7 @@ bool trans_commit_implicit(THD *thd)
     res= MY_TEST(ha_commit_trans(thd, TRUE));
   }
 
+  COLLECT_TX_METRICS(thd)
   thd->variables.option_bits&= ~(OPTION_BEGIN | OPTION_KEEP_LOG);
   thd->transaction->all.reset();
 

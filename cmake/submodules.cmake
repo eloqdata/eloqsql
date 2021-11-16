@@ -1,6 +1,6 @@
 # update submodules automatically
 
-OPTION(UPDATE_SUBMODULES "Update submodules automatically" ON)
+OPTION(UPDATE_SUBMODULES "Update submodules automatically" OFF)
 IF(NOT UPDATE_SUBMODULES)
   RETURN()
 ENDIF()

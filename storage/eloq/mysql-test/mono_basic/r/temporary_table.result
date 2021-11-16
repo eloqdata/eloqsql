@@ -1,0 +1,38 @@
+CREATE TEMPORARY TABLE temp_table_1(i int primary key, j int) ENGINE=eloq;
+INSERT INTO temp_table_1(i, j) VALUES(1,1),(2,2),(3,3);
+SELECT * FROM temp_table_1 WHERE i=1;
+i	j
+1	1
+INSERT temp_table_1(i, j) VALUES(2, 200) on duplicate key update j=200;
+SELECT * FROM temp_table_1;
+i	j
+1	1
+2	200
+3	3
+UPDATE temp_table_1 SET j=0;
+SELECT * FROM temp_table_1;
+i	j
+1	0
+2	0
+3	0
+CREATE TEMPORARY TABLE temp_table_1(i int primary key, j int) ENGINE=eloq;
+ERROR 42S01: Table 'temp_table_1' already exists
+DROP TABLE temp_table_1;
+CREATE TEMPORARY TABLE temp_table_1(i int primary key, j int) ENGINE=eloq;
+connect  conn,localhost,root,,test;
+CREATE TEMPORARY TABLE temp_table_1(i int primary key, j int) ENGINE=eloq;
+SELECT count(*) FROM INFORMATION_SCHEMA.ELOQ_TEMP_TABLE_INFO;
+count(*)
+2
+# restart
+SELECT count(*) FROM INFORMATION_SCHEMA.ELOQ_TEMP_TABLE_INFO;
+count(*)
+0
+CREATE TEMPORARY TABLE temp_table_1(i int primary key, j int) ENGINE=eloq;
+SELECT count(*) FROM INFORMATION_SCHEMA.ELOQ_TEMP_TABLE_INFO;
+count(*)
+1
+# Kill and restart
+SELECT count(*) FROM INFORMATION_SCHEMA.ELOQ_TEMP_TABLE_INFO;
+count(*)
+0

@@ -1,0 +1,97 @@
+set @subselect_mat_cost=@@optimizer_switch;
+set optimizer_switch='mrr=on,mrr_sort_keys=on,index_condition_pushdown=on';
+set long_query_time=0.1;
+drop database if exists world;
+set names utf8;
+set @@character_set_server=utf8;
+create database world;
+use world;
+DROP TABLE IF EXISTS Country, City, CountryLanguage;
+CREATE TABLE Country (
+Code char(3) NOT NULL default '',
+Name char(52) NOT NULL default '',
+SurfaceArea float(10,2) NOT NULL default '0.00',
+Population int(11) NOT NULL default '0',
+Capital int(11) default NULL,
+PRIMARY KEY  (Code),
+INDEX (Name)
+);
+CREATE TABLE City (
+ID int(11) NOT NULL auto_increment,
+Name char(35) NOT NULL default '',
+Country char(3) NOT NULL default '',
+Population int(11) NULL default 0,
+PRIMARY KEY  (ID),
+INDEX (Population),
+INDEX (Country) 
+);
+CREATE TABLE CountryLanguage (
+Country char(3) NOT NULL default '',
+Language char(30) NOT NULL default '',
+Percentage float(3,1) NOT NULL default '0.0',
+PRIMARY KEY  (Country, Language),
+INDEX (Percentage)
+);
+Make the schema and data more diverse by adding more indexes, nullable
+columns, and NULL data.
+create index SurfaceArea on Country(SurfaceArea);
+create index Language on CountryLanguage(Language);
+create index CityName on City(Name);
+select max(id) from City into @max_city_id;
+Warnings:
+Warning	1287	'<select expression> INTO <destination>;' is deprecated and will be removed in a future release. Please use 'SELECT <select list> INTO <destination> FROM...' instead
+insert into City values (@max_city_id + 1,'Kilifarevo','BGR',NULL);
+SELECT COUNT(*) FROM Country;
+COUNT(*)
+239
+SELECT COUNT(*) FROM City;
+COUNT(*)
+4080
+SELECT COUNT(*) FROM CountryLanguage;
+COUNT(*)
+984
+set @@optimizer_switch = 'exists_to_in=on,in_to_exists=on,semijoin=on,materialization=on,partial_match_rowid_merge=on,partial_match_table_scan=on,subquery_cache=on';
+
+1. Subquery in a disjunctive WHERE clause of the outer query.
+
+
+Q1.1m:
+MATERIALIZATION: there are too many rows in the outer query
+to be looked up in the inner table.
+SELECT Name FROM Country
+WHERE (EXISTS (select 1 from City where City.Population > 100000 and
+Code = Country) OR
+Name LIKE 'L%') AND
+surfacearea > 1000000 order by Name;
+Name
+Algeria
+Angola
+Argentina
+Australia
+Bolivia
+Brazil
+Canada
+Chad
+China
+Colombia
+Congo, The Democratic Republic of the
+Egypt
+Ethiopia
+India
+Indonesia
+Iran
+Kazakstan
+Libyan Arab Jamahiriya
+Mali
+Mauritania
+Mexico
+Mongolia
+Niger
+Peru
+Russian Federation
+Saudi Arabia
+South Africa
+Sudan
+United States
+drop database world;
+set optimizer_switch=@subselect_mat_cost;

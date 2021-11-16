@@ -19,6 +19,10 @@
   Calls mysqld_main() entry point exported by sql library.
   On Windows, might do some service handling.
 */
+#ifdef WITH_GLOG
+#include "glog_error_logging.h"
+#endif /* WITH_GLOG */
+
 #ifdef _WIN32
 /* Windows main function, service handling, calls mysqld_main */
 extern int mysqld_win_main(int argc, char **argv);
@@ -28,6 +32,10 @@ extern int mysqld_main(int argc, char **argv);
 
 int main(int argc, char **argv)
 {
+#ifdef WITH_GLOG
+  InitGoogleLogging(argv);
+#endif /* WITH_GLOG */
+
 #ifdef _WIN32
   return mysqld_win_main(argc, argv);
 #else

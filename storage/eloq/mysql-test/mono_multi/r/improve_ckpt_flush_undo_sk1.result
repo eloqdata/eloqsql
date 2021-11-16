@@ -1,0 +1,232 @@
+include/mono_init.inc
+DROP TABLE IF EXISTS t1;
+connection serv_1;
+create table t1(i int primary key, j int,k int, index(j)) engine= eloq;
+SET SESSION debug_dbug="+d,eloq;stop_safely_clean_archives;node_id=-1";
+insert into t1 values(1,1,1);
+insert into t1 values(2,2,2);
+insert into t1 values(3,3,3);
+insert into t1 values(4,4,4);
+insert into t1 values(5,5,5);
+insert into t1 values(6,6,6);
+insert into t1 values(7,7,7);
+insert into t1 values(8,8,8);
+insert into t1 values(9,9,9);
+insert into t1 values(10,10,10);
+insert into t1 values(11,11,11);
+select * from t1;
+i	j	k
+1	1	1
+2	2	2
+3	3	3
+4	4	4
+5	5	5
+6	6	6
+7	7	7
+8	8	8
+9	9	9
+10	10	10
+11	11	11
+update t1 set j=2;
+update t1 set j=3;
+SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
+explain select * from t1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	#	
+explain select * from t1 where j>0;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	range	j	j	5	NULL	#	Using index condition
+begin;
+## RESTULT MUST BE:  1,3,1 | 2,3,2 | ...
+select * from t1;
+i	j	k
+1	3	1
+2	3	2
+3	3	3
+4	3	4
+5	3	5
+6	3	6
+7	3	7
+8	3	8
+9	3	9
+10	3	10
+11	3	11
+select * from t1 where j>0;
+i	j	k
+1	3	1
+2	3	2
+3	3	3
+4	3	4
+5	3	5
+6	3	6
+7	3	7
+8	3	8
+9	3	9
+10	3	10
+11	3	11
+##restart to clean ccmap
+connection serv_2;
+# restart
+connection serv_3;
+# restart
+connection serv_1;
+SET SESSION debug_dbug="+d,eloq;stop_safely_clean_archives;node_id=-1";
+## RESTULT MUST BE:  # 1,3,1 | 2,3,2 | ...
+select * from t1 where j>0;
+i	j	k
+1	3	1
+2	3	2
+3	3	3
+4	3	4
+5	3	5
+6	3	6
+7	3	7
+8	3	8
+9	3	9
+10	3	10
+11	3	11
+SET SESSION debug_dbug="+d,eloq;checkpointer_skip_ckpt;node_id=-1";
+connection serv_2;
+update t1 set j=4;
+update t1 set j=5;
+## RESTULT MUST BE:   # 1,5,1 | 2,5,2 | ...
+select * from t1 where j>0;
+i	j	k
+1	5	1
+2	5	2
+3	5	3
+4	5	4
+5	5	5
+6	5	6
+7	5	7
+8	5	8
+9	5	9
+10	5	10
+11	5	11
+connection serv_1;
+## RESTULT MUST BE:  # 1,3,1 | 2,3,2 | ...
+select * from t1 where j>0;
+i	j	k
+1	3	1
+2	3	2
+3	3	3
+4	3	4
+5	3	5
+6	3	6
+7	3	7
+8	3	8
+9	3	9
+10	3	10
+11	3	11
+##restart to triger RedoLogReplay
+connection serv_2;
+# restart
+## RESTULT MUST BE:  1,5,2 | 2,5,2 | ...
+select * from t1 where j>0;
+i	j	k
+1	5	1
+2	5	2
+3	5	3
+4	5	4
+5	5	5
+6	5	6
+7	5	7
+8	5	8
+9	5	9
+10	5	10
+11	5	11
+connection serv_3;
+# restart
+## RESTULT MUST BE:  1,5,2 | 2,5,2 | ...
+select * from t1 where j>0;
+i	j	k
+1	5	1
+2	5	2
+3	5	3
+4	5	4
+5	5	5
+6	5	6
+7	5	7
+8	5	8
+9	5	9
+10	5	10
+11	5	11
+connection serv_1;
+## RESTULT MUST BE:  # 1,3,1 | 2,3,2 | ...
+select * from t1 where j>0;
+i	j	k
+1	3	1
+2	3	2
+3	3	3
+4	3	4
+5	3	5
+6	3	6
+7	3	7
+8	3	8
+9	3	9
+10	3	10
+11	3	11
+SET SESSION debug_dbug="-d,eloq;checkpointer_skip_ckpt;node_id=-1";
+SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
+## RESTULT MUST BE:  # 1,3,1 | 2,3,2 | ...
+select * from t1;
+i	j	k
+1	3	1
+2	3	2
+3	3	3
+4	3	4
+5	3	5
+6	3	6
+7	3	7
+8	3	8
+9	3	9
+10	3	10
+11	3	11
+select * from t1 where j>0;
+i	j	k
+1	3	1
+2	3	2
+3	3	3
+4	3	4
+5	3	5
+6	3	6
+7	3	7
+8	3	8
+9	3	9
+10	3	10
+11	3	11
+select * from t1 where i=2;
+i	j	k
+2	3	2
+select * from t1 where i=6;
+i	j	k
+6	3	6
+commit;
+## RESTULT MUST BE:  1,5,2 | 2,5,2 | ...
+select * from t1;
+i	j	k
+1	5	1
+2	5	2
+3	5	3
+4	5	4
+5	5	5
+6	5	6
+7	5	7
+8	5	8
+9	5	9
+10	5	10
+11	5	11
+select * from t1 where j>0;
+i	j	k
+1	5	1
+2	5	2
+3	5	3
+4	5	4
+5	5	5
+6	5	6
+7	5	7
+8	5	8
+9	5	9
+10	5	10
+11	5	11
+drop table t1;

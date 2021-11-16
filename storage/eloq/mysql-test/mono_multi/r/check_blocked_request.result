@@ -1,0 +1,123 @@
+include/mono_init.inc
+DROP TABLE IF EXISTS t1;
+call mtr.add_suppression("mariadbd: Table 't1' is marked as crashed and should be repaired");
+create table t1(i int primary key, j int);
+insert into t1 values(2,1);
+select * from t1;
+i	j
+2	1
+connection serv_2;
+begin;
+update t1 set j=2 where i=2;
+connection serv_1;
+update t1 set j=3 where i=2;
+connection serv_2;
+SET SESSION debug_dbug="+d,eloq;read_operation_timeout;node_id=0";
+commit;
+connection serv_1;
+select * from t1;
+i	j
+2	3
+drop table t1;
+create table t1(i int primary key, j int);
+insert into t1 values(2,1);
+select * from t1;
+i	j
+2	1
+SET SESSION debug_dbug="+d,eloq;remote_read_msg_missed;node_id=2";
+SET SESSION debug_dbug="+d,eloq;read_operation_timeout;node_id=0";
+update t1 set j=3 where i=2;
+ERROR HY000: Eloq: error. 'Transaction failed due to internal request timeout.'
+select * from t1;
+i	j
+2	1
+drop table t1;
+SET SESSION debug_dbug="-d,eloq;remote_read_msg_missed;node_id=2";
+SET SESSION debug_dbug="-d,eloq;read_operation_timeout;node_id=0";
+create table t1(i int primary key, j int);
+insert into t1 values(2,1);
+select * from t1;
+i	j
+2	1
+connection serv_2;
+begin;
+update t1 set j=2 where i=2;
+connection serv_1;
+update t1 set j=3 where i=2;
+connection serv_2;
+SET SESSION debug_dbug="+d,eloq;block_req_term_changed;node_id=2";
+SET SESSION debug_dbug="+d,eloq;read_operation_timeout;node_id=0";
+commit;
+connection serv_1;
+ERROR HY000: Eloq: error. 'The node group term changed and the related ccrequest was discarded.'
+select * from t1;
+i	j
+2	2
+drop table t1;
+create table t1(i int primary key, j int);
+insert into t1 values(2,1);
+connection serv_2;
+begin;
+select * from t1 where i=2;
+i	j
+2	1
+connection serv_1;
+update t1 set j=2 where i=2;
+connection serv_2;
+SET SESSION debug_dbug="+d,eloq;acquire_operation_timeout;node_id=0";
+commit;
+connection serv_1;
+select * from t1;
+i	j
+2	2
+drop table t1;
+create table t1(i int primary key, j int);
+insert into t1 values(2,1);
+connection serv_2;
+begin;
+select * from t1 where i=2;
+i	j
+2	1
+connection serv_1;
+update t1 set j=2 where i=2;
+connection serv_2;
+SET SESSION debug_dbug="+d,eloq;remote_acquire_msg_missed;node_id=2";
+commit;
+SET SESSION debug_dbug="+d,eloq;acquire_operation_timeout;node_id=0";
+connection serv_1;
+ERROR HY000: Eloq: failed to commit transaction. Transaction failed due to write-write conflicts.
+drop table t1;
+create table t1(i int primary key, j int);
+insert into t1 values(2,1);
+connection serv_2;
+begin;
+select * from t1 where i=2;
+i	j
+2	1
+connection serv_1;
+update t1 set j=2 where i=2;
+connection serv_2;
+SET SESSION debug_dbug="+d,eloq;block_req_term_changed;node_id=2";
+SET SESSION debug_dbug="+d,eloq;acquire_operation_timeout;node_id=0";
+commit;
+connection serv_1;
+ERROR HY000: Eloq: failed to commit transaction. Transaction failed due to write-write conflicts.
+select * from t1;
+i	j
+2	1
+drop table t1;
+connection serv_2;
+create table t1(i int primary key, j int);
+insert into t1 values(2,1);
+SET SESSION debug_dbug="+d,eloq;remote_read_msg_missed;node_id=2";
+SET SESSION debug_dbug="+d,eloq;read_operation_timeout;node_id=0";
+update t1 set j=3 where i=2;
+ERROR HY000: Eloq: error. 'The returned message of ccrequest missed.'
+select * from t1;
+i	j
+2	1
+SET SESSION debug_dbug="-d,eloq;remote_read_msg_missed;node_id=2";
+SET SESSION debug_dbug="-d,eloq;read_operation_timeout;node_id=0";
+connection serv_2;
+update t1 set j=2 where i=2;
+drop table t1;

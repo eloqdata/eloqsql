@@ -1,0 +1,16 @@
+include/mono_init.inc
+DROP TABLE IF EXISTS t1;
+create table t1 (c0 int auto_increment, c1 char(250), c2 char(250), c3 char(250), c4 int, primary key(c0));
+insert into t1 values (0,'empty string', 'empty string', 'empty string', 1);
+SET SESSION debug_dbug="+d,eloq;term_SplitFlushOp_DataSyncOp_Continue;node_id=-1";
+SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
+insert into t1 values (0,'double write string', 'double write string', 'double write string', 2);
+select c1,c2,c3,c4 from t1 where c0> 2000 and c4 = 2;
+c1	c2	c3	c4
+double write string	double write string	double write string	2
+SET SESSION debug_dbug="-d,eloq;term_SplitFlushOp_DataSyncOp_Continue;node_id=-1";
+SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
+select c1,c2,c3,c4 from t1 where c0 > 2000 and c4 = 2;
+c1	c2	c3	c4
+double write string	double write string	double write string	2
+drop table t1;

@@ -24,6 +24,7 @@
 #include <proxy_protocol.h>
 #include <log.h>
 #include <my_pthread.h>
+#include "sql_class.h"
 
 #define PROXY_PROTOCOL_V1_SIGNATURE "PROXY"
 #define PROXY_PROTOCOL_V2_SIGNATURE "\x0D\x0A\x0D\x0A\x00\x0D\x0A\x51\x55\x49\x54\x0A"

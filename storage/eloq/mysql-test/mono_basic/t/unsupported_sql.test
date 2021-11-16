@@ -1,0 +1,57 @@
+--source include/have_eloq.inc
+
+call mtr.add_suppression("Error reading file './test/t1.frm'");
+--disable_warnings
+DROP TABLE IF EXISTS t1,t2;
+--enable_warnings
+
+
+CREATE TABLE t1 (id int, name char(16), data int, key idx_d (data)) ENGINE=eloq;
+INSERT INTO t1 VALUES (1,'abc', 10),(2,'xyz', 20);
+
+--echo #
+--echo # Test ALTER TABLE
+--error ER_CHECK_NOT_IMPLEMENTED
+ALTER TABLE t1 add column address char(8) not null;
+
+#--echo #
+#--echo # Test CREATE INDEX
+#--error ER_CHECK_NOT_IMPLEMENTED
+#CREATE INDEX t1_idx on t1 (name);
+
+--echo #
+--echo # Test LOCK TABLES
+--error ER_CHECK_NOT_IMPLEMENTED
+LOCK TABLES t1 read;
+
+--echo #
+--echo # Test RENAME
+--error ER_CHECK_NOT_IMPLEMENTED
+RENAME TABLE t1 to t2;
+
+--echo #
+--echo # Test CHECKSUM
+CHECKSUM TABLE t1;
+
+--echo #
+--echo # Test TRUNCATE
+--error ER_CHECK_NOT_IMPLEMENTED
+TRUNCATE t1;
+
+--echo #
+--echo # Test UNIQUE
+
+CREATE TABLE t2 (id int, number int unique);
+INSERT INTO t2 VALUES (1, 10),(2, 20);
+DROP TABLE t2;
+
+CREATE TABLE t2 (id int, number int, unique index idx_number (number));
+INSERT INTO t2 VALUES (1, 10),(2, 20);
+DROP TABLE t2;
+
+CREATE TABLE t2 (id int, c1 int, c2 int, unique idx_c1c2 (c1,c2) );
+INSERT INTO t2 VALUES (1, 10, 100),(2, 20, 200);
+DROP TABLE t2;
+
+# Clean up
+DROP TABLE t1;

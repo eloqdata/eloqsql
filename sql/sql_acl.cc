@@ -2456,7 +2456,7 @@ static bool get_YN_as_bool(Field *field)
 bool acl_init(bool dont_read_acl_tables)
 {
   THD  *thd;
-  bool return_val;
+  bool return_val= true;
   DBUG_ENTER("acl_init");
 
   acl_cache= new Hash_filo<acl_entry>(key_memory_acl_cache, ACL_CACHE_SIZE, 0, 0,
@@ -2481,20 +2481,24 @@ bool acl_init(bool dont_read_acl_tables)
     DBUG_RETURN(0); /* purecov: tested */
   }
 
-  /*
-    To be able to run this from boot, we allocate a temporary THD
-  */
-  if (!(thd=new THD(0)))
-    DBUG_RETURN(1); /* purecov: inspected */
-  thd->thread_stack= (char*) &thd;
-  thd->store_globals();
-  /*
-    It is safe to call acl_reload() since acl_* arrays and hashes which
-    will be freed there are global static objects and thus are initialized
-    by zeros at startup.
-  */
-  return_val= acl_reload(thd);
-  delete thd;
+  /* Keep retrying until acl is successfully loaded. */
+  while (return_val)
+  {
+    /*
+      To be able to run this from boot, we allocate a temporary THD
+    */
+    if (!(thd=new THD(0)))
+      DBUG_RETURN(1); /* purecov: inspected */
+    thd->thread_stack= (char*) &thd;
+    thd->store_globals();
+    /*
+      It is safe to call acl_reload() since acl_* arrays and hashes which
+      will be freed there are global static objects and thus are initialized
+      by zeros at startup.
+    */
+    return_val = acl_reload(thd);
+    delete thd;
+  }
   DBUG_RETURN(return_val);
 }
 
@@ -2529,6 +2533,7 @@ static bool acl_load(THD *thd, const Grant_tables& tables)
   bool check_no_resolve= specialflag & SPECIAL_NO_RESOLVE;
   char tmp_name[SAFE_NAME_LEN+1];
   Sql_mode_save old_mode_save(thd);
+  int rc;
   DBUG_ENTER("acl_load");
 
   thd->variables.sql_mode&= ~MODE_PAD_CHAR_TO_FULL_LENGTH;
@@ -2541,7 +2546,7 @@ static bool acl_load(THD *thd, const Grant_tables& tables)
   {
     if (host_table.init_read_record(&read_record_info))
       DBUG_RETURN(true);
-    while (!(read_record_info.read_record()))
+    while (!(rc= read_record_info.read_record()))
     {
       ACL_HOST host;
       update_hostname(&host.host, get_field(&acl_memroot, host_table.host()));
@@ -2589,6 +2594,10 @@ static bool acl_load(THD *thd, const Grant_tables& tables)
     my_qsort((uchar*) dynamic_element(&acl_hosts, 0, ACL_HOST*),
              acl_hosts.elements, sizeof(ACL_HOST),(qsort_cmp) acl_compare);
     end_read_record(&read_record_info);
+    if (rc > 0)
+    {
+      DBUG_RETURN(true);
+    }
   }
   freeze_size(&acl_hosts);
 
@@ -2597,7 +2606,7 @@ static bool acl_load(THD *thd, const Grant_tables& tables)
     DBUG_RETURN(true);
 
   allow_all_hosts=0;
-  while (!(read_record_info.read_record()))
+  while (!(rc= read_record_info.read_record()))
   {
     ACL_USER user;
     bool is_role= FALSE;
@@ -2676,14 +2685,18 @@ static bool acl_load(THD *thd, const Grant_tables& tables)
     }
     push_new_user(user);
   }
-  rebuild_acl_users();
   end_read_record(&read_record_info);
+  if (rc > 0)
+  {
+    DBUG_RETURN(true);
+  }
+  rebuild_acl_users();
   freeze_size(&acl_users);
 
   const Db_table& db_table= tables.db_table();
   if (db_table.init_read_record(&read_record_info))
     DBUG_RETURN(TRUE);
-  while (!(read_record_info.read_record()))
+  while (!(rc= read_record_info.read_record()))
   {
     ACL_DB db;
     char *db_name;
@@ -2741,6 +2754,10 @@ static bool acl_load(THD *thd, const Grant_tables& tables)
     acl_dbs.push(db);
   }
   end_read_record(&read_record_info);
+  if (rc > 0)
+  {
+    DBUG_RETURN(true);
+  }
   rebuild_acl_dbs();
   acl_dbs.freeze();
 
@@ -2749,7 +2766,7 @@ static bool acl_load(THD *thd, const Grant_tables& tables)
   {
     if (proxies_priv_table.init_read_record(&read_record_info))
       DBUG_RETURN(TRUE);
-    while (!(read_record_info.read_record()))
+    while (!(rc= read_record_info.read_record()))
     {
       ACL_PROXY_USER proxy;
       proxy.init(proxies_priv_table, &acl_memroot);
@@ -2762,6 +2779,10 @@ static bool acl_load(THD *thd, const Grant_tables& tables)
              acl_proxy_users.elements,
              sizeof(ACL_PROXY_USER), (qsort_cmp) acl_compare);
     end_read_record(&read_record_info);
+    if (rc > 0)
+    {
+      DBUG_RETURN(true);
+    }
   }
   else
   {
@@ -2778,7 +2799,7 @@ static bool acl_load(THD *thd, const Grant_tables& tables)
 
     MEM_ROOT temp_root;
     init_alloc_root(key_memory_acl_mem, &temp_root, ACL_ALLOC_BLOCK_SIZE, 0, MYF(0));
-    while (!(read_record_info.read_record()))
+    while (!(rc= read_record_info.read_record()))
     {
       char *hostname= safe_str(get_field(&temp_root, roles_mapping_table.host()));
       char *username= safe_str(get_field(&temp_root, roles_mapping_table.user()));
@@ -2801,6 +2822,10 @@ static bool acl_load(THD *thd, const Grant_tables& tables)
 
     free_root(&temp_root, MYF(0));
     end_read_record(&read_record_info);
+    if (rc > 0)
+    {
+      DBUG_RETURN(true);
+    }
   }
   else
   {

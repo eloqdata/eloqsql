@@ -29,11 +29,16 @@
 #include <sql_plist.h>
 #include <threadpool.h>
 #include <algorithm>
+#include <thread>
 #ifdef _WIN32
 #include "threadpool_winsockets.h"
 #define OPTIONAL_IO_POLL_READ_PARAM this
 #else 
 #define OPTIONAL_IO_POLL_READ_PARAM 0
+#endif
+
+#if defined(COROUTINE_ENABLED) && defined(IOURING_ENABLED)
+#include <liburing.h>
 #endif
 
 static void io_poll_close(TP_file_handle fd)
@@ -114,13 +119,22 @@ struct pool_timer_t
 
 static pool_timer_t pool_timer;
 
+#ifndef COROUTINE_ENABLED
 static void queue_put(thread_group_t *thread_group, TP_connection_generic *connection);
+#endif
 static void queue_put(thread_group_t *thread_group, native_event *ev, int cnt);
 static int  wake_thread(thread_group_t *thread_group,bool due_to_stall);
-static int  wake_or_create_thread(thread_group_t *thread_group, bool due_to_stall=false);
-static int  create_worker(thread_group_t *thread_group, bool due_to_stall);
+static int wake_or_create_thread(thread_group_t *thread_group,
+                                 bool due_to_stall= false,
+                                 bool force_create= false);
+static int create_worker(thread_group_t *thread_group, bool due_to_stall,
+                         bool force_create= false);
 static void *worker_main(void *param);
+#ifdef COROUTINE_ENABLED
+static void lockfree_check_stall(thread_group_t *thread_group);
+#else
 static void check_stall(thread_group_t *thread_group);
+#endif
 static void set_next_timeout_check(ulonglong abstime);
 static void print_pool_blocked_message(bool);
 
@@ -479,7 +493,6 @@ static bool is_queue_empty(thread_group_t *thread_group)
   return true;
 }
 
-
 static void queue_init(thread_group_t *thread_group)
 {
   for (int i=0; i < NQUEUES; i++)
@@ -498,6 +511,20 @@ static void queue_put(thread_group_t *thread_group, native_event *ev, int cnt)
     thread_group->queues[c->priority].push_back(c);
   }
 }
+
+#ifdef COROUTINE_ENABLED
+static void lockfree_queue_put(thread_group_t *thread_group, native_event *ev, int cnt)
+{
+  ulonglong now= threadpool_exact_stats ?
+    microsecond_interval_timer():pool_timer.current_microtime;
+  for(int i=0; i < cnt; i++)
+  {
+    TP_connection_generic *c = (TP_connection_generic *)native_event_get_userdata(&ev[i]);
+    c->enqueue_time= now;
+    thread_group->coroutine_info_->req_queue_.Enqueue(c);
+  }
+}
+#endif
 
 /*
   Handle wait timeout :
@@ -585,7 +612,11 @@ static void* timer_thread(void *param)
       for (i= 0; i < threadpool_max_size; i++)
       {
         if(all_groups[i].connection_count)
+#ifdef COROUTINE_ENABLED
+           lockfree_check_stall(&all_groups[i]);
+#else
            check_stall(&all_groups[i]);
+#endif
       }
 
       /* Check if any client exceeded wait_timeout */
@@ -606,8 +637,7 @@ static void* timer_thread(void *param)
   return NULL;
 }
 
-
-
+#ifndef COROUTINE_ENABLED
 void check_stall(thread_group_t *thread_group)
 {
   mysql_mutex_lock(&thread_group->mutex);
@@ -683,7 +713,53 @@ void check_stall(thread_group_t *thread_group)
 
   mysql_mutex_unlock(&thread_group->mutex);
 }
+#else
+void lockfree_check_stall(thread_group_t *thread_group)
+{
+  /*  Reset io event count */
+  thread_group->io_event_count.store(0, std::memory_order_relaxed);
 
+  /*
+    Check whether requests from the workqueue are being dequeued.
+
+    The stall detection and resolution works as follows:
+
+    1. There is a counter thread_group->queue_event_count for the number of
+       events removed from the queue. Timer resets the counter to 0 on each run.
+    2. Timer determines stall if this counter remains 0 since last check
+       and the queue is not empty.
+    3. Once timer determined a stall it sets thread_group->stalled flag and
+       wakes and idle worker (or creates a new one, subject to throttling).
+    4. The stalled flag is reset, when an event is dequeued.
+
+    Q : Will this handling lead to an unbound growth of threads, if queue
+    stalls permanently?
+    A : No. If queue stalls permanently, it is an indication for many very long
+    simultaneous queries. The maximum number of simultanoues queries is
+    max_connections, further we have threadpool_max_threads limit, upon which no
+    worker threads are created. So in case there is a flood of very long
+    queries, threadpool would slowly approach thread-per-connection behavior.
+    NOTE:
+    If long queries never wait, creation of the new threads is done by timer,
+    so it is slower than in real thread-per-connection. However if long queries
+    do wait and indicate that via thd_wait_begin/end callbacks, thread creation
+    will be faster.
+  */
+  if (!thread_group->coroutine_info_->req_queue_.IsEmpty() &&
+      thread_group->queue_event_count.load(std::memory_order_relaxed) == 0)
+  {
+    thread_group->stalled.store(true, std::memory_order_relaxed);
+
+    mysql_mutex_lock(&thread_group->mutex);
+    TP_INCREMENT_GROUP_COUNTER(thread_group,stalls);
+    wake_or_create_thread(thread_group,true);
+    mysql_mutex_unlock(&thread_group->mutex);
+  }
+
+  /* Reset queue event count */
+  thread_group->queue_event_count.store(0, std::memory_order_relaxed);
+}
+#endif
 
 static void start_timer(pool_timer_t* timer)
 {
@@ -707,7 +783,6 @@ static void stop_timer(pool_timer_t *timer)
   pthread_join(timer->timer_thread_id, NULL);
   DBUG_VOID_RETURN;
 }
-
 
 /**
   Poll for socket events and distribute them to worker threads
@@ -831,6 +906,82 @@ static TP_connection_generic * listener(worker_thread_t *current_thread,
   DBUG_RETURN(retval);
 }
 
+#ifdef COROUTINE_ENABLED
+/**
+  Poll for socket events and distribute them to worker threads
+  In many case current thread will handle single event itself.
+
+  @return a ready connection, or NULL on shutdown
+*/
+static TP_connection_generic *lockfree_listener(worker_thread_t *current_thread,
+                                                thread_group_t *thread_group)
+{
+  DBUG_ENTER("listener");
+  TP_connection_generic *retval= NULL;
+
+  for(;;)
+  {
+    native_event ev[MAX_EVENTS];
+    int cnt;
+
+    if (thread_group->shutdown)
+      break;
+
+    cnt = io_poll_wait(thread_group->pollfd, ev, MAX_EVENTS, -1);
+    TP_INCREMENT_GROUP_COUNTER(thread_group, polls[(int)operation_origin::LISTENER]);
+    if (cnt <=0)
+    {
+      DBUG_ASSERT(thread_group->shutdown);
+      break;
+    }
+
+    if (thread_group->shutdown.load(std::memory_order_relaxed))
+    {
+      break;
+    }
+
+    thread_group->io_event_count.fetch_add(cnt, std::memory_order_relaxed);
+
+    lockfree_queue_put(thread_group, ev, cnt);
+
+    if (thread_group->active_thread_count.load(std::memory_order_relaxed) == 0)
+    {
+      mysql_mutex_lock(&thread_group->mutex);
+
+      // Re-checks active threads after acquiring the mutex.
+      int active_thd_cnt =
+        thread_group->active_thread_count.load(std::memory_order_relaxed);
+
+      /* We added some work items to queue, now wake a worker. */
+      if(active_thd_cnt == 0 && wake_thread(thread_group, false))
+      {
+        /*
+          Wake failed, hence groups has no idle threads. Now check if there are
+          any threads in the group except listener.
+        */
+        if(thread_group->thread_count == 1)
+        {
+           /*
+             Currently there is no worker thread in the group, as indicated by
+             thread_count == 1 (this means listener is the only one thread in
+             the group).
+             The queue is not empty, and listener is not going to handle
+             events. In order to drain the queue,  we create a worker here.
+             Alternatively, we could just rely on timer to detect stall, and
+             create thread, but waiting for timer would be an inefficient and
+             pointless delay.
+           */
+           create_worker(thread_group, false);
+        }
+      }
+      mysql_mutex_unlock(&thread_group->mutex);
+    }
+  }
+
+  DBUG_RETURN(retval);
+}
+#endif
+
 /**
   Adjust thread counters in group or global
   whenever thread is created or is about to exit
@@ -858,15 +1009,16 @@ static void add_thread_count(thread_group_t *thread_group, int32 count)
   per group to prevent deadlocks (one listener + one worker)
 */
 
-static int create_worker(thread_group_t *thread_group, bool due_to_stall)
+static int create_worker(thread_group_t *thread_group, bool due_to_stall,
+                         bool force_create)
 {
   pthread_t thread_id;
   bool max_threads_reached= false;
   int err;
 
   DBUG_ENTER("create_worker");
-  if (tp_stats.num_worker_threads >= threadpool_max_threads
-     && thread_group->thread_count >= 2)
+  if (!force_create && tp_stats.num_worker_threads >= threadpool_max_threads &&
+      thread_group->thread_count >= 2)
   {
     err= 1;
     max_threads_reached= true;
@@ -937,7 +1089,8 @@ static ulonglong microsecond_throttling_interval(thread_group_t *thread_group)
   Worker creation is throttled, so we avoid too many threads
   to be created during the short time.
 */
-static int wake_or_create_thread(thread_group_t *thread_group, bool due_to_stall)
+static int wake_or_create_thread(thread_group_t *thread_group,
+                                 bool due_to_stall, bool force_create)
 {
   DBUG_ENTER("wake_or_create_thread");
 
@@ -949,7 +1102,8 @@ static int wake_or_create_thread(thread_group_t *thread_group, bool due_to_stall
     DBUG_RETURN(0);
   }
 
-  if (thread_group->thread_count > thread_group->connection_count)
+  if (!force_create &&
+      thread_group->thread_count > thread_group->connection_count)
     DBUG_RETURN(-1);
 
 
@@ -961,7 +1115,7 @@ static int wake_or_create_thread(thread_group_t *thread_group, bool due_to_stall
      idle  thread to wakeup. Smells like a potential deadlock or very slowly
      executing requests, e.g sleeps or user locks.
     */
-    DBUG_RETURN(create_worker(thread_group, due_to_stall));
+    DBUG_RETURN(create_worker(thread_group, due_to_stall, force_create));
   }
 
   ulonglong now = microsecond_interval_timer();
@@ -969,10 +1123,10 @@ static int wake_or_create_thread(thread_group_t *thread_group, bool due_to_stall
     (now - thread_group->last_thread_creation_time);
 
   /* Throttle thread creation. */
-  if (time_since_last_thread_created >
-       microsecond_throttling_interval(thread_group))
+  if (force_create || time_since_last_thread_created >
+                          microsecond_throttling_interval(thread_group))
   {
-    DBUG_RETURN(create_worker(thread_group, due_to_stall));
+    DBUG_RETURN(create_worker(thread_group, due_to_stall, force_create));
   }
 
   TP_INCREMENT_GROUP_COUNTER(thread_group,throttles);
@@ -990,6 +1144,9 @@ int thread_group_init(thread_group_t *thread_group, pthread_attr_t* thread_attr)
   thread_group->shutdown_pipe[0]= -1;
   thread_group->shutdown_pipe[1]= -1;
   queue_init(thread_group);
+#ifdef COROUTINE_ENABLED
+  thread_group->coroutine_info_ = std::make_unique<CoroutineInfo>();
+#endif
   DBUG_RETURN(0);
 }
 
@@ -1002,6 +1159,9 @@ void thread_group_destroy(thread_group_t *thread_group)
     io_poll_close(thread_group->pollfd);
     thread_group->pollfd= INVALID_HANDLE_VALUE;
   }
+#ifdef COROUTINE_ENABLED
+  thread_group->coroutine_info_ = nullptr;
+#endif
 #ifndef _WIN32
   for(int i=0; i < 2; i++)
   {
@@ -1104,7 +1264,7 @@ static void thread_group_close(thread_group_t *thread_group)
   DBUG_VOID_RETURN;
 }
 
-
+#ifndef COROUTINE_ENABLED
 /*
   Add work to the queue. Maybe wake a worker if they all sleep.
 
@@ -1112,7 +1272,6 @@ static void thread_group_close(thread_group_t *thread_group)
   perform login (this is done in worker threads).
 
 */
-
 static void queue_put(thread_group_t *thread_group, TP_connection_generic *connection)
 {
   DBUG_ENTER("queue_put");
@@ -1125,7 +1284,26 @@ static void queue_put(thread_group_t *thread_group, TP_connection_generic *conne
 
   DBUG_VOID_RETURN;
 }
+#endif
 
+#ifdef COROUTINE_ENABLED
+static void lockfree_queue_put(thread_group_t *thread_group, TP_connection_generic *connection)
+{
+  DBUG_ENTER("queue_put");
+
+  connection->enqueue_time= threadpool_exact_stats?microsecond_interval_timer():pool_timer.current_microtime;
+  thread_group->coroutine_info_->req_queue_.Enqueue(connection);
+
+  if (thread_group->active_thread_count.load(std::memory_order_relaxed) == 0)
+  {
+    mysql_mutex_lock(&thread_group->mutex);
+    wake_or_create_thread(thread_group);
+    mysql_mutex_unlock(&thread_group->mutex);
+  }
+
+  DBUG_VOID_RETURN;
+}
+#endif
 
 /*
   Prevent too many threads executing at the same time,if the workload is
@@ -1134,8 +1312,14 @@ static void queue_put(thread_group_t *thread_group, TP_connection_generic *conne
 
 static bool too_many_threads(thread_group_t *thread_group)
 {
+#ifdef COROUTINE_ENABLED
+  return thread_group->active_thread_count.load(std::memory_order_relaxed)
+         >= 1+(int)threadpool_oversubscribe &&
+         !thread_group->stalled.load(std::memory_order_relaxed);
+#else
   return (thread_group->active_thread_count >= 1+(int)threadpool_oversubscribe
    && !thread_group->stalled);
+#endif
 }
 
 
@@ -1263,7 +1447,224 @@ TP_connection_generic *get_event(worker_thread_t *current_thread,
   DBUG_RETURN(connection);
 }
 
+#ifdef COROUTINE_ENABLED
+thread_local int thd_id_in_group = 0;
+thread_local std::array<TP_connection_generic*, 128> local_conns;
+thread_local uint8_t conns_cnt{0};
+thread_local uint8_t conns_offset{0};
+#if defined(IOURING_ENABLED)
+thread_local IoUringWrapper iouring_wrap{};
+#endif
 
+void get_event_bulk(worker_thread_t *current_thread,
+                    thread_group_t *thread_group,
+                    struct timespec *abstime)
+{
+  DBUG_ENTER("get_event");
+
+  mysql_mutex_lock(&thread_group->mutex);
+  DBUG_ASSERT(thread_group->active_thread_count >= 0);
+
+  CoroutineInfo *coro_info = thread_group->coroutine_info_.get();
+
+  for(;;)
+  {
+    int err=0;
+    bool oversubscribed = too_many_threads(thread_group);
+    if (thread_group->shutdown)
+     break;
+
+    /* Check if queue is not empty */
+    if (!oversubscribed)
+    {
+      thread_group->queue_event_count.fetch_add(1, std::memory_order_relaxed);
+      conns_cnt = coro_info->resume_queue_.TryDequeueBulk(
+          local_conns.begin(), local_conns.size());
+      if (conns_cnt == 0)
+      {
+        conns_cnt = coro_info->req_queue_.TryDequeueBulk(
+          local_conns.begin(), local_conns.size());
+
+        // TP_connection_generic *tp_c = nullptr;
+        // bool success = coro_info->req_queue_.try_dequeue(tp_c);
+        // if (success)
+        // {
+        //   conn_array[conn_cnt] = tp_c;
+        //   ++conn_cnt;
+        // }
+      }
+
+      if(conns_cnt > 0)
+      {
+        coro_info->empty_run_cnt_ = 0;
+        break;
+      }
+      else if (coro_info->running_thds_.load(std::memory_order_relaxed) == 1 &&
+               thread_group->listener != nullptr)
+      {
+        if (coro_info->coro_cnt_.load(std::memory_order_relaxed) > 0)
+        {
+          coro_info->empty_run_cnt_ = 0;
+          // Inserts a pseudo connection.
+          local_conns[0] = nullptr;
+          conns_cnt = 1;
+          break;
+        }
+
+        if (coro_info->empty_run_cnt_ == 0)
+        {
+          coro_info->empty_begin_tp_ = std::chrono::system_clock::now();
+        }
+
+        coro_info->empty_run_cnt_++;
+        using namespace std::chrono_literals;
+        auto dur_in_milli_sec = 0ms;
+        if (coro_info->empty_run_cnt_ % 100000 == 0)
+        {
+          auto now = std::chrono::system_clock::now();
+          auto dur = 
+            now.time_since_epoch() - coro_info->empty_begin_tp_.time_since_epoch();
+          dur_in_milli_sec =
+            std::chrono::duration_cast<std::chrono::milliseconds>(dur);
+        }
+        
+        if (dur_in_milli_sec < 100ms)
+        {
+          // Inserts a pseudo connection. 
+          local_conns[0] = nullptr;
+          conns_cnt = 1;
+          break; 
+        }
+      }
+    }
+
+    /* If there is currently no listener in the group, become one. */
+    if(!thread_group->listener)
+    {
+      thread_group->listener= current_thread;
+      thread_group->active_thread_count--;
+      coro_info->running_thds_.fetch_sub(1, std::memory_order_relaxed);
+#ifdef EXT_TX_PROC_ENABLED
+      (coro_info->update_ext_proc_)(-1);
+#endif
+      mysql_mutex_unlock(&thread_group->mutex);
+
+      TP_connection_generic *connection =
+        lockfree_listener(current_thread, thread_group);
+
+      if (connection != nullptr)
+      {
+        local_conns[0] = connection;
+        conns_cnt = 1;
+      }
+
+      mysql_mutex_lock(&thread_group->mutex);
+      thread_group->active_thread_count++;
+      coro_info->running_thds_.fetch_add(1, std::memory_order_relaxed);
+#ifdef EXT_TX_PROC_ENABLED
+      (coro_info->update_ext_proc_)(1);
+#endif
+      /* There is no listener anymore, it just returned. */
+      thread_group->listener= NULL;
+      break;
+    }
+
+    int32_t prev_running_cnt =
+      coro_info->running_thds_.fetch_sub(1, std::memory_order_relaxed);
+    thread_group->active_thread_count.fetch_sub(1, std::memory_order_acq_rel);
+
+    // This is the last running thread who is going to sleep.
+    // Re-checks the resume and request queues before sleeping.
+    // Do not sleep if there are requests to process.
+    if (prev_running_cnt == 1)
+    {
+      conns_cnt = coro_info->resume_queue_.TryDequeueBulk(
+          local_conns.begin(), local_conns.size());
+      if (conns_cnt == 0)
+      {
+        conns_cnt = coro_info->req_queue_.TryDequeueBulk(
+          local_conns.begin(), local_conns.size());
+      }
+
+      if (conns_cnt > 0)
+      {
+        coro_info->running_thds_.fetch_add(1, std::memory_order_relaxed);
+        thread_group->active_thread_count.fetch_add(1, std::memory_order_relaxed);
+        break;
+      }
+    }
+
+#ifdef EXT_TX_PROC_ENABLED
+    (coro_info->update_ext_proc_)(-1);
+#endif
+
+    /* And now, finally sleep */
+    current_thread->woken = false; /* wake() sets this to true */
+
+    /*
+      Add current thread to the head of the waiting list  and wait.
+      It is important to add thread to the head rather than tail
+      as it ensures LIFO wakeup order (hot caches, working inactivity timeout)
+    */
+    thread_group->waiting_threads.push_front(current_thread);
+
+    if (abstime)
+    {
+      err = mysql_cond_timedwait(&current_thread->cond, &thread_group->mutex,
+                                 abstime);
+    }
+    else
+    {
+      err = mysql_cond_wait(&current_thread->cond, &thread_group->mutex);
+    }
+    thread_group->active_thread_count.fetch_add(1, std::memory_order_acq_rel);
+
+    prev_running_cnt =
+      coro_info->running_thds_.fetch_add(1, std::memory_order_relaxed);
+#ifdef EXT_TX_PROC_ENABLED
+    (coro_info->update_ext_proc_)(1);
+#endif
+
+    if (!current_thread->woken)
+    {
+      /*
+        Thread was not signalled by wake(), it might be a spurious wakeup or
+        a timeout. Anyhow, we need to remove ourselves from the list now.
+        If thread was explicitly woken, than caller removed us from the list.
+      */
+      thread_group->waiting_threads.remove(current_thread);
+    }
+
+    if (err)
+    {
+      // If this is the last thread timing out, only exits when there are
+      // no ongoing coroutines or incoming requests.
+      if (prev_running_cnt > 0 ||
+          (coro_info->coro_cnt_.load(std::memory_order_relaxed) == 0 &&
+           coro_info->req_queue_.IsEmpty()))
+      {
+        break;
+      }
+    }
+  }
+
+  thread_group->stalled.store(false, std::memory_order_relaxed);
+
+  // When the get_event_bulk() returns no requests to process, 
+  // the thread is about to exit. Excludes the thread from the working set.
+  if (conns_cnt == 0)
+  {
+    coro_info->running_thds_.fetch_sub(1, std::memory_order_relaxed);
+#ifdef EXT_TX_PROC_ENABLED
+    (coro_info->update_ext_proc_)(-1);
+#endif
+  }
+
+  mysql_mutex_unlock(&thread_group->mutex);
+
+  DBUG_VOID_RETURN;
+}
+#endif
 
 /**
   Tells the pool that worker starts waiting  on IO, lock, condition,
@@ -1275,19 +1676,58 @@ void wait_begin(thread_group_t *thread_group)
   DBUG_ENTER("wait_begin");
   mysql_mutex_lock(&thread_group->mutex);
   thread_group->active_thread_count--;
+#ifdef COROUTINE_ENABLED
+  CoroutineInfo *coro_info = thread_group->coroutine_info_.get();
+  coro_info->running_thds_.fetch_sub(1, std::memory_order_relaxed);
+
+  // Before entering the wait mode, re-enqueues to-be-processed commands
+  // into the group to allow other threads in the group to process.
+  if (conns_offset + 1 < conns_cnt)
+  {
+    THD *first_thd = local_conns[conns_offset + 1]->thd;
+    // The local cached commands are either resumed coroutines or new commands.
+    // Get the status from the first cached command.
+    bool is_ongoing_coro = first_thd == nullptr ||
+                           first_thd->coro_status_ == THD::CoroStatus::Ongoing;
+    uint8_t remaining = conns_cnt - conns_offset - 1;
+
+    if (is_ongoing_coro)
+    {
+      coro_info->resume_queue_.EnqueueBulk(
+        local_conns.begin() + conns_offset + 1, remaining);
+    }
+    else
+    {
+      coro_info->req_queue_.EnqueueBulk(
+        local_conns.begin() + conns_offset + 1, remaining);
+    }
+
+    conns_cnt = conns_offset + 1;
+  }
+#endif
 
   DBUG_ASSERT(thread_group->active_thread_count >=0);
   DBUG_ASSERT(thread_group->connection_count > 0);
 
   if ((thread_group->active_thread_count == 0) &&
+#ifdef COROUTINE_ENABLED
+     (!coro_info->req_queue_.IsEmpty() ||
+      !thread_group->listener ||
+      coro_info->coro_cnt_.load(std::memory_order_relaxed) > 0))
+#else
      (!is_queue_empty(thread_group) || !thread_group->listener))
+#endif
   {
     /*
       Group might stall while this thread waits, thus wake
       or create a worker to prevent stall.
     */
-    wake_or_create_thread(thread_group);
+    wake_or_create_thread(thread_group, false, true);
   }
+
+#ifdef EXT_TX_PROC_ENABLED
+  (coro_info->update_ext_proc_)(-1);
+#endif
 
   mysql_mutex_unlock(&thread_group->mutex);
   DBUG_VOID_RETURN;
@@ -1302,6 +1742,13 @@ void wait_end(thread_group_t *thread_group)
   DBUG_ENTER("wait_end");
   mysql_mutex_lock(&thread_group->mutex);
   thread_group->active_thread_count++;
+#ifdef COROUTINE_ENABLED
+  CoroutineInfo *coro_info = thread_group->coroutine_info_.get();
+  coro_info->running_thds_.fetch_add(1, std::memory_order_relaxed);
+#ifdef EXT_TX_PROC_ENABLED
+  (coro_info->update_ext_proc_)(1);
+#endif
+#endif
   mysql_mutex_unlock(&thread_group->mutex);
   DBUG_VOID_RETURN;
 }
@@ -1326,9 +1773,14 @@ void TP_pool_generic::add(TP_connection *c)
     Add connection to the work queue.Actual logon
     will be done by a worker thread.
   */
+ #ifdef COROUTINE_ENABLED
+  lockfree_queue_put(thread_group, connection);
+ #else
   mysql_mutex_lock(&thread_group->mutex);
   queue_put(thread_group, connection);
   mysql_mutex_unlock(&thread_group->mutex);
+ #endif
+
   DBUG_VOID_RETURN;
 }
 
@@ -1351,7 +1803,6 @@ void TP_connection_generic::wait_begin(int type)
     ::wait_begin(thread_group);
   DBUG_VOID_RETURN;
 }
-
 
 /**
   MySQL scheduler callback: wait end
@@ -1521,15 +1972,16 @@ int TP_connection_generic::start_io()
   return io_poll_start_read(thread_group->pollfd, fd, this, OPTIONAL_IO_POLL_READ_PARAM);
 }
 
-
-
 /**
   Worker thread's main
 */
 
+std::function<
+  std::pair<std::function<void()>,
+  std::function<void(int16_t)>>(int16_t)> get_tx_service_functors;
+
 static void *worker_main(void *param)
 {
-
   worker_thread_t this_thread;
   pthread_detach_this_thread();
   my_thread_init();
@@ -1542,18 +1994,132 @@ static void *worker_main(void *param)
   mysql_cond_init(key_worker_cond, &this_thread.cond, NULL);
   this_thread.thread_group= thread_group;
   this_thread.event_count=0;
+#ifdef COROUTINE_ENABLED
+  CoroutineInfo *coro_info = thread_group->coroutine_info_.get();
+  coro_info->running_thds_.fetch_add(1, std::memory_order_relaxed);
+#ifdef EXT_TX_PROC_ENABLED
+  if (coro_info->tx_processor_exec_ == nullptr)
+  {
+    int16_t group_id = coro_info->group_id_;
+    assert(group_id >= 0);
+    auto functors = get_tx_service_functors(group_id);
+    coro_info->tx_processor_exec_ = functors.first;
+    coro_info->update_ext_proc_ = functors.second;
+  }
+  (coro_info->update_ext_proc_)(1);
+#endif
+  thd_id_in_group = coro_info->thd_cnt_.fetch_add(1);
+  size_t loop_cnt = 0;
+#endif
+
+  struct timespec ts;
 
   /* Run event loop */
   for(;;)
   {
+#ifdef COROUTINE_ENABLED
+    if (loop_cnt % 10000 == 0)
+    {
+      set_timespec(ts,threadpool_idle_timeout);
+    }
+    ++loop_cnt;
+
+    conns_cnt = 0;
+    get_event_bulk(&this_thread, thread_group, &ts);
+    
+    if (conns_cnt == 0)
+    {
+      break;
+    }
+
+    for (conns_offset = 0; conns_offset < conns_cnt; ++conns_offset)
+    {
+      TP_connection_generic *conn = local_conns[conns_offset];
+
+      if (conn == nullptr)
+      {
+        continue;
+      }
+
+      if (conn->being_processed_.load(std::memory_order_relaxed))
+      {
+        // The connection's corresponding coroutine has not returned, but the
+        // connection has been scheduled to resume and is picked up by a separate
+        // physical thread. Re-enqueus the connection for re-execution, until the
+        // prior execution of coroutine has fully returned.
+        // mysql_mutex_lock(&thread_group->mutex);
+        // thread_group->coroutine_info_->coroutine_queue_.emplace_back(conn);
+        // mysql_mutex_unlock(&thread_group->mutex);
+        thread_group->coroutine_info_->resume_queue_.Enqueue(conn);
+        continue;
+      }
+
+      if (conn->thd == nullptr ||
+          conn->thd->coro_status_ == THD::CoroStatus::Empty)
+      {
+        this_thread.event_count++;
+      }
+
+      tp_callback(conn);
+    }
+
+#ifdef IOURING_ENABLED
+    if (iouring_wrap.to_submit_reqs_ > 0)
+    {
+      int ret= io_uring_submit(&iouring_wrap.ring_);
+      if (ret > 0)
+      {
+        iouring_wrap.to_peek_reqs_+= ret;
+        iouring_wrap.to_submit_reqs_-= ret;
+      }
+      else
+      {
+        sql_print_error(
+            "ThreadGroup(%d): failed to do io_uring_submit, error %d.",
+            coro_info->group_id_, ret);
+      }
+    }
+#endif
+
+#ifdef EXT_TX_PROC_ENABLED
+    (thread_group->coroutine_info_->tx_processor_exec_)();
+#endif
+
+#ifdef IOURING_ENABLED
+    if (iouring_wrap.to_peek_reqs_ > 0)
+    {
+      unsigned head;
+      struct io_uring_cqe *cqe;
+      int ret= io_uring_peek_cqe(&iouring_wrap.ring_, &cqe);
+      if (ret == 0)
+      {
+        unsigned num_completed= 0;
+        io_uring_for_each_cqe(&iouring_wrap.ring_, head, cqe)
+        {
+          ++num_completed;
+          // resume the sql task
+          THD *thd= (THD *) cqe->user_data;
+          assert(thd != nullptr);
+          thd->iouring_cqe_res_= cqe->res;
+          auto resume_fp= thd->CoroFunctors().second;
+          assert(resume_fp!=nullptr);
+          (*resume_fp)();
+        }
+        io_uring_cq_advance(&iouring_wrap.ring_, num_completed);
+        iouring_wrap.to_peek_reqs_-= num_completed;
+      }
+    }
+#endif
+
+#else
     TP_connection_generic *connection;
-    struct timespec ts;
     set_timespec(ts,threadpool_idle_timeout);
     connection = get_event(&this_thread, thread_group, &ts);
     if (!connection)
       break;
     this_thread.event_count++;
     tp_callback(connection);
+#endif
   }
 
   /* Thread shutdown: cleanup per-worker-thread structure. */
@@ -1598,6 +2164,9 @@ int TP_pool_generic::init()
   for (uint i= 0; i < threadpool_max_size; i++)
   {
     thread_group_init(&all_groups[i], get_connection_attrib());
+#ifdef COROUTINE_ENABLED
+    all_groups[i].coroutine_info_->group_id_ = i;
+#endif
   }
   set_pool_size(threadpool_size);
   if(group_count == 0)
@@ -1757,4 +2326,363 @@ static void print_pool_blocked_message(bool max_threads_reached)
   }
 }
 
+int thread_group_t::WakeOrCreateThread()
+{
+  return wake_or_create_thread(this, false, true);
+}
+
+#if defined(COROUTINE_ENABLED) && defined(IOURING_ENABLED)
+IoUringWrapper::IoUringWrapper()
+    : ring_(), to_submit_reqs_(0), to_peek_reqs_(0)
+{
+  uint32_t entry_size= (max_connections / threadpool_size) * 1.5;
+  entry_size= MY_MAX(entry_size, 128U);
+  struct io_uring_params params;
+  memset(&params, 0, sizeof(struct io_uring_params));
+  // Try set iouring flags to improve performance:
+  // IORING_SETUP_COOP_TASKRUN(linux-kernel>=5.19);
+  // IORING_SETUP_SINGLE_ISSUER(linux-kernel>=6.0);
+#if LINUX_KERNEL_MAJOR_VERSION >= 6
+  params.flags= IORING_SETUP_SINGLE_ISSUER | IORING_SETUP_COOP_TASKRUN;
+#elif LINUX_KERNEL_MAJOR_VERSION >= 5 && LINUX_KERNEL_MINOR_VERSION >= 19
+  params.flags= IORING_SETUP_COOP_TASKRUN;
+#endif
+  int ret= io_uring_queue_init_params(entry_size, &ring_, &params);
+  if (ret != 0)
+  {
+    sql_print_error("IoUringWrapper(%p): failed to init io uring, error:%d",
+                    this, ret);
+    init_success_= false;
+    return;
+  }
+  else
+  {
+    init_success_= true;
+  }
+}
+
+IoUringWrapper::~IoUringWrapper() { io_uring_queue_exit(&ring_); }
+
+#endif
+
+#ifdef COROUTINE_ENABLED
+static inline TP_connection *get_TP_connection(THD *thd)
+{
+  return (TP_connection *)thd->event_scheduler.data;
+}
+
+#ifdef IOURING_ENABLED
+ssize_t iouring_socket_send(
+#ifdef HAVE_PSI_SOCKET_INTERFACE
+    const char *src_file, uint src_line,
+#endif
+    MYSQL_SOCKET mysql_socket, const SOCKBUF_T *buf, size_t n, int flags)
+{
+  ssize_t result;
+  DBUG_ASSERT(mysql_socket.fd != INVALID_SOCKET);
+#ifdef HAVE_PSI_SOCKET_INTERFACE
+  if (psi_likely(mysql_socket.m_psi != NULL))
+  {
+    /* Instrumentation start */
+    PSI_socket_locker *locker;
+    PSI_socket_locker_state state;
+    locker= PSI_SOCKET_CALL(start_socket_wait)(
+        &state, mysql_socket.m_psi, PSI_SOCKET_SEND, n, src_file, src_line);
+
+    /* Instrumented code */
+    result= send(mysql_socket.fd, buf, IF_WIN((int), ) n, flags);
+
+    /* Instrumentation end */
+    if (locker != NULL)
+    {
+      size_t bytes_written= (result > 0) ? (size_t) result : 0;
+      PSI_SOCKET_CALL(end_socket_wait)(locker, bytes_written);
+    }
+
+    return result;
+  }
+#endif
+
+  THD *thd= _current_thd();
+
+  const std::function<void()> *yield_fp= thd->CoroFunctors().first;
+  if (*thd->CoroLongResumeFunctor() == nullptr || yield_fp == nullptr ||
+      thd->iouring_ == nullptr)
+  {
+    return mysql_socket_send(mysql_socket, buf, IF_WIN((int), ) n, flags);
+  }
+  assert(&iouring_wrap == thd->iouring_);
+  struct io_uring_sqe *sqe= io_uring_get_sqe(&(thd->iouring_->ring_));
+  if (sqe == nullptr)
+  {
+    sql_print_warning("ThreadGroup(%d): THD(%d) failed to get io_uring_sqe, "
+                      "use mysql_socket_send.",
+                      thd->ThdGroupId(), thd->thread_id);
+    return mysql_socket_send(mysql_socket, buf, IF_WIN((int), ) n, flags);
+  }
+  io_uring_sqe_set_data(sqe, (void *) thd);
+  io_uring_prep_send(sqe, mysql_socket.fd, buf, n, flags);
+  thd->iouring_->to_submit_reqs_++;
+
+  (*yield_fp)();
+
+  if (thd->iouring_cqe_res_ >= 0)
+  {
+    return thd->iouring_cqe_res_;
+  }
+  else
+  {
+    // Operation may be not supportted by io_uring or some error occurs,
+    // retry with mysql_socket_send.
+    sql_print_warning(
+        "ThreadGroup(%d): THD(%d) failed to send socket through io uring, "
+        "error %d. Retry through mysql socket send.",
+        thd->ThdGroupId(), thd->thread_id, (int) thd->iouring_cqe_res_);
+
+    return mysql_socket_send(mysql_socket, buf, IF_WIN((int), ) n, flags);
+  }
+}
+#endif
+
+int coro_mutex_trylock(
+  mysql_mutex_t *that
+#if defined(SAFE_MUTEX) || defined (HAVE_PSI_MUTEX_INTERFACE)
+  , const char *src_file, uint src_line
+#endif
+  )
+{
+  // Check pthread mutex condition first.
+#if defined(SAFE_MUTEX) || defined (HAVE_PSI_MUTEX_INTERFACE)
+  int res= inline_mysql_mutex_trylock(that, src_file, src_line);
+#else
+  int res= inline_mysql_mutex_trylock(that);
+#endif
+
+  if (res == 0)
+  {
+    // Check if this mutex is held by a coroutine process.
+    if (that->l.prev != 0 || that->l.next != 0)
+    {
+      // Already held by another coroutine process
+      res= EBUSY;
+      inline_mysql_mutex_unlock(that 
+#if defined (SAFE_MUTEX)
+    , src_file, src_line
+#endif
+      );
+    }
+    else if (current_thd && current_thd->ThdGroupId() >= 0){
+      // Put this lock into thread local acquired mutex list
+      TP_connection *c= get_TP_connection(current_thd);
+      TP_connection_generic *connection=(TP_connection_generic *)c;
+      connection->acquired_mutexes= list_add(connection->acquired_mutexes, &that->l);
+    }
+  }
+  
+  return res;
+}
+
+int coro_mutex_lock(
+  mysql_mutex_t *that
+#if defined(SAFE_MUTEX) || defined (HAVE_PSI_MUTEX_INTERFACE)
+  , const char *src_file, uint src_line
+#endif
+  )
+{
+  int res= -1;
+  THD *thd= current_thd;
+  bool is_coro_thd = thd && thd->ThdGroupId() >= 0;
+
+  const std::function<void()> *long_resume_fp= nullptr;
+  const std::function<void()> *yield_fp= nullptr;
+  // Since we release the acquired mutexes when a coroutine yields away,
+  // we need to verify if the mutex is held by a yielded coroutine. If the
+  // mutex is on a threadpool connection acquired mutex list, we need to keep
+  // retrying until the mutex is released by the coroutine.
+  while (true)
+  {
+    res= inline_mysql_mutex_lock(that
+#if defined(SAFE_MUTEX) || defined (HAVE_PSI_MUTEX_INTERFACE)
+    ,src_file, src_line
+#endif
+    );
+    // If lock is acquired by other coroutine, busy loop until the lock is released.
+    if (res == 0 && (that->l.prev || that->l.next))
+    {
+      inline_mysql_mutex_unlock(that 
+#if defined (SAFE_MUTEX) 
+    , src_file, src_line
+#endif
+      );
+      if (is_coro_thd)
+      {
+        if (!long_resume_fp)
+        {
+          long_resume_fp= thd->CoroLongResumeFunctor();
+          if (!*long_resume_fp)
+          {
+            // If long resume fp is not set then this is not a coroutine. We can safely
+            // busy loop here without worrying about deadlock.
+            is_coro_thd= false;
+            continue;
+          }
+          yield_fp= thd->CoroFunctors().first;
+        }
+
+        // Yield this coroutine process so that it won't block others.
+        (*long_resume_fp)();
+        (*yield_fp)();
+      }
+    }
+    else
+    {
+      break;
+    }
+  }
+
+  if (res == 0 && thd && thd->ThdGroupId() >= 0)
+  {
+    // Put this lock into thread local acquired mutex list
+    TP_connection *c= get_TP_connection(current_thd);
+    TP_connection_generic *connection=(TP_connection_generic *)c;
+    connection->acquired_mutexes= list_add(connection->acquired_mutexes, &that->l);
+  }
+
+  return res;
+}
+
+int coro_mutex_unlock(
+  mysql_mutex_t *that
+#ifdef SAFE_MUTEX
+  , const char *src_file, uint src_line
+#endif
+  )
+{
+#ifdef SAFE_MUTEX
+    int result= inline_mysql_mutex_unlock(that, src_file, src_line);
+#else
+    int result= inline_mysql_mutex_unlock(that);
+#endif
+
+  if (result == 0 && current_thd && current_thd->ThdGroupId() >= 0)
+  {
+    // remove mutex from thd acquired mutex list.
+    TP_connection *c= get_TP_connection(current_thd);
+    TP_connection_generic *connection=(TP_connection_generic *)c;
+    connection->acquired_mutexes= list_delete(connection->acquired_mutexes, &that->l);
+    that->l.prev = NULL;
+    that->l.next = NULL;
+    DBUG_ASSERT(that->l.prev == 0 && that->l.next == 0);
+  }
+
+  return result;
+}
+
+int coro_cond_timedwait(
+  mysql_cond_t *that,
+  mysql_mutex_t *mutex,
+  const struct timespec *abstime
+#if defined(SAFE_MUTEX) || defined(HAVE_PSI_COND_INTERFACE)
+  , const char *src_file, uint src_line
+#endif
+  )
+{
+  // mutex will be released in cond wait, remove it from thd mutex list
+  if (current_thd && current_thd->ThdGroupId() >= 0)
+  {
+    TP_connection *c= get_TP_connection(current_thd);
+    TP_connection_generic *connection=(TP_connection_generic *)c;
+    connection->acquired_mutexes= list_delete(connection->acquired_mutexes, &mutex->l);
+    mutex->l.prev = NULL;
+    mutex->l.next = NULL;
+    DBUG_ASSERT(mutex->l.prev == 0 && mutex->l.next == 0);
+  }
+  int res= inline_mysql_cond_timedwait(that, mutex, abstime
+#if defined(SAFE_MUTEX) || defined(HAVE_PSI_COND_INTERFACE)
+  , src_file, src_line
+#endif
+  );
+
+  
+    // If mutex is held by any other coroutine, busy loop until
+    // it is released
+    while (mutex->l.prev || mutex->l.next)
+    {
+#ifdef SAFE_MUTEX
+      inline_mysql_mutex_unlock(mutex, __FILE__, __LINE__);
+#else
+      inline_mysql_mutex_unlock(mutex);
+#endif
+#if defined(SAFE_MUTEX) || defined(HAVE_PSI_MUTEX_INTERFACE)
+      inline_mysql_mutex_lock(mutex, __FILE__, __LINE__);
+#else
+      inline_mysql_mutex_lock(mutex);
+#endif
+    }
+    if (current_thd && current_thd->ThdGroupId() >= 0)
+    {
+      // Put this lock into thread local acquired mutex list
+      TP_connection *c= get_TP_connection(current_thd);
+      TP_connection_generic *connection= (TP_connection_generic *) c;
+      DBUG_ASSERT(mutex->l.prev == 0 && mutex->l.next == 0);
+      connection->acquired_mutexes=
+          list_add(connection->acquired_mutexes, &mutex->l);
+    }
+  
+  return res;
+}
+
+int coro_cond_wait(
+  mysql_cond_t *that,
+  mysql_mutex_t *mutex
+#if defined(SAFE_MUTEX) || defined(HAVE_PSI_COND_INTERFACE)
+  , const char *src_file, uint src_line
+#endif
+  )
+{
+  // mutex will be released in cond wait, remove it from thd mutex list
+  if (current_thd && current_thd->ThdGroupId() >= 0)
+  {
+    TP_connection *c= get_TP_connection(current_thd);
+    TP_connection_generic *connection=(TP_connection_generic *)c;
+    connection->acquired_mutexes= list_delete(connection->acquired_mutexes, &mutex->l);
+    mutex->l.prev = NULL;
+    mutex->l.next = NULL;
+    DBUG_ASSERT(mutex->l.prev == 0 && mutex->l.next == 0);
+  }
+  int res= inline_mysql_cond_wait(that, mutex
+#if defined(SAFE_MUTEX) || defined(HAVE_PSI_COND_INTERFACE)
+  , src_file, src_line
+#endif
+  );
+
+  
+    // If mutex is held by any other coroutine, busy loop until
+    // it is released
+    while (mutex->l.prev || mutex->l.next)
+    {
+#ifdef SAFE_MUTEX
+      inline_mysql_mutex_unlock(mutex, __FILE__, __LINE__);
+#else
+      inline_mysql_mutex_unlock(mutex);
+#endif
+#if defined(SAFE_MUTEX) || defined(HAVE_PSI_MUTEX_INTERFACE)
+      inline_mysql_mutex_lock(mutex, __FILE__, __LINE__);
+#else
+      inline_mysql_mutex_lock(mutex);
+#endif
+    }
+    if (current_thd && current_thd->ThdGroupId() >= 0)
+    {
+      // Put this lock into thread local acquired mutex list
+      TP_connection *c= get_TP_connection(current_thd);
+      TP_connection_generic *connection= (TP_connection_generic *) c;
+      DBUG_ASSERT(mutex->l.prev == 0 && mutex->l.next == 0);
+      connection->acquired_mutexes=
+          list_add(connection->acquired_mutexes, &mutex->l);
+    }
+  
+  return res;
+}
+#endif
 #endif /* HAVE_POOL_OF_THREADS */

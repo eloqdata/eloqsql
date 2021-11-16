@@ -25,6 +25,11 @@
 #include <thr_lock.h>
 #include <mysql/psi/mysql_file.h>
 
+#undef mysql_rwlock_rdlock
+#define mysql_rwlock_rdlock(RW) mysql_c_rwlock_rdlock(RW)
+#undef mysql_rwlock_wrlock
+#define mysql_rwlock_wrlock(RW) mysql_c_rwlock_wrlock(RW)
+
 C_MODE_START
 
 typedef struct st_mi_status_info

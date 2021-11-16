@@ -1,0 +1,48 @@
+--source include/have_eloq.inc
+
+set @@default_storage_engine= eloq;
+select @@default_storage_engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+create table t1(i int primary key, j int) engine= eloq;
+
+insert into t1 values(1,100);
+insert into t1 values(2,100);
+insert into t1 values(3,100);
+
+# PinSlice always fail after the fault inject, we can only rely on key cache on non-existing keys.
+SET SESSION debug_dbug="+d,eloq;PinSlices_Fail;node_id=-1";
+select * from t1 where i = 4;
+SET SESSION debug_dbug="-d,eloq;PinSlices_Fail";
+
+drop table t1;
+
+# auto increment pk skips pk read before commit. In this case the key cache will
+# be updated by acquire cc.
+create table t1(i int auto_increment primary key, j int) engine= eloq;
+
+
+insert into t1 values(1,100);
+# PinSlice always fail after the fault inject, we can only rely on key cache on non-existing keys.
+SET SESSION debug_dbug="+d,eloq;PinSlices_Fail;node_id=-1";
+select * from t1 where i = 4;
+SET SESSION debug_dbug="-d,eloq;PinSlices_Fail";
+
+drop table t1;
+
+# Test fetch record fail
+create table t1(i int auto_increment primary key, j int) engine= eloq;
+
+
+insert into t1 values(1,100);
+# PinSlice always fail after the fault inject, we can only rely on key cache on non-existing keys.
+SET SESSION debug_dbug="+d,eloq;PinSlices_Fail;node_id=-1";
+# First fetch record will fail, the read op should retry then succeed.
+SET SESSION debug_dbug="+d,eloq;FetchRecordFail;node_id=-1";
+select * from t1 where i = 4;
+SET SESSION debug_dbug="-d,eloq;PinSlices_Fail";
+
+drop table t1;

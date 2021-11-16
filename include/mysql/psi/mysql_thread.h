@@ -63,6 +63,7 @@
 */
 
 #include "mysql/psi/psi.h"
+#include "my_list.h"
 #ifdef MYSQL_SERVER
 #ifndef MYSQL_DYNAMIC_PLUGIN
 #include "pfs_thread_provider.h"
@@ -137,6 +138,9 @@ struct st_mysql_mutex
   safe_mutex_t m_mutex;
 #else
   pthread_mutex_t m_mutex;
+#endif
+#ifdef COROUTINE_ENABLED
+  LIST l;
 #endif
   /**
     The instrumentation hook.
@@ -356,12 +360,14 @@ typedef struct st_mysql_cond mysql_cond_t;
   @param M The mutex to lock
 */
 
+#ifndef mysql_mutex_lock
 #if defined(SAFE_MUTEX) || defined (HAVE_PSI_MUTEX_INTERFACE)
   #define mysql_mutex_lock(M) \
     inline_mysql_mutex_lock(M, __FILE__, __LINE__)
 #else
   #define mysql_mutex_lock(M) \
     inline_mysql_mutex_lock(M)
+#endif
 #endif
 
 /**
@@ -371,6 +377,7 @@ typedef struct st_mysql_cond mysql_cond_t;
   for @c pthread_mutex_trylock.
 */
 
+#ifndef mysql_mutex_trylock
 #if defined(SAFE_MUTEX) || defined (HAVE_PSI_MUTEX_INTERFACE)
   #define mysql_mutex_trylock(M) \
     inline_mysql_mutex_trylock(M, __FILE__, __LINE__)
@@ -378,18 +385,21 @@ typedef struct st_mysql_cond mysql_cond_t;
   #define mysql_mutex_trylock(M) \
     inline_mysql_mutex_trylock(M)
 #endif
+#endif
 
 /**
   @def mysql_mutex_unlock(M)
   Instrumented mutex_unlock.
   @c mysql_mutex_unlock is a drop-in replacement for @c pthread_mutex_unlock.
 */
+#ifndef mysql_mutex_unlock
 #ifdef SAFE_MUTEX
   #define mysql_mutex_unlock(M) \
     inline_mysql_mutex_unlock(M, __FILE__, __LINE__)
 #else
   #define mysql_mutex_unlock(M) \
     inline_mysql_mutex_unlock(M)
+#endif
 #endif
 
 /**
@@ -450,9 +460,53 @@ typedef struct st_mysql_cond mysql_cond_t;
 */
 #ifdef HAVE_PSI_RWLOCK_INTERFACE
   #define mysql_rwlock_rdlock(RW) \
-    inline_mysql_rwlock_rdlock(RW, __FILE__, __LINE__)
+    ({ \
+      int err_ = 0; \
+      THD *thd = current_thd; \
+      if (!thd || thd->ThdGroupId() < 0) { \
+        err_=inline_mysql_rwlock_rdlock(RW, __FILE__, __LINE__);\
+      } else {\
+        auto yield_fp= thd->CoroFunctors().first;\
+        auto long_resume_fp= thd->CoroLongResumeFunctor();\
+        int ret = inline_mysql_rwlock_tryrdlock(RW, __FILE__, __LINE__);\
+        while (ret) { \
+          (*long_resume_fp)(); \
+          (*yield_fp)(); \
+          ret = inline_mysql_rwlock_tryrdlock(RW, __FILE__, __LINE__);}\
+      } \
+      err_; \
+    })
 #else
   #define mysql_rwlock_rdlock(RW) \
+    ({ \
+      int err_ = 0; \
+      THD *thd = current_thd;\
+      if (!thd || thd->ThdGroupId() < 0) { \
+        err_ = inline_mysql_rwlock_rdlock(RW);\
+      } else {\
+        auto yield_fp= thd->CoroFunctors().first;\
+        auto long_resume_fp= thd->CoroLongResumeFunctor();\
+        int ret = inline_mysql_rwlock_tryrdlock(RW);\
+        while (ret) { \
+          (*long_resume_fp)(); \
+          (*yield_fp)(); \
+          ret = inline_mysql_rwlock_tryrdlock(RW);}\
+      } \
+      err_; \
+    })
+#endif
+
+/**
+  @def mysql_rwlock_rdlock(RW)
+  Instrumented rwlock_rdlock.
+  @c mysql_rwlock_rdlock is a drop-in replacement
+  for @c pthread_rwlock_rdlock.
+*/
+#ifdef HAVE_PSI_RWLOCK_INTERFACE
+  #define mysql_c_rwlock_rdlock(RW) \
+    inline_mysql_rwlock_rdlock(RW, __FILE__, __LINE__)
+#else
+  #define mysql_c_rwlock_rdlock(RW) \
     inline_mysql_rwlock_rdlock(RW)
 #endif
 
@@ -478,9 +532,61 @@ typedef struct st_mysql_cond mysql_cond_t;
 */
 #ifdef HAVE_PSI_RWLOCK_INTERFACE
   #define mysql_rwlock_wrlock(RW) \
-    inline_mysql_rwlock_wrlock(RW, __FILE__, __LINE__)
+    ({ \
+      int err_ = 0; \
+      THD *thd = current_thd;\
+      if (!thd || thd->ThdGroupId() < 0) { \
+        err_ = inline_mysql_rwlock_wrlock(RW, __FILE__, __LINE__);\
+      } else {\
+        auto yield_fp= thd->CoroFunctors().first;\
+        auto long_resume_fp= thd->CoroLongResumeFunctor();\
+        if (yield_fp == nullptr || long_resume_fp == nullptr) { \
+          err_ = inline_mysql_rwlock_wrlock(RW, __FILE__, __LINE__);\
+        } else {\
+          int ret = inline_mysql_rwlock_trywrlock(RW, __FILE__, __LINE__);\
+          while (ret) { \
+            (*long_resume_fp)(); \
+            (*yield_fp)(); \
+            ret = inline_mysql_rwlock_trywrlock(RW, __FILE__, __LINE__);}\
+        } \
+      } \
+      err_; \
+    })
 #else
   #define mysql_rwlock_wrlock(RW) \
+    ({ \
+      int err_ = 0; \
+      THD *thd = current_thd;\
+      if (!thd || thd->ThdGroupId() < 0) { \
+        err_ = inline_mysql_rwlock_wrlock(RW);\
+      } else {\
+        auto yield_fp= thd->CoroFunctors().first;\
+        auto long_resume_fp= thd->CoroLongResumeFunctor();\
+        if (yield_fp == nullptr || long_resume_fp == nullptr) { \
+          err_ = inline_mysql_rwlock_wrlock(RW);\
+        } else {\
+          int ret = inline_mysql_rwlock_trywrlock(RW);\
+          while (ret) { \
+            (*long_resume_fp)(); \
+            (*yield_fp)(); \
+            ret = inline_mysql_rwlock_trywrlock(RW);}\
+        } \
+      } \
+      err_; \
+    })
+#endif
+
+/**
+  @def mysql_rwlock_wrlock(RW)
+  Instrumented rwlock_wrlock.
+  @c mysql_rwlock_wrlock is a drop-in replacement
+  for @c pthread_rwlock_wrlock.
+*/
+#ifdef HAVE_PSI_RWLOCK_INTERFACE
+  #define mysql_c_rwlock_wrlock(RW) \
+    inline_mysql_rwlock_wrlock(RW, __FILE__, __LINE__)
+#else
+  #define mysql_c_rwlock_wrlock(RW) \
     inline_mysql_rwlock_wrlock(RW)
 #endif
 
@@ -575,12 +681,14 @@ typedef struct st_mysql_cond mysql_cond_t;
   Instrumented cond_wait.
   @c mysql_cond_wait is a drop-in replacement for @c pthread_cond_wait.
 */
+#ifndef mysql_cond_wait
 #if defined(SAFE_MUTEX) || defined(HAVE_PSI_COND_INTERFACE)
   #define mysql_cond_wait(C, M) \
     inline_mysql_cond_wait(C, M, __FILE__, __LINE__)
 #else
   #define mysql_cond_wait(C, M) \
     inline_mysql_cond_wait(C, M)
+#endif
 #endif
 
 /**
@@ -589,12 +697,14 @@ typedef struct st_mysql_cond mysql_cond_t;
   @c mysql_cond_timedwait is a drop-in replacement
   for @c pthread_cond_timedwait.
 */
+#ifndef mysql_cond_timedwait
 #if defined(SAFE_MUTEX) || defined(HAVE_PSI_COND_INTERFACE)
   #define mysql_cond_timedwait(C, M, W) \
     inline_mysql_cond_timedwait(C, M, W, __FILE__, __LINE__)
 #else
   #define mysql_cond_timedwait(C, M, W) \
     inline_mysql_cond_timedwait(C, M, W)
+#endif
 #endif
 
 /**
@@ -698,6 +808,10 @@ static inline int inline_mysql_mutex_init(
   that->m_psi= PSI_MUTEX_CALL(init_mutex)(key, &that->m_mutex);
 #else
   that->m_psi= NULL;
+#endif
+#ifdef COROUTINE_ENABLED
+  that->l.data= that;
+  that->l.prev= that->l.next= NULL;
 #endif
 #ifdef SAFE_MUTEX
   return safe_mutex_init(&that->m_mutex, attr, src_name, src_file, src_line);

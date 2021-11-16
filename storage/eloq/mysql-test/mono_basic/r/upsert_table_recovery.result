@@ -1,0 +1,15 @@
+DROP DATABASE IF EXISTS db1;
+set @@default_storage_engine= eloq;
+affected rows: 0
+SET SESSION debug_dbug="+d,eloq;upsert_table_post_all_lock;node_id=-1";
+affected rows: 0
+CREATE TABLE t1(i INT);
+affected rows: 0
+affected rows: 0
+# restart
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+0
+affected rows: 1
+DROP TABLE t1;
+affected rows: 0

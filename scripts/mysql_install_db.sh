@@ -573,11 +573,29 @@ cat_sql()
   fi
 }
 
+# check bootstrap data directory
+
+if [ -z "$(ls -A $ldata)" ]; then
+   echo "$ldata dir is empty."
+else
+   echo "$ldata dir is not empty, please clear it first."
+fi
+
+# Eloq host databases.
+# Local system tables need directory. Create directories for system databases.
+mkdir -p $ldata/sys $ldata/test $ldata/mysql
+
+
 # Create the system and help tables by passing them to "mysqld --bootstrap"
 s_echo "Installing MariaDB/MySQL system tables in '$ldata' ..."
 if cat_sql | eval "$filter_cmd_line" | mysqld_install_cmd_line > /dev/null
 then
-    printf "@VERSION@-MariaDB" > "$ldata/mysql_upgrade_info"
+  printf "@VERSION@-MariaDB" > "$ldata/mysql_upgrade_info"
+  # Eloq host databases.
+  #
+  # Local system tables need directory. Create directories for system databases.
+  mkdir -p $ldata/performance_schema
+
   s_echo "OK"
 else
   log_file_place=$ldata

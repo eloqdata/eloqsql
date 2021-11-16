@@ -1,0 +1,32 @@
+!include include/default_my.cnf
+!include include/eloq_kv_keyspace.cnf
+
+[mysqld]
+plugin-maturity=experimental
+plugin_load_add=ha_eloq
+eloq
+skip-log-bin
+eloq_core_num=1
+eloq_cass_user=cassandra
+eloq_cass_password=cassandra
+default-storage-engine=eloq
+default-tmp-storage-engine=eloq
+collation-server=latin1_bin
+eloq_checkpointer_interval_sec=86400
+eloq_ddl_skip_kv=on
+eloq_rocksdb_cloud_bucket_name = eloqdb-mysql-test
+eloq_rocksdb_cloud_bucket_prefix = rocksdb-cloud-
+eloq_rocksdb_cloud_region = ap-northeast-1
+eloq_hm_bin_path = @ENV.MYSQLTEST_VARDIR/../../storage/eloq/host_manager
+
+[mysqld.1]
+extra-port=        @ENV.MASTER_EXTRA_PORT
+extra-max-connections=2
+thread_handling=pool-of-threads
+eloq_local_ip=127.0.0.1:8000
+eloq_ip_list=127.0.0.1:8000
+
+[ENV]
+MASTER_EXTRA_PORT= @OPT.port
+MONO1_PORT=              @mysqld.1.port
+MONO1_SOCK=              @mysqld.1.socket

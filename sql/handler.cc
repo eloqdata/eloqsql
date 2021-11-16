@@ -65,6 +65,11 @@
 #include "wsrep_var.h"            /* wsrep_hton_check() */
 #endif /* WITH_WSREP */
 
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+#include "eloq_db_dl.h"
+#endif
+#include "mysql_metrics.h"
+
 /**
   @def MYSQL_TABLE_LOCK_WAIT
   Instrumentation helper for table io_waits.
@@ -934,10 +939,27 @@ static my_bool kill_handlerton(THD *thd, plugin_ref plugin,
   return FALSE;
 }
 
+static my_bool dbug_set(THD *thd, plugin_ref plugin,
+                               void *val)
+{
+  handlerton *hton= plugin_hton(plugin);
+
+  if (hton->dbug_set)
+    hton->dbug_set(hton, thd, *(LEX_CSTRING **)val);
+  return FALSE;
+}
+
 void ha_kill_query(THD* thd, enum thd_kill_levels level)
 {
   DBUG_ENTER("ha_kill_query");
   plugin_foreach(thd, kill_handlerton, MYSQL_STORAGE_ENGINE_PLUGIN, &level);
+  DBUG_VOID_RETURN;
+}
+
+void ha_dbug_set(THD *thd, LEX_CSTRING *val)
+{
+  DBUG_ENTER("ha_dbug_set");
+  plugin_foreach(thd, dbug_set, MYSQL_STORAGE_ENGINE_PLUGIN, &val);
   DBUG_VOID_RETURN;
 }
 
@@ -1400,6 +1422,7 @@ void trans_register_ha(THD *thd, bool all, handlerton *ht_arg, ulonglong trxid)
   if (thd->transaction->implicit_xid.is_null())
     thd->transaction->implicit_xid.set(thd->query_id);
 
+  TRACK_TX_METRICS(thd)
 /*
   Register transaction start in performance schema if not done already.
   By doing this, we handle cases when the transaction is started implicitly in
@@ -1692,6 +1715,7 @@ int ha_commit_trans(THD *thd, bool all)
       thd->transaction->cleanup();
       MYSQL_COMMIT_TRANSACTION(thd->m_transaction_psi);
       thd->m_transaction_psi= NULL;
+      thd->transaction->tx_registered_= false;
     }
 #ifdef WITH_WSREP
     if (wsrep_is_active(thd) && is_real_trans && !error)
@@ -1908,6 +1932,7 @@ int ha_commit_trans(THD *thd, bool all)
 done:
   if (is_real_trans)
   {
+    COLLECT_TX_METRICS(thd)
     MYSQL_COMMIT_TRANSACTION(thd->m_transaction_psi);
     thd->m_transaction_psi= NULL;
   }
@@ -1957,6 +1982,7 @@ err:
     thd->m_transaction_psi= NULL;
     WSREP_DEBUG("rollback skipped %p %d",thd->rgi_slave,
                 thd->rgi_slave->is_parallel_exec);
+    thd->transaction->tx_registered_= false;
   }
 end:
   if (mdl_backup.ticket)
@@ -2212,6 +2238,7 @@ int ha_rollback_trans(THD *thd, bool all)
   {
     MYSQL_ROLLBACK_TRANSACTION(thd->m_transaction_psi);
     thd->m_transaction_psi= NULL;
+    thd->transaction->tx_registered_=false;
   }
 
   /* Always cleanup. Even if nht==0. There may be savepoints. */
@@ -3873,9 +3900,17 @@ int handler::update_auto_increment()
   */
   DBUG_ASSERT(next_insert_id >= auto_inc_interval_for_cur_row.minimum());
 
-  if ((nr= table->next_number_field->val_int()) != 0 ||
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+  bool not_mono= cmp(&ELOQ_ENGINE_NAME,
+                     plugin_name(table_share->db_plugin));
+  if (((nr= table->next_number_field->val_int()) != 0 && not_mono) ||
       (table->auto_increment_field_not_null &&
        thd->variables.sql_mode & MODE_NO_AUTO_VALUE_ON_ZERO))
+#else
+  if ((nr= table->next_number_field->val_int()) != 0 ||
+        (table->auto_increment_field_not_null &&
+        thd->variables.sql_mode & MODE_NO_AUTO_VALUE_ON_ZERO))
+#endif
   {
 
     /*
@@ -6127,11 +6162,23 @@ int ha_discover_table(THD *thd, TABLE_SHARE *share)
   else
     found= plugin_foreach(thd, discover_handlerton,
                         MYSQL_STORAGE_ENGINE_PLUGIN, share);
+  
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+  /*
+    ha_discover_table() is called by open_table_def() only.
 
+    Normally open_table_error will call my_error() to response user an error
+    message. But eloq storage table frm and view frm seperately.
+    If ha_discover_table() return not found, we should fetch view continue,
+    instead of giving user an error.
+  */
+  (void)found;
+#else
   if (thd->lex->query_tables && thd->lex->query_tables->sequence && !found)
     my_error(ER_UNKNOWN_SEQUENCES, MYF(0),share->table_name.str);
   if (!found)
     open_table_error(share, OPEN_FRM_OPEN_ERROR, ENOENT); // not found
+#endif
 
   DBUG_RETURN(share->error != OPEN_FRM_OK);
 }
@@ -6224,6 +6271,61 @@ bool ha_table_exists(THD *thd, const LEX_CSTRING *db,
     if (!hton)
       hton= &dummy;
     *hton= element->share->db_type();
+
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+  // The table referenced by tdc cache may have been dropped.
+  // Call 'open_table_def' to confirm that.
+  if (element->share->is_view ||
+      lex_string_eq(plugin_name(element->share->db_plugin),
+                    &ELOQ_ENGINE_NAME))
+  {
+    tdc_unlock_share(element);
+
+    TABLE_LIST table;
+    bool exists;
+    uint flags = GTS_TABLE | GTS_VIEW;
+
+    if (!hton)
+      flags|= GTS_NOLOCK;
+
+    Table_exists_error_handler no_such_table_handler;
+    thd->push_internal_handler(&no_such_table_handler);
+
+    table.init_one_table(db, table_name, 0, TL_READ);
+    
+    // Borrowed from tdc_acquire_share
+    const char *key;
+    uint key_length= get_table_def_key(&table, &key);
+    TABLE_SHARE *share= alloc_table_share(db->str, table_name->str,
+                                          key, key_length);
+    open_table_def(thd, share, flags | GTS_USE_DISCOVERY);
+    thd->pop_internal_handler();
+
+    if (hton && share->error == OPEN_FRM_OK)
+    {
+      if (share->is_view)
+      {
+        *hton= view_pseudo_hton;
+      }
+      else
+      {
+        *hton= share->db_type();
+        if (table_id && share->tabledef_version.length &&
+            (table_id->str=
+            (uchar*) thd->memdup(share->tabledef_version.str, MY_UUID_SIZE)))
+          table_id->length= MY_UUID_SIZE;
+      }
+    }
+
+    free_table_share(share);
+
+    // the table doesn't exist if we've caught ER_NO_SUCH_TABLE and nothing else
+    exists= !no_such_table_handler.safely_trapped_errors();
+    DBUG_PRINT("exit", (exists ? "Exists" : "Does not exist"));
+    DBUG_RETURN(exists);
+  }
+#endif
+
 #ifdef WITH_PARTITION_STORAGE_ENGINE
     if (partition_engine_name && element->share->db_type() == partition_hton)
     {
@@ -6525,6 +6627,20 @@ int ha_discover_table_names(THD *thd, LEX_CSTRING *db, MY_DIR *dirp,
   int error;
   DBUG_ENTER("ha_discover_table_names");
 
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+  if (dirp == NULL)
+  {
+    // For user defined database, dirp is NULL.
+    // For system database, such as mysql, sys, test, performance_schema,
+    // directory is required to hold local system table, and dirp is not NULL.
+    st_discover_names_args args= {db, NULL, result, 0};
+    error= plugin_foreach(thd, discover_names, MYSQL_STORAGE_ENGINE_PLUGIN,
+                          &args);
+    if (args.possible_duplicates > 0)
+      result->remove_duplicates();
+  }
+  else
+#endif
   if (engines_with_discover_file_names == 0 && !reusable)
   {
     st_discover_names_args args= {db, NULL, result, 0};

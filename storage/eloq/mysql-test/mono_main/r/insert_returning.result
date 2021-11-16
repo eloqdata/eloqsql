@@ -1,0 +1,532 @@
+# Test for INSERT...RETURNING
+CREATE TABLE t1(id1 INT PRIMARY KEY AUTO_INCREMENT, val1 VARCHAR(1));
+CREATE TABLE t2(id2 INT PRIMARY KEY AUTO_INCREMENT, val2 VARCHAR(1));
+CREATE VIEW v1 AS SELECT id1, val1 FROM t1;
+CREATE VIEW v2 AS SELECT id2,val2 FROM t2;
+INSERT INTO t2 VALUES (1,'a'),(2,'b'),(3,'c');
+CREATE FUNCTION f(arg INT) RETURNS TEXT
+BEGIN
+RETURN (SELECT arg+arg);
+END|
+#
+# Simple insert statement...RETURNING
+#
+INSERT INTO t1 (id1, val1) VALUES (1, 'a');
+INSERT INTO t1 (id1, val1) VALUES (2, 'b') RETURNING *;
+id1	val1
+2	b
+INSERT INTO t1 (id1, val1) VALUES (3, 'c') RETURNING id1+id1 as total,val1,
+id1 && id1, id1 | id1, UPPER(val1),f(id1);
+total	val1	id1 && id1	id1 | id1	UPPER(val1)	f(id1)
+6	c	1	3	C	6
+INSERT INTO t1(id1,val1) VALUES (4,'d') RETURNING(SELECT GROUP_CONCAT(val2)
+FROM t2 WHERE id2=1);
+(SELECT GROUP_CONCAT(val2)
+FROM t2 WHERE id2=1)
+a
+INSERT INTO t1(id1,val1) VALUES(5,'e') RETURNING(SELECT GROUP_CONCAT(val2)
+FROM t2 GROUP BY id2 HAVING id2=id1-2);
+(SELECT GROUP_CONCAT(val2)
+FROM t2 GROUP BY id2 HAVING id2=id1-2)
+c
+PREPARE stmt FROM "INSERT INTO t1 (id1,val1) VALUES (6,'f') RETURNING (SELECT id2 FROM  t2 WHERE val2='b')";
+EXECUTE stmt;
+(SELECT id2 FROM  t2 WHERE val2='b')
+2
+DELETE FROM t1 WHERE id1=6;
+SELECT * FROM t1 order by id1;
+id1	val1
+1	a
+2	b
+3	c
+4	d
+5	e
+EXECUTE stmt;
+(SELECT id2 FROM  t2 WHERE val2='b')
+2
+DEALLOCATE PREPARE stmt;
+INSERT IGNORE INTO t1(id1,val1) VALUES (7,'h') RETURNING *;
+id1	val1
+8	h
+SELECT * FROM t1 order by id1;
+id1	val1
+1	a
+2	b
+3	c
+4	d
+5	e
+7	f
+8	h
+EXPLAIN INSERT INTO t1(id1,val1) VALUES (8,'i') RETURNING *;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	INSERT	t1	ALL	NULL	NULL	NULL	NULL	NULL	NULL
+EXPLAIN EXTENDED INSERT INTO t1(id1,val1) VALUES(9,'j') RETURNING id1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	INSERT	t1	ALL	NULL	NULL	NULL	NULL	NULL	100.00	NULL
+EXPLAIN FORMAT="json" INSERT INTO t1(id1,val1) VALUES (10,'k') RETURNING id1;
+EXPLAIN
+{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+    }
+  }
+}
+SELECT * FROM t1 order by id1;
+id1	val1
+1	a
+2	b
+3	c
+4	d
+5	e
+7	f
+8	h
+INSERT INTO v1(id1, val1) VALUES (12, 'a') RETURNING id1+id1 as total,val1,
+id1 && id1, id1  id1, UPPER(val1),f(id1);
+total	val1	id1 && id1	id1	UPPER(val1)	f(id1)
+18	a	1	9	A	18
+ANALYZE INSERT INTO t1(id1,val1) VALUES(13,'l') RETURNING *;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	r_rows	filtered	r_filtered	Extra
+1	INSERT	t1	ALL	NULL	NULL	NULL	NULL	NULL	NULL	100.00	100.00	NULL
+INSERT INTO t1(id1,val1) VALUES(14,'m') RETURNING t1.*;
+id1	val1
+11	m
+DROP TABLE t1;
+CREATE TABLE t1(id1 INT PRIMARY KEY AUTO_INCREMENT, val1 VARCHAR(1));
+#
+# Multiple values in one insert statement...RETURNING
+#
+INSERT INTO t1 VALUES (1,'a'),(2,'b');
+INSERT INTO t1 VALUES (3,'c'),(4,'d') RETURNING *;
+id1	val1
+3	c
+4	d
+INSERT INTO t1 VALUES (5,'e'),(6,'f') RETURNING id1 as id,val1,
+id1 && id1, id1|id1, UPPER(val1),f(id1);
+id	val1	id1 && id1	id1|id1	UPPER(val1)	f(id1)
+5	e	1	5	E	10
+6	f	1	6	F	12
+INSERT INTO t1 VALUES (7,'g'),(8,'h') RETURNING(SELECT GROUP_CONCAT(val2)
+FROM t2 WHERE id2=1);
+(SELECT GROUP_CONCAT(val2)
+FROM t2 WHERE id2=1)
+a
+a
+INSERT INTO t1 VALUES (9,'i'),(10,'j') RETURNING(SELECT GROUP_CONCAT(val2)
+FROM t2 GROUP BY id2 HAVING id2=id1-8);
+(SELECT GROUP_CONCAT(val2)
+FROM t2 GROUP BY id2 HAVING id2=id1-8)
+a
+b
+PREPARE stmt FROM "INSERT INTO t1 VALUES (11,'k'),(12,'l') RETURNING (SELECT id2 FROM t2 WHERE val2='b')";
+EXECUTE stmt;
+(SELECT id2 FROM t2 WHERE val2='b')
+2
+2
+DELETE FROM t1 WHERE val1 IN ('k','l');
+SELECT * FROM t1 order by id1;
+id1	val1
+1	a
+2	b
+3	c
+4	d
+5	e
+6	f
+7	g
+8	h
+9	i
+10	j
+EXECUTE stmt;
+(SELECT id2 FROM t2 WHERE val2='b')
+2
+2
+DEALLOCATE PREPARE stmt;
+INSERT IGNORE INTO t1 VALUES(13,'o'),(14,'p') RETURNING *;
+id1	val1
+15	o
+16	p
+EXPLAIN INSERT INTO t1 VALUES(15,'q'),(16,'r') RETURNING *;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	INSERT	t1	ALL	NULL	NULL	NULL	NULL	NULL	NULL
+EXPLAIN EXTENDED INSERT INTO t1 VALUES (17,'s'),(18,'t') RETURNING *;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	INSERT	t1	ALL	NULL	NULL	NULL	NULL	NULL	100.00	NULL
+EXPLAIN FORMAT="json" INSERT INTO t1 VALUES(19,'u'),(20,'v') RETURNING id1;
+EXPLAIN
+{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+    }
+  }
+}
+SELECT * FROM t1 order by id1;
+id1	val1
+1	a
+2	b
+3	c
+4	d
+5	e
+6	f
+7	g
+8	h
+9	i
+10	j
+13	k
+14	l
+15	o
+16	p
+INSERT INTO v1 VALUES(23,'y'),(24,'z') RETURNING id1 as id,val1,
+id1 && id1, id1|id1, UPPER(val1),f(id1);
+id	val1	id1 && id1	id1|id1	UPPER(val1)	f(id1)
+17	y	1	17	Y	34
+18	z	1	18	Z	36
+ANALYZE INSERT INTO t1 VALUES(25,'a'),(26,'b') RETURNING *;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	r_rows	filtered	r_filtered	Extra
+1	INSERT	t1	ALL	NULL	NULL	NULL	NULL	NULL	NULL	100.00	100.00	NULL
+ANALYZE INSERT INTO t1 VALUES(27,'c'),(28,'d') RETURNING t1.*;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	r_rows	filtered	r_filtered	Extra
+1	INSERT	t1	ALL	NULL	NULL	NULL	NULL	NULL	NULL	100.00	100.00	NULL
+#
+# INSERT...SET...RETURNING
+#
+DROP TABLE t1;
+CREATE TABLE t1(id1 INT PRIMARY KEY AUTO_INCREMENT, val1 VARCHAR(1));
+INSERT INTO t1 SET id1= 1, val1= 'a';
+INSERT INTO t1 SET id1= 2, val1= 'b' RETURNING *;
+id1	val1
+2	b
+INSERT INTO t1 SET id1= 3, val1= 'c' RETURNING id1+id1 AS total,val1,
+id1 && id1, id1|id1, UPPER(val1),f(id1);
+total	val1	id1 && id1	id1|id1	UPPER(val1)	f(id1)
+6	c	1	3	C	6
+INSERT INTO t1 SET id1= 4, val1= 'd' RETURNING (SELECT GROUP_CONCAT(val2)
+FROM t2 WHERE id2=1);
+(SELECT GROUP_CONCAT(val2)
+FROM t2 WHERE id2=1)
+a
+INSERT INTO t1 SET id1= 5, val1='e' RETURNING (SELECT GROUP_CONCAT(val2)
+FROM t2 GROUP BY id2 HAVING id2=id1-3);
+(SELECT GROUP_CONCAT(val2)
+FROM t2 GROUP BY id2 HAVING id2=id1-3)
+b
+PREPARE stmt FROM "INSERT INTO t1 SET id1= 6, val1='f' RETURNING (SELECT id2 FROM  t2 WHERE val2='b')";
+EXECUTE stmt;
+(SELECT id2 FROM  t2 WHERE val2='b')
+2
+DELETE FROM t1 WHERE val1='f';
+SELECT * FROM t1 order by id1;
+id1	val1
+1	a
+2	b
+3	c
+4	d
+5	e
+EXECUTE stmt;
+(SELECT id2 FROM  t2 WHERE val2='b')
+2
+DEALLOCATE PREPARE stmt;
+INSERT INTO t1 SET id1= 7, val1= 'g' RETURNING f(id1);
+f(id1)
+16
+INSERT INTO t1 SET val1= 'n' RETURNING *;
+id1	val1
+9	n
+INSERT IGNORE INTO t1 SET id1= 8, val1= 'h' RETURNING *;
+id1	val1
+10	h
+EXPLAIN INSERT INTO t1 SET id1=9, val1='i' RETURNING id1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	INSERT	t1	ALL	NULL	NULL	NULL	NULL	NULL	NULL
+EXPLAIN EXTENDED INSERT INTO t1 SET id1=10, val1='j' RETURNING val1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	INSERT	t1	ALL	NULL	NULL	NULL	NULL	NULL	100.00	NULL
+EXPLAIN FORMAT="json" INSERT INTO t1 SET id1=11, val1='k' RETURNING val1;
+EXPLAIN
+{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+    }
+  }
+}
+INSERT INTO v1 SET id1=26, val1='Z' RETURNING id1+id1 AS total,val1,
+id1 && id1, id1|id1, UPPER(val1),f(id1);
+total	val1	id1 && id1	id1|id1	UPPER(val1)	f(id1)
+22	Z	1	11	Z	22
+ANALYZE INSERT INTO t1 SET id1=12, val1='l' RETURNING *;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	r_rows	filtered	r_filtered	Extra
+1	INSERT	t1	ALL	NULL	NULL	NULL	NULL	NULL	NULL	100.00	100.00	NULL
+INSERT INTO t1 SET id1= 13, val1= 'm' RETURNING t1.*;
+id1	val1
+13	m
+SELECT * FROM t1 order by id1;
+id1	val1
+1	a
+2	b
+3	c
+4	d
+5	e
+7	f
+8	g
+9	n
+10	h
+11	Z
+12	l
+13	m
+#
+# INSERT...SELECT...RETURNING
+#
+DROP TABLE t2;
+CREATE TABLE t2(id2 INT PRIMARY KEY AUTO_INCREMENT, val2 VARCHAR(1));
+INSERT INTO t2(id2,val2) SELECT * FROM t1;
+DROP TABLE t2;
+CREATE TABLE t2(id2 INT PRIMARY KEY AUTO_INCREMENT, val2 VARCHAR(1));
+INSERT INTO t2 SELECT * FROM t1 WHERE id1=1 RETURNING *;
+id2	val2
+1	a
+INSERT INTO t2 SELECT * FROM t1 WHERE id1=2 RETURNING id2+id2 AS total,
+val2,id2 && id2, id2|id2, UPPER(val2),f(id2);
+total	val2	id2 && id2	id2|id2	UPPER(val2)	f(id2)
+4	b	1	2	B	4
+INSERT INTO t2 SELECT * FROM t1 WHERE id1=3 RETURNING (SELECT GROUP_CONCAT(val1) FROM t1 GROUP BY id1 HAVING id1=id1+1);
+(SELECT GROUP_CONCAT(val1) FROM t1 GROUP BY id1 HAVING id1=id1+1)
+NULL
+PREPARE stmt FROM "INSERT INTO t2 SELECT * FROM t1 WHERE id1=4 RETURNING (SELECT id1 FROM t1 WHERE val1='b')";
+EXECUTE stmt;
+(SELECT id1 FROM t1 WHERE val1='b')
+2
+DELETE FROM t2 WHERE id2=4;
+SELECT * FROM t1 order by id1;
+id1	val1
+1	a
+2	b
+3	c
+4	d
+5	e
+7	f
+8	g
+9	n
+10	h
+11	Z
+12	l
+13	m
+EXECUTE stmt;
+(SELECT id1 FROM t1 WHERE val1='b')
+2
+DEALLOCATE PREPARE stmt;
+INSERT INTO t2 SELECT * FROM t1 WHERE id1=6 RETURNING
+(SELECT id1+id2 FROM t1 WHERE id1=1);
+(SELECT id1+id2 FROM t1 WHERE id1=1)
+INSERT INTO t2 SELECT * FROM t1 WHERE id1=7 RETURNING f(id2);
+f(id2)
+12
+EXPLAIN INSERT INTO t2 SELECT * FROM t1 WHERE id1=8 RETURNING id2;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	PRIMARY	t1	const	PRIMARY	PRIMARY	4	const	1	
+EXPLAIN EXTENDED INSERT INTO t1 SELECT * FROM t1 WHERE id1=9 RETURNING val1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	t1	const	PRIMARY	PRIMARY	4	const	1	100.00	
+EXPLAIN FORMAT="json" INSERT INTO t1 SELECT * FROM t1 WHERE id1=10 RETURNING val1;
+EXPLAIN
+{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1",
+      "access_type": "const",
+      "possible_keys": ["PRIMARY"],
+      "key": "PRIMARY",
+      "key_length": "4",
+      "used_key_parts": ["id1"],
+      "ref": ["const"],
+      "rows": 1,
+      "filtered": 100
+    }
+  }
+}
+INSERT IGNORE INTO t2 SELECT * FROM t1 WHERE id1=8 RETURNING *;
+id2	val2
+7	g
+INSERT IGNORE INTO v2 SELECT * FROM v1 RETURNING *;
+id2	val2
+8	a
+9	b
+10	c
+11	d
+12	e
+13	f
+14	g
+15	n
+16	h
+17	Z
+18	l
+19	m
+ANALYZE INSERT INTO t2 SELECT * FROM t1 WHERE id1=11 RETURNING *;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	r_rows	filtered	r_filtered	Extra
+1	PRIMARY	t1	const	PRIMARY	PRIMARY	4	const	1	NULL	100.00	NULL	
+SELECT * FROM t2 order by id2;
+id2	val2
+1	a
+2	b
+3	c
+5	d
+6	f
+7	g
+8	a
+9	b
+10	c
+11	d
+12	e
+13	f
+14	g
+15	n
+16	h
+17	Z
+18	l
+19	m
+23	Z
+DROP TABLE t2;
+CREATE TABLE t2(id2 INT PRIMARY KEY AUTO_INCREMENT, val2 VARCHAR(1));
+INSERT INTO t2 SELECT * FROM t1 WHERE id1=1 RETURNING t2.*;
+id2	val2
+1	a
+INSERT INTO t2 SELECT t1.* FROM t1 WHERE id1=2 RETURNING t2.*;
+id2	val2
+2	b
+SELECT * FROM t2 order by id2;
+id2	val2
+1	a
+2	b
+DROP TABLE t1;
+DROP TABLE t2;
+#
+# Error message test
+#
+CREATE TABLE t1(id1 INT,val1 VARCHAR(1));
+CREATE TABLE t2(id2 INT,val2 VARCHAR(1));
+CREATE TABLE ins_duplicate (id INT PRIMARY KEY, val VARCHAR(1));
+INSERT INTO t1 VALUES(1,'a'),(2,'b'),(3,'c');
+#
+# SIMLPE INSERT STATEMENT
+#
+INSERT INTO t2(id2,val2) VALUES(1,'a') RETURNING id1;
+ERROR 42S22: Unknown column 'id1' in 'field list'
+INSERT INTO t2(id2,val2) values(2,'b') RETURNING SUM(id2);
+ERROR HY000: Invalid use of group function
+INSERT INTO t2(id2,val2) VALUES(3,'c') RETURNING (SELECT id1 FROM t1);
+ERROR 21000: Subquery returns more than 1 row
+INSERT INTO t2(id2,val2) VALUES(4,'d') RETURNING (SELECT * FROM t1);
+ERROR 21000: Operand should contain 1 column(s)
+INSERT INTO t2(id2,val2) VALUES(4,'d') RETURNING (SELECT * FROM t2);
+ERROR 21000: Operand should contain 1 column(s)
+INSERT INTO t2(id2,val2) VALUES(5,'e') RETURNING id2, (SELECT id1+id2 FROM
+t1 WHERE id1=1);
+id2	(SELECT id1+id2 FROM
+t1 WHERE id1=1)
+5	6
+INSERT INTO t2(id2,val2) VALUES(5,'f') RETURNING (SELECT id2 FROM t2);
+ERROR HY000: Table 't2' is specified twice, both as a target for 'INSERT' and as a separate source for data
+INSERT INTO t2 (id2, val2) VALUES (6,'f') RETURNING t1.*;
+ERROR 42S02: Unknown table 'test.t1'
+#
+# Multiple rows in single insert statement
+#
+INSERT INTO t2 VALUES(1,'a'),(2,'b') RETURNING id1;
+ERROR 42S22: Unknown column 'id1' in 'field list'
+INSERT INTO t2 VALUES(3,'c'),(4,'d') RETURNING MAX(id2);
+ERROR HY000: Invalid use of group function
+INSERT INTO t2 VALUES(5,'c'),(6,'f') RETURNING (SELECT id1 FROM t1);
+ERROR 21000: Subquery returns more than 1 row
+INSERT INTO t2 VALUES(7,'g'),(8,'h') RETURNING (SELECT * FROM t1);
+ERROR 21000: Operand should contain 1 column(s)
+INSERT INTO t2 VALUES(9,'g'),(10,'h') RETURNING (SELECT * FROM t2);
+ERROR 21000: Operand should contain 1 column(s)
+INSERT INTO t2 VALUES(11,'e'),(12,'f') RETURNING id2, (SELECT id1+id2 FROM
+t1 WHERE id1=1);
+id2	(SELECT id1+id2 FROM
+t1 WHERE id1=1)
+11	12
+12	13
+INSERT INTO t2 VALUES(13,'f'),(14,'g') RETURNING (SELECT id2 FROM t2);
+ERROR HY000: Table 't2' is specified twice, both as a target for 'INSERT' and as a separate source for data
+INSERT INTO t2 VALUES(13,'f'),(14,'g') RETURNING t1.*;
+ERROR 42S02: Unknown table 'test.t1'
+#
+# INSERT ... SET
+#
+INSERT INTO t2 SET id2=1, val2='a' RETURNING id1;
+ERROR 42S22: Unknown column 'id1' in 'field list'
+INSERT INTO t2 SET id2=2, val2='b' RETURNING COUNT(id2);
+ERROR HY000: Invalid use of group function
+INSERT INTO t2 SET id2=3, val2='c' RETURNING (SELECT id1 FROM t1);
+ERROR 21000: Subquery returns more than 1 row
+INSERT INTO t2 SET id2=4, val2='d' RETURNING (SELECT * FROM t1);
+ERROR 21000: Operand should contain 1 column(s)
+INSERT INTO t2 SET id2=4, val2='d' RETURNING (SELECT * FROM t2);
+ERROR 21000: Operand should contain 1 column(s)
+INSERT INTO t2 SET id2=5, val2='e' RETURNING id2, (SELECT id1+id2 FROM t1
+WHERE id1=1);
+id2	(SELECT id1+id2 FROM t1
+WHERE id1=1)
+5	6
+INSERT INTO t2 SET id2=5, val2='f' RETURNING (SELECT id2 FROM t2);
+ERROR HY000: Table 't2' is specified twice, both as a target for 'INSERT' and as a separate source for data
+INSERT INTO t2 SET id2=5, val2='f' RETURNING t1.*;
+ERROR 42S02: Unknown table 'test.t1'
+#
+# INSERT...SELECT
+#
+INSERT INTO t2(id2, val2) SELECT * FROM t1 WHERE id1=1 RETURNING id1;
+ERROR 42S22: Unknown column 'id1' in 'field list'
+INSERT INTO t2(id2, val2) SELECT * FROM t1 WHERE id1=2 RETURNING MAX(id2);
+ERROR HY000: Invalid use of group function
+INSERT INTO t2(id2, val2) SELECT * FROM t1 WHERE id1=2 RETURNING (SELECT
+id1 FROM t1);
+ERROR 21000: Subquery returns more than 1 row
+INSERT INTO t2(id2, val2) SELECT * FROM t1 WHERE id1=2 RETURNING (SELECT
+* FROM t1);
+ERROR 21000: Operand should contain 1 column(s)
+INSERT INTO t2(id2, val2) SELECT * FROM t1 WHERE id1=2 RETURNING(SELECT
+* FROM t2);
+ERROR 21000: Operand should contain 1 column(s)
+INSERT INTO t2(id2,val2) SELECT * FROM t1 WHERE id1=2 RETURNING (SELECT
+id2 FROM t2);
+ERROR 21000: Subquery returns more than 1 row
+INSERT INTO t2(id2,val2) SELECT t1.* FROM t1 WHERE id1=2 RETURNING t1.*;
+ERROR 42S02: Unknown table 'test.t1'
+#
+# TRIGGER
+#
+CREATE TRIGGER bi1 before insert on t1 for each row set NEW.val1= 'z';
+INSERT INTO t1 VALUES (4, 'd'), (5, 'e') RETURNING *;
+id1	val1
+4	z
+5	z
+CREATE TRIGGER bi2 before insert on t2 for each row
+INSERT INTO t1 VALUES (NEW.id2, NEW.val2) RETURNING *;
+ERROR 0A000: Not allowed to return a result set from a trigger
+#
+# SP
+#
+CREATE FUNCTION f1(arg INT) RETURNS TEXT
+BEGIN
+INSERT INTO t1 VALUES (arg, arg) RETURNING *;
+RETURN arg;
+END|
+ERROR 0A000: Not allowed to return a result set from a function
+CREATE PROCEDURE sp1(arg INT)
+INSERT INTO t1 VALUES (arg, arg) RETURNING *;
+CALL sp1(0);
+id1	val1
+0	z
+DROP PROCEDURE sp1;
+DROP TABLE t1;
+DROP TABLE t2;
+DROP TABLE ins_duplicate;
+DROP VIEW v1;
+DROP VIEW v2;
+DROP FUNCTION f;

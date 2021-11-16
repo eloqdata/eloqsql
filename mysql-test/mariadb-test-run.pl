@@ -166,6 +166,7 @@ END {
 
 sub env_or_val($$) { defined $ENV{$_[0]} ? $ENV{$_[0]} : $_[1] }
 
+my $opt_bootstrap_defaults_file;
 my $path_config_file;           # The generated config file, var/my.cnf
 
 # Visual Studio produces executables in different sub-directories based on the
@@ -1104,6 +1105,7 @@ sub command_line_setup {
 	     # Max number of parallel threads to use
 	     'parallel=s'               => \$opt_parallel,
 
+        'bootstrap-defaults-file=s' => \$opt_bootstrap_defaults_file,
              # Config file to use as template for all tests
 	     'defaults-file=s'          => \&collect_option,
 	     # Extra config file to append to all generated configs
@@ -2712,7 +2714,11 @@ sub mysql_server_start($) {
         # Copy datadir from installed system db
         my $path= ($opt_parallel == 1) ? "$opt_vardir" : "$opt_vardir/..";
         my $install_db= "$path/install.db";
-        copytree($install_db, $datadir) if -d $install_db;
+        copytree("$install_db/mysql", "$datadir/mysql") if -d $install_db;
+        copytree("$install_db/sys", "$datadir/sys") if -d $install_db;
+        copytree("$install_db/test", "$datadir/test") if -d $install_db;
+        copytree("$install_db/performance_schema", "$datadir/performance_schema") if -d $install_db;
+        copytree("$install_db/mtr", "$datadir/mtr") if -d $install_db;
         mtr_error("Failed to copy system db to '$datadir'") unless -d $datadir;
       }
     }
@@ -2779,14 +2785,6 @@ sub mysql_server_start($) {
 sub mysql_server_wait {
   my ($mysqld, $tinfo) = @_;
   my $expect_file= "$opt_vardir/tmp/".$mysqld->name().".expect";
-
-  if (!sleep_until_file_created($mysqld->value('pid-file'), $expect_file,
-                                $opt_start_timeout, $mysqld->{'proc'},
-                                $warn_seconds))
-  {
-    $tinfo->{comment}= "Failed to start ".$mysqld->name() . "\n";
-    return 1;
-  }
 
   if (wsrep_on($mysqld))
   {
@@ -3018,13 +3016,14 @@ sub mysql_install_db {
 
   my $args;
   mtr_init_args(\$args);
-  mtr_add_arg($args, "--no-defaults");
+  # mtr_add_arg($args, "--no-defaults");
+  mtr_add_arg($args, "--defaults-file=%s", $opt_bootstrap_defaults_file);
   mtr_add_arg($args, "--disable-getopt-prefix-matching");
   mtr_add_arg($args, "--bootstrap");
   mtr_add_arg($args, "--basedir=%s", $install_basedir);
   mtr_add_arg($args, "--datadir=%s", $install_datadir);
   mtr_add_arg($args, "--plugin-dir=%s", $plugindir);
-  mtr_add_arg($args, "--default-storage-engine=myisam");
+  mtr_add_arg($args, "--default-storage-engine=eloq");
   mtr_add_arg($args, "--loose-skip-plugin-$_") for @optional_plugins;
   # starting from 10.0 bootstrap scripts require InnoDB
   mtr_add_arg($args, "--loose-innodb");
@@ -3096,6 +3095,7 @@ sub mysql_install_db {
     {
       my $sql_dir= dirname($path_sql);
       # Use the mysql database for system tables
+      mtr_tofile($bootstrap_sql_file, "create database if not exists mysql;\n");
       mtr_tofile($bootstrap_sql_file, "use mysql;\n");
 
       # Add the offical mysql system tables
@@ -3177,6 +3177,10 @@ sub mysql_install_db {
 
   # Create directories mysql
   mkpath("$install_datadir/mysql");
+  mkpath("$install_datadir/sys");
+  mkpath("$install_datadir/test");
+  mkpath("$install_datadir/performance_schema");
+  mkpath("$install_datadir/mtr");
 
   my $realtime= gettimeofday();
   if ( My::SafeProcess->run
@@ -5116,22 +5120,8 @@ sub mysqld_start ($$) {
   $mysqld->{'started_opts'}= $extra_opts;
 
   my $expect_file= "$opt_vardir/tmp/".$mysqld->name().".expect";
-  my $rc= $oldexe eq ($exe || '') ||
-         sleep_until_file_created($mysqld->value('pid-file'), $expect_file,
-           $opt_start_timeout, $mysqld->{'proc'}, $warn_seconds);
-  if (!$rc)
-  {
-    # Report failure about the last test case before exit
-    my $test_name= mtr_grab_file($path_current_testlog);
-    $test_name =~ s/^CURRENT_TEST:\s//;
-    my $tinfo = My::Test->new(name => $test_name);
-    $tinfo->{result}= 'MTR_RES_FAILED';
-    $tinfo->{failures}= 1;
-    $tinfo->{logfile}=get_log_from_proc($mysqld->{'proc'}, $tinfo->{name});
-    report_option('verbose', 1);
-    mtr_report_test($tinfo);
-  }
-  return $rc;
+  
+  return 1;
 }
 
 

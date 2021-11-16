@@ -26,6 +26,11 @@
 #include <m_string.h>
 #include "my_safehash.h"
 
+#undef mysql_rwlock_rdlock
+#define mysql_rwlock_rdlock(RW) mysql_c_rwlock_rdlock(RW)
+#undef mysql_rwlock_wrlock
+#define mysql_rwlock_wrlock(RW) mysql_c_rwlock_wrlock(RW)
+
 /*****************************************************************************
   General functions to handle SAFE_HASH objects.
 

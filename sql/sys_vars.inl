@@ -32,6 +32,7 @@
 #include "rpl_mi.h" // For Multi-Source Replication
 #include "debug_sync.h"
 #include "sql_acl.h"    // check_global_access()
+#include "handler.h"
 
 /*
   a set of mostly trivial (as in f(X)=X) defines below to make system variable
@@ -965,7 +966,16 @@ public:
     if (!var->value)
       DBUG_POP();
     else
+    {
       DBUG_SET(val);
+      // set session command can update status at storage plugin side.
+      // for example, engine eloq's transaction layer is decoupled from execution
+      // layer and fault inject command needs to be passed to transaction layer.
+      LEX_CSTRING dbug_val;
+      dbug_val.str = val;
+      dbug_val.length= var->save_result.string_value.length;
+      ha_dbug_set(thd, &dbug_val);
+    }
     return false;
   }
   bool global_update(THD *thd, set_var *var)

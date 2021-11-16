@@ -17,6 +17,7 @@
 */
 
 #include "mariadb.h"
+#include "my_dbug.h"
 #include "mysqld.h"
 #include "sql_class.h"                          // init_sql_alloc()
 #include "log.h"                                // sql_print_error()
@@ -1308,8 +1309,10 @@ static int ddl_log_execute_action(THD *thd, MEM_ROOT *mem_root,
               ddl_log_entry->from_name.str,
               ddl_log_entry->tmp_name.str));
 
+  // ELOQ engine will handle the atomic DDL by itself.
   if (ddl_log_entry->entry_type == DDL_LOG_IGNORE_ENTRY_CODE ||
-      ddl_log_entry->phase == DDL_LOG_FINAL_PHASE)
+      ddl_log_entry->phase == DDL_LOG_FINAL_PHASE ||
+      strcmp(ddl_log_entry->handler_name.str, "ELOQ") == 0)
     DBUG_RETURN(FALSE);
 
   handler_name=    ddl_log_entry->handler_name;
@@ -3045,8 +3048,11 @@ bool ddl_log_rename_table(THD *thd, DDL_LOG_STATE *ddl_state,
                           const LEX_CSTRING *new_db,
                           const LEX_CSTRING *new_alias)
 {
-  DDL_LOG_ENTRY ddl_log_entry;
   DBUG_ENTER("ddl_log_rename_file");
+#ifndef ENABLE_MARIA_DDL_LOG
+  DBUG_RETURN(0);
+#endif
+  DDL_LOG_ENTRY ddl_log_entry;
 
   bzero(&ddl_log_entry, sizeof(ddl_log_entry));
 
@@ -3073,8 +3079,11 @@ bool ddl_log_rename_view(THD *thd, DDL_LOG_STATE *ddl_state,
                          const LEX_CSTRING *new_db,
                          const LEX_CSTRING *new_alias)
 {
-  DDL_LOG_ENTRY ddl_log_entry;
   DBUG_ENTER("ddl_log_rename_file");
+#ifndef ENABLE_MARIA_DDL_LOG
+  DBUG_RETURN(0);
+#endif
+  DDL_LOG_ENTRY ddl_log_entry;
 
   bzero(&ddl_log_entry, sizeof(ddl_log_entry));
 
@@ -3087,7 +3096,6 @@ bool ddl_log_rename_view(THD *thd, DDL_LOG_STATE *ddl_state,
 
   DBUG_RETURN(ddl_log_write(ddl_state, &ddl_log_entry));
 }
-
 
 /**
    Logging of DROP TABLE and DROP VIEW
@@ -3103,8 +3111,11 @@ static bool ddl_log_drop_init(THD *thd, DDL_LOG_STATE *ddl_state,
                               const LEX_CSTRING *db,
                               const LEX_CSTRING *comment)
 {
-  DDL_LOG_ENTRY ddl_log_entry;
   DBUG_ENTER("ddl_log_drop_file");
+#ifndef ENABLE_MARIA_DDL_LOG
+  DBUG_RETURN(0);
+#endif
+  DDL_LOG_ENTRY ddl_log_entry;
 
   bzero(&ddl_log_entry, sizeof(ddl_log_entry));
 
@@ -3114,7 +3125,6 @@ static bool ddl_log_drop_init(THD *thd, DDL_LOG_STATE *ddl_state,
 
   DBUG_RETURN(ddl_log_write(ddl_state, &ddl_log_entry));
 }
-
 
 bool ddl_log_drop_table_init(THD *thd, DDL_LOG_STATE *ddl_state,
                              const LEX_CSTRING *db,
@@ -3149,9 +3159,12 @@ static bool ddl_log_drop(THD *thd, DDL_LOG_STATE *ddl_state,
                          const LEX_CSTRING *db,
                          const LEX_CSTRING *table)
 {
+  DBUG_ENTER("ddl_log_drop");
+#ifndef ENABLE_MARIA_DDL_LOG
+  DBUG_RETURN(0);
+#endif
   DDL_LOG_ENTRY ddl_log_entry;
   DDL_LOG_MEMORY_ENTRY *log_entry;
-  DBUG_ENTER("ddl_log_drop");
 
   DBUG_ASSERT(ddl_state->list);
   bzero(&ddl_log_entry, sizeof(ddl_log_entry));
@@ -3265,8 +3278,11 @@ bool ddl_log_drop_trigger(THD *thd, DDL_LOG_STATE *ddl_state,
 bool ddl_log_drop_db(THD *thd, DDL_LOG_STATE *ddl_state,
                      const LEX_CSTRING *db, const LEX_CSTRING *path)
 {
-  DDL_LOG_ENTRY ddl_log_entry;
   DBUG_ENTER("ddl_log_drop_db");
+#ifndef ENABLE_MARIA_DDL_LOG
+  DBUG_RETURN(0);
+#endif
+  DDL_LOG_ENTRY ddl_log_entry;
 
   bzero(&ddl_log_entry, sizeof(ddl_log_entry));
   ddl_log_entry.action_type=  DDL_LOG_DROP_DB_ACTION;
@@ -3290,8 +3306,11 @@ bool ddl_log_create_table(THD *thd, DDL_LOG_STATE *ddl_state,
                           const LEX_CSTRING *table,
                           bool only_frm)
 {
-  DDL_LOG_ENTRY ddl_log_entry;
   DBUG_ENTER("ddl_log_create_table");
+#ifndef ENABLE_MARIA_DDL_LOG
+  DBUG_RETURN(0);
+#endif
+  DDL_LOG_ENTRY ddl_log_entry;
 
   bzero(&ddl_log_entry, sizeof(ddl_log_entry));
   ddl_log_entry.action_type= DDL_LOG_CREATE_TABLE_ACTION;
@@ -3315,8 +3334,11 @@ bool ddl_log_create_view(THD *thd, DDL_LOG_STATE *ddl_state,
                          const LEX_CSTRING *path,
                          enum_ddl_log_create_view_phase phase)
 {
-  DDL_LOG_ENTRY ddl_log_entry;
   DBUG_ENTER("ddl_log_create_view");
+#ifndef ENABLE_MARIA_DDL_LOG
+  DBUG_RETURN(0);
+#endif
+  DDL_LOG_ENTRY ddl_log_entry;
 
   bzero(&ddl_log_entry, sizeof(ddl_log_entry));
   ddl_log_entry.action_type=  DDL_LOG_CREATE_VIEW_ACTION;
@@ -3340,8 +3362,11 @@ bool ddl_log_delete_tmp_file(THD *thd, DDL_LOG_STATE *ddl_state,
                              const LEX_CSTRING *path,
                              DDL_LOG_STATE *depending_state)
 {
-  DDL_LOG_ENTRY ddl_log_entry;
   DBUG_ENTER("ddl_log_delete_tmp_file");
+#ifndef ENABLE_MARIA_DDL_LOG
+  DBUG_RETURN(0);
+#endif
+  DDL_LOG_ENTRY ddl_log_entry;
 
   bzero(&ddl_log_entry, sizeof(ddl_log_entry));
   ddl_log_entry.action_type=  DDL_LOG_DELETE_TMP_FILE_ACTION;
@@ -3395,8 +3420,11 @@ bool ddl_log_alter_table(THD *thd, DDL_LOG_STATE *ddl_state,
                          ulonglong table_version,
                          bool is_renamed)
 {
-  DDL_LOG_ENTRY ddl_log_entry;
   DBUG_ENTER("ddl_log_alter_table");
+#ifndef ENABLE_MARIA_DDL_LOG
+  DBUG_RETURN(0);
+#endif
+  DDL_LOG_ENTRY ddl_log_entry;
   DBUG_ASSERT(new_hton);
   DBUG_ASSERT(org_hton);
 
@@ -3461,6 +3489,12 @@ bool ddl_log_store_query(THD *thd, DDL_LOG_STATE *ddl_state,
   DBUG_ENTER("ddl_log_store_query");
   DBUG_ASSERT(length <= UINT_MAX32);
   DBUG_ASSERT(length > 0);
+#ifndef ENABLE_MARIA_DDL_LOG
+  if (!ddl_state->is_active())
+  {
+    DBUG_RETURN(0);
+  }
+#endif
   DBUG_ASSERT(ddl_state->list);
 
   bzero(&ddl_log_entry, sizeof(ddl_log_entry));

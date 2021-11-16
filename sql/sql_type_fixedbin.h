@@ -1049,7 +1049,7 @@ public:
     int cmp(Item *arg) override
     {
       Fbt_null tmp(arg);
-      return m_null_value || tmp.is_null() ? UNKNOWN : m_native.cmp(tmp) != 0;
+      return m_null_value || tmp.is_null() ? MYSQL_UNKNOWN : m_native.cmp(tmp) != 0;
     }
     int compare(cmp_item *ci) override
     {

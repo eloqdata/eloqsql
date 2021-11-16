@@ -1,0 +1,100 @@
+DROP TABLE IF EXISTS t1;
+call mtr.add_suppression("Got error 127 when reading table './test/t1'");
+call mtr.add_suppression("mariadbd: Table 't1' is marked as crashed and should be repaired");
+SET SESSION debug_dbug="+d,eloq;term_CatalogCcMap_Execute_PostWriteAllCc;node_id=-1";
+create table t1(i int primary key, j int) engine= eloq;
+insert into t1 values(1,1);
+select * from t1;
+i	j
+1	1
+drop table t1;
+SET SESSION debug_dbug="+d,eloq;term_CatalogCcMap_Execute_ReadCc;node_id=-1";
+create table t1(i int primary key, j int) engine= eloq;
+insert into t1 values(1,1);
+select * from t1;
+i	j
+1	1
+SET SESSION debug_dbug="+d,eloq;term_TemplateCcMap_Execute_AcquireCc;node_id=-1";
+insert into t1 values(2,2);
+ERROR HY000: Eloq: failed to commit transaction. try restarting transaction. Transaction failed due to internal cc request is directed to a follower.
+select * from t1;
+i	j
+1	1
+SET SESSION debug_dbug="-d,eloq;term_TemplateCcMap_Execute_AcquireCc";
+insert into t1 values(2,3);
+select * from t1;
+i	j
+1	1
+2	3
+drop table t1;
+create table t1(i int primary key, j int) engine= eloq;
+insert into t1 values(2,1);
+drop table t1;
+SET SESSION debug_dbug="+d,eloq;term_TemplateCcMap_Execute_AcquireAllCc;node_id=-1";
+create table t1(i int primary key, j int) engine= eloq;
+ERROR HY000: Eloq: failed to create table. Failed at acquire write intent.
+SET SESSION debug_dbug="-d,eloq;term_TemplateCcMap_Execute_AcquireAllCc;node_id=-1";
+create table t1(i int primary key, j int) engine= eloq;
+SET SESSION debug_dbug="+d,eloq;term_TemplateCcMap_Execute_AcquireAllCc;node_id=-1";
+drop table t1;
+ERROR HY000: Got error 201 'Failed at acquire write intent.' from ELOQ
+SET SESSION debug_dbug="-d,eloq;term_TemplateCcMap_Execute_AcquireAllCc;node_id=-1";
+drop table t1;
+create table t1(i int primary key, j int) engine= eloq;
+insert into t1 values(1,1);
+insert into t1 values(2,2);
+select * from t1;
+i	j
+1	1
+2	2
+SET SESSION debug_dbug="+d,eloq;term_TemplateCcMap_Execute_ReadCc;node_id=-1";
+select * from t1 where i=1;
+ERROR HY000: Eloq: error. try restarting transaction. 'Transaction failed due to internal cc request is directed to a follower.'
+SET SESSION debug_dbug="-d,eloq;term_TemplateCcMap_Execute_ReadCc;node_id=-1";
+update t1 set j=3 where i=2;
+select * from t1 where i=2;
+i	j
+2	3
+drop table t1;
+create table t1(i int primary key, j int) engine= eloq;
+insert into t1 values(1,1);
+insert into t1 values(2,2);
+select * from t1;
+i	j
+1	1
+2	2
+drop table t1;
+create table t1(i int primary key, j int) engine= eloq;
+insert into t1 values(1,1);
+insert into t1 values(2,2);
+insert into t1 values(3,3);
+select * from t1;
+i	j
+1	1
+2	2
+3	3
+SET SESSION debug_dbug="+d,eloq;term_TemplateCcMap_Execute_ScanOpenBatchCc;node_id=-1";
+select * from t1;
+i	j
+1	1
+2	2
+3	3
+SET SESSION debug_dbug="-d,eloq;term_TemplateCcMap_Execute_ScanOpenBatchCc;node_id=-1";
+select * from t1;
+i	j
+1	1
+2	2
+3	3
+SET SESSION debug_dbug="+d,eloq;term_TemplateCcMap_Execute_RemoteScanOpen;node_id=-1";
+select * from t1;
+i	j
+1	1
+2	2
+3	3
+SET SESSION debug_dbug="-d,eloq;term_TemplateCcMap_Execute_RemoteScanOpen;node_id=-1";
+select * from t1;
+i	j
+1	1
+2	2
+3	3
+drop table t1;

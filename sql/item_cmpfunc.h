@@ -352,7 +352,7 @@ public:
 
 
 class Item_cache;
-#define UNKNOWN (-1)
+#define MYSQL_UNKNOWN (-1)
 
 
 /*
@@ -386,7 +386,7 @@ protected:
 public:
   Item_in_optimizer(THD *thd, Item *a, Item *b):
     Item_bool_func(thd, a, b), cache(0), expr_cache(0),
-    save_cache(0), result_for_null_param(UNKNOWN)
+    save_cache(0), result_for_null_param(MYSQL_UNKNOWN)
   {
     with_flags|= item_with_t::SUBQUERY;
   }
@@ -1740,7 +1740,7 @@ public:
     char buff[STRING_BUFFER_USUAL_SIZE];
     String tmp(buff, sizeof(buff), cmp_charset), *res= arg->val_str(&tmp);
     if (m_null_value || arg->null_value)
-      return UNKNOWN;
+      return MYSQL_UNKNOWN;
     if (value_res && res)
       return sortcmp(value_res, res, cmp_charset) != 0;
     else if (!value_res && !res)
@@ -1780,7 +1780,7 @@ public:
   int cmp(Item *arg)
   {
     const bool rc= value != arg->val_int();
-    return (m_null_value || arg->null_value) ? UNKNOWN : rc;
+    return (m_null_value || arg->null_value) ? MYSQL_UNKNOWN : rc;
   }
   int compare(cmp_item *ci)
   {
@@ -1869,7 +1869,7 @@ public:
   int cmp(Item *arg)
   {
     const bool rc= value != arg->val_real();
-    return (m_null_value || arg->null_value) ? UNKNOWN : rc;
+    return (m_null_value || arg->null_value) ? MYSQL_UNKNOWN : rc;
   }
   int compare(cmp_item *ci)
   {
@@ -2078,7 +2078,7 @@ class Predicant_to_list_comparator
     */
     if (args->arguments()[m_predicant_index]->null_value &&
         m_comparators[i].m_handler != &type_handler_row)
-      return UNKNOWN;
+      return MYSQL_UNKNOWN;
     return in_item->cmp(args->arguments()[m_comparators[i].m_arg_index]);
   }
   int cmp_args_nulls_equal(THD *thd, Item_args *args, uint i)
@@ -2096,7 +2096,7 @@ class Predicant_to_list_comparator
     if (predicant->null_value && val.is_null())
       return FALSE; // Two nulls are equal
     if (predicant->null_value || val.is_null())
-      return UNKNOWN;
+      return MYSQL_UNKNOWN;
     return in_item->cmp_not_null(&val);
   }
   /**
@@ -2262,7 +2262,7 @@ public:
         *idx= m_comparators[i].m_arg_index;
         return false; // Found a matching value
       }
-      if (rc == UNKNOWN)
+      if (rc == MYSQL_UNKNOWN)
       {
         if (!found_unknown_values)
           return true;

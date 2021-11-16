@@ -1,0 +1,35 @@
+DROP DATABASE IF EXISTS db1;
+set @@default_storage_engine= eloq;
+affected rows: 0
+DROP TABLE IF EXISTS t1;
+affected rows: 0
+CREATE TABLE t1 (c1 VARCHAR(10) PRIMARY KEY) COLLATE cp852_general_nopad_ci;
+ERROR HY000: Internal error: Index column t1.c1 uses a collation that is not currently supported by EloqDB.Please use binary collation.
+DROP TABLE IF EXISTS t1;
+affected rows: 0
+CREATE TABLE t1 (c1 TEXT, PRIMARY KEY(c1(10))) COLLATE cp852_general_nopad_ci;
+ERROR HY000: Internal error: Index column t1.c1 uses a collation that is not currently supported by EloqDB.Please use binary collation.
+CREATE TABLE t1 (c1 VARCHAR(10) COLLATE latin1_bin PRIMARY KEY,
+c2 VARCHAR(10) COLLATE cp852_general_nopad_ci,
+INDEX(c2));
+ERROR HY000: Internal error: Index column t1.c2 uses a collation that is not currently supported by EloqDB.Please use binary collation.
+DROP TABLE IF EXISTS t1;
+affected rows: 0
+DROP TABLE IF EXISTS t2;
+affected rows: 0
+CREATE TABLE t2 (c1 VARCHAR(10) PRIMARY KEY) COLLATE latin1_general_ci;
+affected rows: 0
+DROP TABLE IF EXISTS t2;
+affected rows: 0
+DROP TABLE IF EXISTS t3;
+affected rows: 0
+CREATE TABLE t3 (c1 int PRIMARY KEY COLLATE cp852_general_nopad_ci, c2 VARCHAR(10));
+affected rows: 0
+DROP TABLE IF EXISTS t3;
+affected rows: 0
+DROP TABLE IF EXISTS t4;
+affected rows: 0
+CREATE TABLE t4 (c1 JSON, PRIMARY KEY(c1(10)));
+affected rows: 0
+DROP TABLE IF EXISTS t4;
+affected rows: 0

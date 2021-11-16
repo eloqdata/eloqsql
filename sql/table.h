@@ -641,20 +641,7 @@ class TABLE_STATISTICS_CB
         @retval true atomic EMPTY -> LOADING transfer completed, ok to load
         @retval false stats are in READY state, no need to load
     */
-    bool start_load()
-    {
-      for (;;)
-      {
-        int32 expected= EMPTY;
-        if (my_atomic_cas32_weak_explicit(&state, &expected, LOADING,
-                                          MY_MEMORY_ORDER_RELAXED,
-                                          MY_MEMORY_ORDER_RELAXED))
-          return true;
-        if (expected == READY)
-          return false;
-        (void) LF_BACKOFF();
-      }
-    }
+    bool start_load(THD *thd);
 
     /** Marks data available for subsequent use */
     void end_load()
@@ -686,15 +673,15 @@ public:
     return !total_hist_size || hist_state.is_ready();
   }
 
-  bool start_histograms_load()
+  bool start_histograms_load(THD *thd)
   {
-    return total_hist_size && hist_state.start_load();
+    return total_hist_size && hist_state.start_load(thd);
   }
 
   void end_histograms_load() { hist_state.end_load(); }
   void abort_histograms_load() { hist_state.abort_load(); }
   bool stats_are_ready() const { return stats_state.is_ready(); }
-  bool start_stats_load() { return stats_state.start_load(); }
+  bool start_stats_load(THD *thd) { return stats_state.start_load(thd); }
   void end_stats_load() { stats_state.end_load(); }
   void abort_stats_load() { stats_state.abort_load(); }
 };
@@ -1125,7 +1112,9 @@ struct TABLE_SHARE
                                  const uchar *frm_image, size_t frm_length,
                                  const uchar *par_image=0,
                                  size_t par_length=0);
-
+  int init_from_binary_frm_no_thd(const uchar *frm_image, size_t frm_length,
+                                  const uchar *par_image= 0,
+                                  size_t par_length= 0);
   /*
     populates TABLE_SHARE from the table description, specified as the
     complete CREATE TABLE sql statement.
@@ -1658,6 +1647,16 @@ public:
     like range analysis or constant table detection)
   */
   bool is_filled_at_execution();
+
+  /**
+    Check whether the given index has a virtual generated columns.
+
+    @param index_no        the given index to check
+
+    @returns true if if index is defined over at least one virtual generated
+    column
+  */
+  bool index_contains_some_virtual_gcol(uint index_no) const;
 
   bool update_const_key_parts(COND *conds);
 

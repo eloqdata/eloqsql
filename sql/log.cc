@@ -27,6 +27,7 @@
 
 #include "mariadb.h"		/* NO_EMBEDDED_ACCESS_CHECKS */
 #include "sql_priv.h"
+
 #include "log.h"
 #include "sql_base.h"                           // open_log_table
 #include "sql_repl.h"
@@ -40,6 +41,10 @@
 #include "sql_audit.h"
 #include "mysqld.h"
 #include "ddl_log.h"
+
+#ifdef WITH_GLOG
+#include "glog_error_logging.h"
+#endif /* WITH_GLOG */
 
 #include <my_dir.h>
 #include <m_ctype.h>				// For test_if_number
@@ -237,6 +242,7 @@ Silence_log_table_errors::handle_condition(THD *,
   return TRUE;
 }
 
+#ifndef WITH_GLOG
 sql_print_message_func sql_print_message_handlers[3] =
 {
   sql_print_information,
@@ -244,6 +250,14 @@ sql_print_message_func sql_print_message_handlers[3] =
   sql_print_error
 };
 
+#else
+sql_print_message_func sql_print_message_handlers[3] =
+{
+  sql_print_information_,
+  sql_print_warning_,
+  sql_print_error_
+};
+#endif
 
 /**
   Create the name of the log file
@@ -582,6 +596,9 @@ private:
   binlog_cache_mngr& operator=(const binlog_cache_mngr& info);
   binlog_cache_mngr(const binlog_cache_mngr& info);
 };
+
+void LOGGER::lock_shared() { mysql_rwlock_rdlock(&LOCK_logger); }
+void LOGGER::lock_exclusive() { mysql_rwlock_wrlock(&LOCK_logger); }
 
 bool LOGGER::is_log_table_enabled(uint log_table_type)
 {
@@ -1050,12 +1067,32 @@ bool Log_to_csv_event_handler::
   return FALSE;
 }
 
+#ifdef WITH_GLOG
+bool Log_to_csv_event_handler:: log_error(enum loglevel level,
+                                          const char *file, int line,
+                                          const char *format, va_list args)
+{
+  /* No log table is implemented */
+  DBUG_ASSERT(0);
+  return FALSE;
+}
+#endif /* WITH_GLOG */
+
 bool Log_to_file_event_handler::
   log_error(enum loglevel level, const char *format,
             va_list args)
 {
   return vprint_msg_to_log(level, format, args);
 }
+
+#ifdef WITH_GLOG
+bool Log_to_file_event_handler::log_error(enum loglevel level,
+                                          const char *file, int line,
+                                          const char *format, va_list args)
+{
+  return vprint_msg_to_log(level, file, line, format, args);
+}
+#endif /* WITH_GLOG */
 
 void Log_to_file_event_handler::init_pthread_objects()
 {
@@ -1170,6 +1207,24 @@ bool LOGGER::error_log_print(enum loglevel level, const char *format,
   return error;
 }
 
+#ifdef WITH_GLOG
+bool LOGGER::error_log_print(enum loglevel level, const char *file, int line,
+                             const char *format, va_list args)
+{
+  bool error= FALSE;
+  Log_event_handler **current_handler;
+  THD *thd= current_thd;
+
+  if (likely(thd))
+    thd->error_printed_to_log= 1;
+
+  /* currently we don't need locking here as there is no error_log table */
+  for (current_handler= error_log_handler_list ; *current_handler ;)
+    error= (*current_handler++)->log_error(level, file, line, format, args) || error;
+
+  return error;
+}
+#endif /* WITH_GLOG */
 
 void LOGGER::cleanup_base()
 {
@@ -6832,6 +6887,13 @@ int error_log_print(enum loglevel level, const char *format,
   return logger.error_log_print(level, format, args);
 }
 
+#ifdef WITH_GLOG
+int error_log_print(enum loglevel level, const char *file, int line,
+                    const char *format, va_list args)
+{
+  return logger.error_log_print(level, file, line, format, args);
+}
+#endif /* WITH_GLOG */
 
 bool slow_log_print(THD *thd, const char *query, uint query_length,
                     ulonglong current_utime)
@@ -9170,6 +9232,23 @@ static void print_buffer_to_file(enum loglevel level, const char *buffer,
   DBUG_VOID_RETURN;
 }
 
+#ifdef WITH_GLOG
+static void print_buffer_to_file(enum loglevel level, const char *file,
+                                 int line, const char *buffer)
+{
+  DBUG_ENTER("print_buffer_to_file");
+  DBUG_PRINT("enter",("buffer: %s", buffer));
+
+  auto severity  = level == INFORMATION_LEVEL ? google::INFO
+                 : level == WARNING_LEVEL     ? google::WARNING
+                 : level == ERROR_LEVEL       ? google::ERROR
+                                              : google::FATAL;
+
+  google::LogMessage(file, line, severity).stream() << buffer;
+  DBUG_VOID_RETURN;
+}
+#endif /* WITH_GLOG */
+
 /**
   Prints a printf style message to the error log and, under NT, to the
   Windows event log.
@@ -9203,6 +9282,15 @@ int vprint_msg_to_log(enum loglevel level, const char *format, va_list args)
 }
 #endif /* EMBEDDED_LIBRARY */
 
+#ifndef WITH_GLOG
+/**
+ When Glog is enabled, these definitions and declarations remain uncompiled,
+ and macros with identical signatures as the declarations are defined. These
+ macros will then invoke the corresponding glog_print_message functions.
+
+ Conversely, if Glog is disabled, these definitions guarantee that the error
+ logging mechanism operates in its original manner without any modifications.
+*/
 
 void sql_print_error(const char *format, ...) 
 {
@@ -9242,6 +9330,54 @@ void sql_print_information(const char *format, ...)
   DBUG_VOID_RETURN;
 }
 
+#else
+/**
+  If error logging with Glog is enabled, functions like sql_print_message
+  are still invoked by other functions. Therefore, these functions must be
+  retained but renamed with a suffix "_" added to their names.
+
+  Note that these methods have exactly the same behavior as the original
+  methods. Maintaining two different sets of names also ensures minimal
+  conflicts when merging with community branches.
+*/
+
+void sql_print_error_(const char *format, ...)
+{
+  va_list args;
+  DBUG_ENTER("sql_print_error_");
+
+  va_start(args, format);
+  error_log_print(ERROR_LEVEL, format, args);
+  va_end(args);
+
+  DBUG_VOID_RETURN;
+}
+
+void sql_print_warning_(const char *format, ...)
+{
+  va_list args;
+  DBUG_ENTER("sql_print_warning_");
+
+  va_start(args, format);
+  error_log_print(WARNING_LEVEL, format, args);
+  va_end(args);
+
+  DBUG_VOID_RETURN;
+}
+
+void sql_print_information_(const char *format, ...)
+{
+  va_list args;
+  DBUG_ENTER("sql_print_information_");
+
+  va_start(args, format);
+  sql_print_information_v(format, args);
+  va_end(args);
+
+  DBUG_VOID_RETURN;
+}
+#endif /* WITH_GLOG */
+
 void sql_print_information_v(const char *format, va_list ap)
 {
   if (disable_log_notes)
@@ -9249,6 +9385,72 @@ void sql_print_information_v(const char *format, va_list ap)
 
   error_log_print(INFORMATION_LEVEL, format, ap);
 }
+
+
+#ifdef WITH_GLOG
+int vprint_msg_to_log(enum loglevel level, const char *file, int line,
+                      const char *format, va_list args)
+{
+  char buff[1024];
+
+  DBUG_ENTER("vprint_msg_to_log");
+
+  my_vsnprintf(buff, sizeof(buff), format, args);
+  print_buffer_to_file(level, file, line, buff);
+
+#ifdef _WIN32
+  print_buffer_to_nt_eventlog(level, buff, length, sizeof(buff));
+#endif
+
+  DBUG_RETURN(0);
+}
+
+void glog_print_error(const char *file, int line, const char *format, ...)
+{
+  va_list args;
+  DBUG_ENTER("sql_vprint_error_impl");
+
+  va_start(args, format);
+  error_log_print(ERROR_LEVEL, file, line, format, args);
+  va_end(args);
+
+  DBUG_VOID_RETURN;
+}
+
+void glog_print_warning(const char *file, int line, const char *format, ...)
+{
+  va_list args;
+  DBUG_ENTER("sql_vprint_warning_impl");
+
+  va_start(args, format);
+  error_log_print(WARNING_LEVEL, file, line ,format, args);
+  va_end(args);
+
+  DBUG_VOID_RETURN;
+}
+
+void glog_print_information(const char *file, int line, const char *format,
+                            ...)
+{
+  va_list args;
+  DBUG_ENTER("sql_vprint_information_impl");
+
+  va_start(args, format);
+  glog_print_information_v(file, line, format, args);
+  va_end(args);
+
+  DBUG_VOID_RETURN;
+}
+
+void glog_print_information_v(const char *file, int line, const char *format,
+                              va_list ap)
+{
+  if (disable_log_notes)
+    return;                 // Skip notes during start/shutdown
+
+  error_log_print(INFORMATION_LEVEL, file, line , format, ap);
+}
+#endif /* WITH_GLOG */
 
 void
 TC_LOG::run_prepare_ordered(THD *thd, bool all)

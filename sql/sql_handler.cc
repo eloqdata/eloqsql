@@ -475,12 +475,7 @@ bool mysql_ha_open(THD *thd, TABLE_LIST *tables, SQL_HANDLER *reopen)
   DBUG_RETURN(FALSE);
 
 err:
-  /*
-    No need to rollback statement transaction, it's not started.
-    If called with reopen flag, no need to rollback either,
-    it will be done at statement end.
-  */
-  DBUG_ASSERT(thd->transaction->stmt.is_empty());
+
   close_thread_tables(thd);
   thd->mdl_context.rollback_to_savepoint(mdl_savepoint);
   thd->set_open_tables(backup_open_tables);

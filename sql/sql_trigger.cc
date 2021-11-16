@@ -572,7 +572,8 @@ bool mysql_create_or_drop_trigger(THD *thd, TABLE_LIST *tables, bool create)
   DBUG_ASSERT(tables->next_global == 0);
 
   build_table_filename(path, sizeof(path) - 1, tables->db.str, tables->alias.str, ".frm", 0);
-  tables->required_type= dd_frm_type(NULL, path, NULL, NULL, NULL);
+  /* eloq needs to pass thd into dd_frm_type to create frm key. */
+  tables->required_type= dd_frm_type(thd, path, NULL, NULL, NULL);
 
   /* We do not allow creation of triggers on temporary tables or sequence. */
   if (tables->required_type == TABLE_TYPE_SEQUENCE ||

@@ -52,6 +52,7 @@ Slave_reporting_capability::report(loglevel level, int err_code,
     pbuffsize= sizeof(m_last_error.message);
     m_last_error.number = err_code;
     m_last_error.update_timestamp();
+#ifndef WITH_GLOG
     report_function= sql_print_error;
     break;
   case WARNING_LEVEL:
@@ -59,11 +60,22 @@ Slave_reporting_capability::report(loglevel level, int err_code,
     break;
   case INFORMATION_LEVEL:
     report_function= sql_print_information;
+#else
+    report_function= sql_print_error_;
     break;
+  case WARNING_LEVEL:
+    report_function= sql_print_warning_;
+    break;
+  case INFORMATION_LEVEL:
+    report_function= sql_print_information_;
+    break;
+#endif /* WITH_GLOG */
   default:
     va_end(args);
     DBUG_ASSERT(0);                            // should not come here
     return;          // don't crash production builds, just do nothing
+
+
   }
 
   my_vsnprintf(pbuff, pbuffsize, msg, args);

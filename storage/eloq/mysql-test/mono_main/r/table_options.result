@@ -1,0 +1,57 @@
+drop table if exists t1;
+SET @OLD_SQL_MODE=@@SQL_MODE;
+SET SQL_MODE='IGNORE_BAD_TABLE_OPTIONS';
+create table t1 (a int fkey=vvv, key akey (a) dff=vvv) tkey1='1v1';
+Warnings:
+Warning	1911	Unknown option 'fkey'
+Warning	1911	Unknown option 'dff'
+Warning	1911	Unknown option 'tkey1'
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int(11) DEFAULT NULL `fkey`=vvv,
+  KEY `akey` (`a`) `dff`=vvv
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 `tkey1`='1v1'
+drop table t1;
+#reassiginig options in the same line
+create table t1 (a int fkey=vvv, key akey (a) dff=vvv) tkey1=1v1 TKEY1=DEFAULT tkey1=1v2 tkey2=2v1;
+Warnings:
+Warning	1911	Unknown option 'fkey'
+Warning	1911	Unknown option 'dff'
+Warning	1911	Unknown option 'tkey1'
+Warning	1911	Unknown option 'tkey2'
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int(11) DEFAULT NULL `fkey`=vvv,
+  KEY `akey` (`a`) `dff`=vvv
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 `tkey1`=1v2 `tkey2`=2v1
+drop table t1;
+create table t1 (a int fkey1=v1, key akey (a) kkey1=v1) tkey1=1v1 tkey1=1v2 TKEY1=DEFAULT tkey2=2v1 tkey3=3v1;
+Warnings:
+Warning	1911	Unknown option 'fkey1'
+Warning	1911	Unknown option 'kkey1'
+Warning	1911	Unknown option 'TKEY1'
+Warning	1911	Unknown option 'tkey2'
+Warning	1911	Unknown option 'tkey3'
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int(11) DEFAULT NULL `fkey1`=v1,
+  KEY `akey` (`a`) `kkey1`=v1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 `tkey2`=2v1 `tkey3`=3v1
+drop table t1;
+create table t1 (a int) tkey1=100;
+Warnings:
+Warning	1911	Unknown option 'tkey1'
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int(11) DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 `tkey1`=100
+drop table t1;
+#error on unknown option
+SET SQL_MODE='';
+create table t1 (a int fkey=vvv, key akey (a) dff=vvv) tkey1=1v1;
+ERROR HY000: Unknown option 'fkey'
+SET @@SQL_MODE=@OLD_SQL_MODE;

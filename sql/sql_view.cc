@@ -39,6 +39,10 @@
 #include "debug.h"              // debug_crash_here
 #include "wsrep_mysqld.h"
 
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+#include "eloq_db_dl.h"
+#endif
+
 #define MD5_BUFF_LENGTH 33
 
 const LEX_CSTRING view_type= { STRING_WITH_LEN("VIEW") };
@@ -399,6 +403,10 @@ bool create_view_precheck(THD *thd, TABLE_LIST *tables, TABLE_LIST *view,
 bool mysql_create_view(THD *thd, TABLE_LIST *views,
                        enum_view_create_mode mode)
 {
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+  int mono_errno;
+  bool mono_exist;
+#endif
   LEX *lex= thd->lex;
   bool link_to_local;
   /* first table in list is target VIEW name => cut off it */
@@ -478,12 +486,30 @@ bool mysql_create_view(THD *thd, TABLE_LIST *views,
 
   view= lex->unlink_first_table(&link_to_local);
 
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+  mono_errno= eloq_exist_database(thd, view->db, mono_exist);
+  if (mono_errno)
+  {
+    my_printf_error(mono_errno,
+        "Eloq check whether database '%s' exist failed",
+        MYF(0), view->db.str);
+    res= TRUE;
+    goto err;
+  }
+  if (!mono_exist)
+  {
+    my_error(ER_BAD_DB_ERROR, MYF(0), view->db.str);
+    res= TRUE;
+    goto err;
+  }
+#else
   if (check_db_dir_existence(view->db.str))
   {
     my_error(ER_BAD_DB_ERROR, MYF(0), view->db.str);
     res= TRUE;
     goto err;
   }
+#endif
 
   if (mode == VIEW_ALTER && fill_defined_view_parts(thd, view))
   {
@@ -1109,7 +1135,13 @@ loop_out:
         goto err;
       }
 
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+      (void)path;
+      if (!(parser= sql_parse_prepare(thd, view->db, view->table_name,
+                                      thd->mem_root, 0)))
+#else
       if (!(parser= sql_parse_prepare(&path, thd->mem_root, 0)))
+#endif
       {
         error= 1;
         goto err;
@@ -1195,6 +1227,9 @@ loop_out:
 
   debug_crash_here("ddl_log_create_before_copy_view");
 
+#ifndef WITH_ELOQ_STORAGE_ENGINE
+  // Atomic operation for a single row is guaranteed by eloq.
+  // Thus there is no need for a backup file. 
   if (old_view_exists)
   {
     LEX_CSTRING backup_name= { backup_file_name, 0 };
@@ -1205,10 +1240,17 @@ loop_out:
     }
     ddl_log_update_phase(ddl_log_state, DDL_CREATE_VIEW_PHASE_OLD_VIEW_COPIED);
   }
+#endif
 
   debug_crash_here("ddl_log_create_before_create_view");
+
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+  if (eloq_upsert_view(thd, view->db, view->table_name,
+          view_file_type, (uchar*)view, view_parameters))
+#else
   if (sql_create_definition_file(&dir, &file, view_file_type,
 				 (uchar*)view, view_parameters))
+#endif
   {
     error= thd->is_error() ? -1 : 1;
     goto err;
@@ -1918,7 +1960,38 @@ bool mysql_drop_view(THD *thd, TABLE_LIST *views, enum_drop_mode drop_mode)
                                  view->db.str, view->table_name.str, reg_ext, 0);
     lex_string_set3(&cpath, path, length);
 
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+    int mono_errno= 0;
+    bool mono_exist= false;
+    bool file_not_exist= false;
+
+    // Mariadb storage table frm and view frm in filesystem with same .frm
+    // postfix originally.
+    // After move eloq table and view into cassandra, once given a frm
+    // name, it may exist in filesystem, exist in mariadb_tables, exist in
+    // mariadb_views, or not exist.
+    //
+    // Above change is crucial!
+    
+    if (file_not_exist=my_access(path, F_OK), file_not_exist)
+    {
+      mono_errno= eloq_exist_frm(thd, view->db, view->table_name,
+                                      mono_exist);
+      if (mono_errno)
+      {
+        my_printf_error(mono_errno,
+            "Eloq check whether view './%s/%s' exist failed",
+            MYF(0), view->db.str, view->table_name.str);
+        continue;
+      }
+    }
+
+    not_exist= file_not_exist ? (!mono_exist) : file_not_exist;
+    char *path_or_unnormalized_mono_key= path;
+    if (not_exist || !dd_frm_is_view(thd, path_or_unnormalized_mono_key))
+#else
     if ((not_exist= my_access(path, F_OK)) || !dd_frm_is_view(thd, path))
+#endif
     {
       char name[FN_REFLEN];
       size_t length= my_snprintf(name, sizeof(name), "%s.%s", view->db.str,
@@ -1946,8 +2019,20 @@ bool mysql_drop_view(THD *thd, TABLE_LIST *views, enum_drop_mode drop_mode)
                           &view->table_name))
       DBUG_RETURN(TRUE);
     debug_crash_here("ddl_log_drop_before_delete_view");
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+    // View frm is always stored in eloq when the above macro is defined.
+    DBUG_ASSERT(file_not_exist && mono_exist);
+    mono_errno= eloq_drop_view(thd, view->db, view->table_name);
+    if (mono_errno)
+    {
+      my_printf_error(mono_errno, "Eloq drop view './%s/%s' failed",
+          MYF(0), view->db.str, view->table_name.str);
+      delete_error= TRUE;
+    }
+#else
     if (unlikely(mysql_file_delete(key_file_frm, path, MYF(MY_WME))))
       delete_error= TRUE;
+#endif
     debug_crash_here("ddl_log_drop_after_delete_view");
 
     some_views_deleted= TRUE;
@@ -2285,13 +2370,23 @@ mysql_rename_view(THD *thd,
   bool error= TRUE;
   DBUG_ENTER("mysql_rename_view");
 
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+  int mono_errno= 0;
+#endif
+
   pathstr.str= (char *) path_buff;
   pathstr.length= build_table_filename(path_buff, sizeof(path_buff) - 1,
                                        old_db->str, old_name->str,
                                        reg_ext, 0);
 
+
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+  if ((parser= sql_parse_prepare(thd, *old_db, *old_name, thd->mem_root, 1)) && 
+       is_equal(&view_type, parser->type()))
+#else
   if ((parser= sql_parse_prepare(&pathstr, thd->mem_root, 1)) && 
        is_equal(&view_type, parser->type()))
+#endif
   {
     TABLE_LIST view_def;
     char dir_buff[FN_REFLEN + 1];
@@ -2313,6 +2408,23 @@ mysql_rename_view(THD *thd,
                       &file_parser_dummy_hook))
       goto err;
 
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+    (void)pathstr;
+    (void)dir_buff;
+    (void)dir;
+    (void)file;
+    mono_errno= eloq_upsert_view(thd, *new_db, *new_name, view_file_type,
+                                      (uchar*)&view_def, view_parameters);
+    if (mono_errno)
+    {
+      goto err;
+    }
+    mono_errno= eloq_drop_view(thd, *old_db, *old_name);
+    if (mono_errno)
+    {
+      goto err;
+    }
+#else
     /* rename view and it's backups */
     if (rename_in_schema_file(thd, old_db->str, old_name->str,
                               new_db->str, new_name->str))
@@ -2338,6 +2450,7 @@ mysql_rename_view(THD *thd,
                             old_name->str);
       goto err;
     }
+#endif
   }
   else
     DBUG_RETURN(1);  

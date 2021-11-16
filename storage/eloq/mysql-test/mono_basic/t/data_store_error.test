@@ -1,0 +1,41 @@
+--source include/have_eloq.inc
+--source include/have_range_partition.inc
+
+set @@default_storage_engine= eloq;
+select @@default_storage_engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+# What if datastore error before execute create table.
+--source include/restart_mysqld.inc
+SET SESSION debug_dbug="+d,eloq;FetchCatalogCc_SetFinish_Error;node_id=-1";
+--error 215
+CREATE TABLE t1 (i INT PRIMARY KEY);
+SET SESSION debug_dbug="-d,eloq;FetchCatalogCc_SetFinish_Error;node_id=-1";
+
+# What if datastore error when fetch table statistics .
+CREATE TABLE t1 (i INT PRIMARY KEY);
+INSERT INTO t1 (i) VALUES (1), (2), (3), (4), (5), (6), (7), (8);
+--source include/restart_mysqld.inc
+SET SESSION debug_dbug="+d,eloq;FetchTableStatisticsCc_SetFinish_Error;node_id=-1";
+--error 215
+SELECT COUNT(*) FROM t1;
+SET SESSION debug_dbug="-d,eloq;FetchTableStatisticsCc_SetFinish_Error;node_id=-1";
+
+# What if datastore error when fetch table ranges infomation .
+--source include/restart_mysqld.inc
+SET SESSION debug_dbug="+d,eloq;FetchTableRangesCc_SetFinish_Error;node_id=-1";
+--error 215
+SELECT COUNT(*) FROM t1;
+SET SESSION debug_dbug="-d,eloq;FetchTableRangesCc_SetFinish_Error;node_id=-1";
+
+# What if datastore error when load table range slice.
+--source include/restart_mysqld.inc
+SET SESSION debug_dbug="+d,eloq;LoadRangeSliceRequest_SetFinish_Error;node_id=-1";
+--error 215
+SELECT COUNT(*) FROM t1;
+SET SESSION debug_dbug="-d,eloq;LoadRangeSliceRequest_SetFinish_Error;node_id=-1";
+
+DROP TABLE t1;

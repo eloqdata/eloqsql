@@ -1,0 +1,16 @@
+include/mono_init.inc
+DROP TABLE IF EXISTS t3;
+connection serv_2;
+create table t3(i int primary key, j int) engine= eloq;
+insert into t3 values(2,2);
+select * from t3;
+i	j
+2	2
+SET SESSION debug_dbug="+d,eloq;before_raft_log_apply;node_id=0;action=panic";
+insert into t3 values(1,1);
+select * from t3;
+i	j
+1	1
+2	2
+SET SESSION debug_dbug="-d,eloq;before_raft_log_apply";
+DROP TABLE IF EXISTS t3;

@@ -1,0 +1,10 @@
+include/mono_init.inc
+DROP TABLE IF EXISTS t2;
+connection serv_1;
+CREATE TABLE t2 (pk int primary key, sk int) ENGINE=eloq;
+INSERT INTO t2 VALUES (1, 1),(2, 2),(3,3);
+SET SESSION debug_dbug="+d,eloq;before_mark_remote_received;node_id=0";
+SELECT * FROM t2;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+SET SESSION debug_dbug="-d,eloq;before_mark_remote_received";
+DROP TABLE t2;

@@ -2893,7 +2893,7 @@ int read_statistics_for_table(THD *thd, TABLE *table, TABLE_LIST *stat_tables)
   DEBUG_SYNC(thd, "statistics_mem_alloc_start1");
   DEBUG_SYNC(thd, "statistics_mem_alloc_start2");
 
-  if (!table_share->stats_cb.start_stats_load())
+  if (!table_share->stats_cb.start_stats_load(thd))
     DBUG_RETURN(table_share->stats_cb.stats_are_ready() ? 0 : 1);
 
   if (alloc_statistics_for_table_share(thd, table_share))
@@ -3061,7 +3061,7 @@ int read_histograms_for_table(THD *thd, TABLE *table, TABLE_LIST *stat_tables)
   TABLE_STATISTICS_CB *stats_cb= &table->s->stats_cb;
   DBUG_ENTER("read_histograms_for_table");
 
-  if (stats_cb->start_histograms_load())
+  if (stats_cb->start_histograms_load(thd))
   {
     uchar *histogram= (uchar *) alloc_root(&stats_cb->mem_root,
                                            stats_cb->total_hist_size);

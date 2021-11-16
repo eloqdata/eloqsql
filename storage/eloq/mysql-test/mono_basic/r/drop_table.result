@@ -1,0 +1,19 @@
+set @@default_storage_engine= eloq;
+select @@default_storage_engine;
+@@default_storage_engine
+ELOQ
+DROP TABLE IF EXISTS t1;
+connect  conn-tx1,localhost,root,,test,$MONO1_PORT;
+connect  conn-tx2,localhost,root,,test,$MONO1_PORT;
+connection conn-tx2;
+create table t1(i int);
+connection conn-tx1;
+drop table t1;
+connection conn-tx2;
+create table t1(i int);
+insert into t1 values(1);
+connection conn-tx1;
+select * from t1;
+i
+1
+drop table t1;

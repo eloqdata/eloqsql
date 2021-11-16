@@ -21,6 +21,10 @@
 #include "sql_table.h"
 #include "ha_sequence.h"
 
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+#include "eloq_db_dl.h"
+#endif
+
 static int read_string(File file, uchar**to, size_t length)
 {
   DBUG_ENTER("read_string");
@@ -68,8 +72,30 @@ Table_type dd_frm_type(THD *thd, char *path, LEX_CSTRING *engine_name,
   DBUG_ENTER("dd_frm_type");
 
   file= mysql_file_open(key_file_frm, path, O_RDONLY | O_SHARE, MYF(0));
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+  // frm maybe exist in filesystem(for local tables), exist in cassandra,
+  // or not exist.
+  LEX_CSTRING frm_binary;
+  if (file < 0)
+  {
+    if (thd == nullptr)
+    {
+      DBUG_RETURN(TABLE_TYPE_UNKNOWN);
+    }
+
+    LEX_CSTRING key= thd->strmake_lex_cstring(path,
+                                               strlen(path)-strlen(reg_ext));
+    int mono_errno= eloq_fetch_frm_p(thd, key, frm_binary);
+    if (mono_errno)
+    {
+      DBUG_RETURN(TABLE_TYPE_UNKNOWN);
+    }
+  }
+#else
   if (file < 0)
     DBUG_RETURN(TABLE_TYPE_UNKNOWN);
+#endif
+
 
   /*
     We return TABLE_TYPE_NORMAL if we can open the .frm file. This allows us
@@ -96,6 +122,11 @@ Table_type dd_frm_type(THD *thd, char *path, LEX_CSTRING *engine_name,
     table_version->length= 0;
     table_version->str= 0;                      // Allocated if needed
   }
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+  if (file < 0)
+    memcpy(header, frm_binary.str, sizeof(header));
+  else
+#endif
   if (unlikely((error= mysql_file_read(file, (uchar*) header, sizeof(header),
                                        MYF(MY_NABP)))))
     goto err;
@@ -159,6 +190,16 @@ cont:
     uchar *frm_image= 0;
     uint n_length;
 
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+    if (file < 0)
+    {
+      frm_image= (uchar*) my_malloc(PSI_INSTRUMENT_ME, frm_binary.length+1,
+                                    MYF(MY_WME));
+      memcpy(frm_image, frm_binary.str, frm_binary.length);
+    }
+    else
+    {
+#endif
     if (mysql_file_fstat(file, &state, MYF(MY_WME)))
       goto err;
 
@@ -169,6 +210,9 @@ cont:
 
     if (read_string(file, &frm_image, (size_t)state.st_size))
       goto err;
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+    }
+#endif
 
     /* The test for !engine_name->length is only true for partition engine */
     if (!engine_name->length && (n_length= uint4korr(frm_image+55)))
@@ -239,6 +283,9 @@ cont:
 
   /* Probably a table. */
 err:
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+  if (file >= 0)
+#endif
   mysql_file_close(file, MYF(MY_WME));
   DBUG_RETURN(type);
 }

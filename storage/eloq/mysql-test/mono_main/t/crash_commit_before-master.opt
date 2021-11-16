@@ -1,0 +1,3 @@
+--loose-skip-stack-trace --skip-core-file
+--default-storage-engine=Eloq
+--loose-skip-innodb-file-per-table

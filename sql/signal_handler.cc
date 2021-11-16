@@ -17,6 +17,7 @@
 #include "mariadb.h"
 #include "my_dbug.h"
 #include <signal.h>
+#include <functional>
 
 //#include "sys_vars.h"
 #include <keycache.h>
@@ -50,6 +51,7 @@ extern ulong max_used_connections;
 extern volatile sig_atomic_t calling_initgroups;
 
 extern const char *optimizer_switch_names[];
+std::function<void(int)> terminate_hook = nullptr;
 
 static inline void output_core_info()
 {
@@ -147,6 +149,10 @@ extern "C" sig_handler handle_fatal_signal(int sig)
   segfaulted = 1;
   DBUG_PRINT("error", ("handling fatal signal"));
 
+  if (terminate_hook != nullptr)
+  {
+    terminate_hook(sig);
+  }
   curr_time= my_time(0);
   localtime_r(&curr_time, &tm);
 

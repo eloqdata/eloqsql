@@ -1,0 +1,1037 @@
+--source include/have_eloq.inc
+--source include/long_test.inc
+--source include/have_range_partition.inc
+set @@default_storage_engine= eloq;
+#
+# test of left outer join (from join_outer.test)
+#
+
+--disable_warnings
+drop database if exists mono_test;
+drop table if exists t0,t1,t2,t3,t4,t5;
+--enable_warnings
+CREATE DATABASE mono_test;
+USE mono_test;
+
+SET @org_optimizer_switch=@@optimizer_switch;
+SET optimizer_switch=ifnull(@optimizer_switch_for_join_outer_test,'outer_join_with_cache=off');
+if (`select @join_cache_level_for_join_outer_test is null`)
+{
+  set join_cache_level=1;
+}
+if (`select @join_cache_level_for_join_outer_test is not null`)
+{
+  set join_cache_level=@join_cache_level_for_join_outer_test;
+}
+
+#
+# Another left join problem
+#
+
+CREATE TABLE t1 (
+  id int(11),
+  pid int(11),
+  rep_del tinyint(4),
+  KEY id (id),
+  KEY pid (pid)
+);
+INSERT INTO t1 VALUES (1,NULL,NULL);
+INSERT INTO t1 VALUES (2,1,NULL);
+select * from t1 LEFT JOIN t1 t2 ON (t1.id=t2.pid) AND t2.rep_del IS NULL;
+create index rep_del ON t1(rep_del);
+select * from t1 LEFT JOIN t1 t2 ON (t1.id=t2.pid) AND t2.rep_del IS NULL;
+
+--echo # end of join outer tests
+SET optimizer_switch=@org_optimizer_switch;
+
+#
+# Check null keys (from null_key.test)
+#
+create table t2 (a int, b int null,key (a,b),index(b));
+insert ignore into t2 values (1,1),(2,2),(3,3),(4,4),(5,5),(6,6),(null,7),(9,9),(8,8),(7,7),(null,9),(null,9),(6,6);
+insert into t2 values (7,null), (8,null), (8,7);
+--replace_column 9 #
+explain select * from t2 where a = 7 and (b=7 or b is null);
+select * from t2 where a = 7 and (b=7 or b is null);
+--replace_column 9 #
+explain select * from t2 where (a = 7 or a is null) and (b=7 or b is null);
+select * from t2 where (a = 7 or a is null) and (b=7 or b is null);
+--replace_column 9 #
+explain select * from t2 where (a = 7 or a is null) and (a = 7 or a is null);
+select * from t2 where (a = 7 or a is null) and (a = 7 or a is null);
+create table t3 (a int);
+insert into t3 values (7),(8);
+--replace_column 9 #
+explain select * from t3 straight_join t2 where t2.a=t3.a and b is null;
+drop index b on t2;
+--replace_column 9 #
+explain select * from t3,t2 where t2.a=t3.a and b is null;
+select * from t3,t2 where t2.a=t3.a and b is null;
+--replace_column 9 #
+explain select * from t3,t2 where t2.a=t3.a and (b= 7 or b is null);
+select * from t3,t2 where t2.a=t3.a and (b= 7 or b is null);
+--replace_column 9 #
+explain select * from t3,t2 where (t2.a=t3.a or t2.a is null) and b= 7;
+select * from t3,t2 where (t2.a=t3.a or t2.a is null) and b= 7;
+--replace_column 9 #
+explain select * from t3,t2 where (t2.a=t3.a or t2.a is null) and (b= 7 or b is null);
+select * from t3,t2 where (t2.a=t3.a or t2.a is null) and (b= 7 or b is null);
+insert into t3 values (null),(6);
+delete from t2 where a=8;
+--replace_column 9 #
+explain select * from t3,t2 where t2.a=t3.a or t2.a is null;
+--replace_column 9 #
+explain select * from t3,t2 where t2.a<=>t3.a or (t2.a is null and t2.b <> 9);
+select * from t3,t2 where t2.a<=>t3.a or (t2.a is null and t2.b <> 9);
+
+--echo # End of null key tests
+
+#
+# Bug#19733 "Repeated alter, or repeated create/drop, fails"
+# Check that CREATE/DROP INDEX is re-execution friendly. (from sp.test sp_trans.test)
+#
+
+# Now for multiple statements...
+delimiter |;
+
+--disable_warnings
+drop procedure if exists proc_bug19733|
+drop procedure if exists bug10656_create_index|
+--enable_warnings
+create table t4 (s1 int)|
+
+create procedure proc_bug19733()
+begin
+  declare v int default 0;
+  while v < 100 do
+    create index i on t4 (s1);
+    drop index i on t4;
+    set v = v + 1;
+  end while;
+end|
+
+call proc_bug19733()|
+call proc_bug19733()|
+call proc_bug19733()|
+
+CREATE TABLE t5 (
+  `ID` int(11) default NULL,
+  `txt` char(5) default NULL
+) ENGINE=eloq DEFAULT CHARSET=latin1|
+
+INSERT INTO t5 (`ID`,`txt`) VALUES
+ (1,'a'), (2,'b'), (3,'c'), (4,'d')|
+
+create procedure bug10656_create_index()
+begin
+  create index bug10656_my_index on t5 (ID);
+end|
+call bug10656_create_index()|
+
+
+drop procedure proc_bug19733|
+drop procedure bug10656_create_index|
+
+delimiter ;|
+
+--echo # End of sp tests
+
+#
+# from subselect.test
+#
+set @subselect_tmp=@@optimizer_switch;
+set @@optimizer_switch=ifnull(@optimizer_switch_for_subselect_test,
+                              "semijoin=on,firstmatch=on,loosescan=on,semijoin_with_cache=on,partial_match_rowid_merge=off,partial_match_table_scan=off");
+
+if (`select @join_cache_level_for_subselect_test is null`)
+{
+  set join_cache_level=1;
+}
+if (`select @join_cache_level_for_subselect_test is not null`)
+{
+  set join_cache_level=@join_cache_level_for_subselect_test;
+}
+SET optimizer_switch='mrr=on,mrr_sort_keys=on,index_condition_pushdown=on';
+SET optimizer_use_condition_selectivity=4;
+
+#
+# Bug#5003 - like in subselect
+#
+CREATE TABLE t6(`IZAVORGANG_ID` VARCHAR(11) CHARACTER SET latin1 COLLATE latin1_bin,`KUERZEL` VARCHAR(10) CHARACTER SET latin1 COLLATE latin1_bin,`IZAANALYSEART_ID` VARCHAR(11) CHARACTER SET latin1 COLLATE latin1_bin,`IZAPMKZ_ID` VARCHAR(11) CHARACTER SET latin1 COLLATE latin1_bin);
+CREATE INDEX AK01IZAVORGANG ON t6(izaAnalyseart_id,Kuerzel);
+INSERT INTO t6(`IZAVORGANG_ID`,`KUERZEL`,`IZAANALYSEART_ID`,`IZAPMKZ_ID`)VALUES('D0000000001','601','D0000000001','I0000000001');
+INSERT INTO t6(`IZAVORGANG_ID`,`KUERZEL`,`IZAANALYSEART_ID`,`IZAPMKZ_ID`)VALUES('D0000000002','602','D0000000001','I0000000001');
+INSERT INTO t6(`IZAVORGANG_ID`,`KUERZEL`,`IZAANALYSEART_ID`,`IZAPMKZ_ID`)VALUES('D0000000003','603','D0000000001','I0000000001');
+INSERT INTO t6(`IZAVORGANG_ID`,`KUERZEL`,`IZAANALYSEART_ID`,`IZAPMKZ_ID`)VALUES('D0000000004','101','D0000000001','I0000000001');
+SELECT `IZAVORGANG_ID` FROM t6 WHERE `KUERZEL` IN(SELECT MIN(`KUERZEL`)`Feld1` FROM t6 WHERE `KUERZEL` LIKE'601%'And`IZAANALYSEART_ID`='D0000000001');
+
+#
+# resolving fields of grouped outer SELECT
+#
+CREATE TABLE t7 (howmanyvalues bigint, avalue int);
+INSERT INTO t7 VALUES (1, 1),(2, 1),(2, 2),(3, 1),(3, 2),(3, 3),(4, 1),(4, 2),(4, 3),(4, 4);
+SELECT howmanyvalues, count(*) from t7 group by howmanyvalues;
+SELECT a.howmanyvalues, (SELECT count(*) from t7 b where b.howmanyvalues = a.howmanyvalues) as mycount from t7 a group by a.howmanyvalues;
+CREATE INDEX t1_howmanyvalues_idx ON t7 (howmanyvalues);
+SELECT a.howmanyvalues, (SELECT count(*) from t7 b where b.howmanyvalues+1 = a.howmanyvalues+1) as mycount from t7 a group by a.howmanyvalues;
+SELECT a.howmanyvalues, (SELECT count(*) from t7 b where b.howmanyvalues = a.howmanyvalues) as mycount from t7 a group by a.howmanyvalues;
+SELECT a.howmanyvalues, (SELECT count(*) from t7 b where b.howmanyvalues = a.avalue) as mycount from t7 a group by a.howmanyvalues;
+
+#
+# Bug#28076 inconsistent binary/varbinary comparison
+#
+
+CREATE TABLE t8 (s1 BINARY(5), s2 VARBINARY(5));
+INSERT INTO t8 VALUES (0x41,0x41), (0x42,0x42), (0x43,0x43);
+
+SELECT s1, s2 FROM t8 WHERE s2 IN (SELECT s1 FROM t8);
+SELECT s1, s2 FROM t8 WHERE (s2, 10) IN (SELECT s1, 10 FROM t8);
+
+CREATE INDEX I1 ON t8 (s1);
+CREATE INDEX I2 ON t8 (s2);
+
+SELECT s1, s2 FROM t8 WHERE s2 IN (SELECT s1 FROM t8);
+SELECT s1, s2 FROM t8 WHERE (s2, 10) IN (SELECT s1, 10 FROM t8);
+
+#FIXME:TRUNCATE t8;
+delete from t8;
+INSERT INTO t8 VALUES (0x41,0x41);
+SELECT * FROM t8 WHERE s1 = (SELECT s2 FROM t8);
+
+#
+# Bug#30788 Inconsistent retrieval of char/varchar
+#
+
+SET @save_optimizer_switch=@@optimizer_switch;
+SET optimizer_switch='semijoin_with_cache=off';
+SET optimizer_switch='materialization=off';
+
+CREATE TABLE t9 (a CHAR(1), b VARCHAR(10));
+INSERT INTO t9 VALUES ('a', 'aa');
+INSERT INTO t9 VALUES ('a', 'aaa');
+SELECT a,b FROM t9 WHERE b IN (SELECT a FROM t9);
+CREATE INDEX I1 ON t9 (a);
+CREATE INDEX I2 ON t9 (b);
+--replace_column 9 #
+EXPLAIN SELECT a,b FROM t9 WHERE b IN (SELECT a FROM t9);
+SELECT a,b FROM t9 WHERE b IN (SELECT a FROM t9);
+
+CREATE TABLE t10 (a VARCHAR(1), b VARCHAR(10));
+INSERT INTO t10 SELECT * FROM t9;
+CREATE INDEX I1 ON t10 (a);
+CREATE INDEX I2 ON t10 (b);
+--replace_column 9 #
+EXPLAIN SELECT a,b FROM t10 WHERE b IN (SELECT a FROM t10);
+SELECT a,b FROM t10 WHERE b IN (SELECT a FROM t10);
+--replace_column 9 #
+EXPLAIN
+SELECT a,b FROM t9 WHERE b IN (SELECT a FROM t9 WHERE LENGTH(a)<500);
+SELECT a,b FROM t9 WHERE b IN (SELECT a FROM t9 WHERE LENGTH(a)<500);
+
+SET optimizer_switch= @save_optimizer_switch;
+
+
+set @@optimizer_switch=@subselect_tmp;
+
+drop table t1,t2,t3,t4,t5,t6,t7,t8,t9,t10;
+--echo # End of subselect tests
+
+#
+# test of big query with a lot of IN subqueries.(from subselect2.test)
+#
+--source include/default_optimizer_switch.inc
+
+set @subselect2_test_tmp=@@optimizer_switch;
+set optimizer_switch='semijoin=on,firstmatch=on,mrr=on,mrr_sort_keys=on,index_condition_pushdown=on';
+
+CREATE TABLE t11
+(
+DOCID VARCHAR(32)BINARY NOT NULL
+, UUID VARCHAR(32)BINARY NOT NULL
+, MIMETYPE VARCHAR(80)BINARY
+, CONTENTDATA LONGBLOB
+, CONTENTSIZE INTEGER
+, VERSIONID INTEGER
+, REPID VARCHAR(32)BINARY
+, MODIFIED TIMESTAMP
+, MODIFIER VARCHAR(255)BINARY
+, ORIGINATOR INTEGER
+
+, PRIMARY KEY ( DOCID )
+) ENGINE=eloq
+;
+
+INSERT IGNORE INTO t11 (DOCID) VALUES ("1"), ("2");
+
+CREATE TABLE t12
+(
+DOCID VARCHAR(32)BINARY NOT NULL
+, DOCNAME VARCHAR(255)BINARY NOT NULL
+, DOCTYPEID VARCHAR(32)BINARY NOT NULL
+, FOLDERID VARCHAR(32)BINARY NOT NULL
+, AUTHOR VARCHAR(255)BINARY
+, CREATED TIMESTAMP NOT NULL
+, TITLE VARCHAR(255)BINARY
+, SUBTITLE VARCHAR(255)BINARY
+, DOCABSTRACT LONGBLOB
+, PUBLISHDATE TIMESTAMP
+, EXPIRATIONDATE TIMESTAMP
+, LOCKEDBY VARCHAR(80)BINARY
+, STATUS VARCHAR(80)BINARY
+, PARENTDOCID VARCHAR(32)BINARY
+, REPID VARCHAR(32)BINARY
+, MODIFIED TIMESTAMP NOT NULL
+, MODIFIER VARCHAR(255)BINARY NOT NULL
+, PUBLISHSTATUS INTEGER
+, ORIGINATOR INTEGER
+
+, PRIMARY KEY ( DOCID )
+) ENGINE=eloq
+;
+CREATE INDEX DDOCTYPEID_IDX ON t12 (DOCTYPEID);
+CREATE INDEX DFOLDERID_IDX ON t12 (FOLDERID);
+
+CREATE TABLE t13
+(
+FOLDERID VARCHAR(32)BINARY NOT NULL
+, FOLDERNAME VARCHAR(255)BINARY NOT NULL
+, CREATOR VARCHAR(255)BINARY
+, CREATED TIMESTAMP NOT NULL
+, DESCRIPTION VARCHAR(255)BINARY
+, FOLDERTYPE INTEGER NOT NULL
+, MODIFIED TIMESTAMP
+, MODIFIER VARCHAR(255)BINARY
+, FOLDERSIZE INTEGER NOT NULL
+, PARENTID VARCHAR(32)BINARY
+, REPID VARCHAR(32)BINARY
+, ORIGINATOR INTEGER
+
+, PRIMARY KEY ( FOLDERID )
+) ENGINE=eloq;
+
+CREATE INDEX FFOLDERID_IDX ON t13 (FOLDERID);
+CREATE INDEX CMFLDRPARNT_IDX ON t13 (PARENTID);
+
+CREATE TABLE t14
+(
+DOCTYPEID VARCHAR(32)BINARY NOT NULL
+, DOCTYPENAME VARCHAR(80)BINARY NOT NULL
+, DESCRIPTION VARCHAR(255)BINARY
+, EXTNDATA LONGBLOB
+, MODIFIED TIMESTAMP
+, MODIFIER VARCHAR(255)BINARY
+, ORIGINATOR INTEGER
+
+, PRIMARY KEY ( DOCTYPEID )
+) ENGINE=eloq;
+
+INSERT INTO t12 VALUES("c373e9f59cf15a6c3e57444553544200", "c373e9f59cf15a6c3e57444553544200", "340d243d45f111d497b00010a4ef934d", "2f6161e879db43c1a5b82c21ddc49089", NULL, "2003-06-06 07:48:42", NULL, NULL, NULL, "2003-06-06 07:48:42", "2003-06-06 07:48:42", NULL, NULL, NULL, "03eea05112b845949f3fd03278b5fe43", "2003-06-06 07:48:42", "admin", "0", NULL);
+
+INSERT INTO t12 VALUES("c373e9f5a472f43ba45e444553544200", "c373e9f5a472f43ba45e444553544200", "340d243d45f111d497b00010a4ef934d", "2f6161e879db43c1a5b82c21ddc49089", NULL, "2003-06-07 18:50:12", NULL, NULL, NULL, "2003-06-07 18:50:12", "2003-06-07 18:50:12", NULL, NULL, NULL, "03eea05112b845949f3fd03278b5fe43", "2003-06-07 18:50:12", "admin", "0", NULL);
+
+
+INSERT INTO t12 VALUES("c373e9f5a4a0f56014eb444553544200", "c373e9f5a4a0f56014eb444553544200", "340d243d45f111d497b00010a4ef934d", "2f6161e879db43c1a5b82c21ddc49089", NULL, "2003-06-07 19:39:26", NULL, NULL, NULL, "2003-06-07 19:39:26", "2003-06-07 19:39:26", NULL, NULL, NULL, "03eea05112b845949f3fd03278b5fe43", "2003-06-07 19:39:26", "admin", "0", NULL);
+INSERT INTO t12 VALUES("c373e9f5a4a0f8fa4a86444553544200", "c373e9f5a4a0f8fa4a86444553544200", "340d243d45f111d497b00010a4ef934d", "2f6161e879db43c1a5b82c21ddc49089", NULL, "2003-06-07 19:43:05", NULL, NULL, NULL, "2003-06-07 19:43:05", "2003-06-07 19:43:05", NULL, NULL, NULL, "03eea05112b845949f3fd03278b5fe43", "2003-06-07 19:43:05", "admin", "0", NULL);
+INSERT INTO t12 VALUES("c373e9f5ac7b537205ce444553544200", "c373e9f5ac7b537205ce444553544200", "340d243d45f111d497b00010a4ef934d", "2f6161e879db43c1a5b82c21ddc49089", NULL, "2003-06-09 08:15:24", NULL, NULL, NULL, "2003-06-09 08:15:24", "2003-06-09 08:15:24", NULL, NULL, NULL, "03eea05112b845949f3fd03278b5fe43", "2003-06-09 08:15:24", "admin", "0", NULL);
+INSERT INTO t12 VALUES("c373e9f5ad0792012454444553544200", "c373e9f5ad0792012454444553544200", "340d243d45f111d497b00010a4ef934d", "2f6161e879db43c1a5b82c21ddc49089", NULL, "2003-06-09 10:51:44", NULL, NULL, NULL, "2003-06-09 10:51:44", "2003-06-09 10:51:44", NULL, NULL, NULL, "03eea05112b845949f3fd03278b5fe43", "2003-06-09 10:51:44", "admin", "0", NULL);
+INSERT INTO t12 VALUES("c373e9f5ad079821ef34444553544200", "First Discussion", "c373e9f5ad079174ff17444553544200", "c373e9f5ad0796c0eca4444553544200", "Goldilocks", "2003-06-09 11:16:50", "Title: First Discussion", NULL, NULL, "2003-06-09 10:51:26", "2003-06-09 10:51:26", NULL, NULL, NULL, "03eea05112b845949f3fd03278b5fe43", "2003-06-09 11:16:50", "admin", "0", NULL);
+INSERT INTO t12 VALUES("c373e9f5ad07993f3859444553544200", "Last Discussion", "c373e9f5ad079174ff17444553544200", "c373e9f5ad0796c0eca4444553544200", "Goldilocks", "2003-06-09 11:21:06", "Title: Last Discussion", NULL, "Setting new abstract and keeping doc checked out", "2003-06-09 10:51:26", "2003-06-09 10:51:26", NULL, NULL, NULL, "03eea05112b845949f3fd03278b5fe43", "2003-06-09 11:21:06", "admin", "0", NULL);
+INSERT INTO t12 VALUES("c373e9f5ad079a3219c4444553544200", "testdoclayout", "340d243c45f111d497b00010a4ef934d", "c373e9f5ad0796c0eca4444553544200", "Goldilocks", "2003-06-09 11:25:31", "Title: Test doc layout", "Subtitle: test doc layout", NULL, "2003-06-09 10:51:27", "2003-06-09 10:51:27", NULL, NULL, NULL, "03eea05112b845949f3fd03278b5fe43", "2003-06-09 11:25:31", "admin", "0", NULL);
+
+
+
+INSERT INTO t13 VALUES("0c9aab05b15048c59bc35c8461507deb", "System", "System", "2003-06-05 16:30:00", "The system content repository folder.", "3", "2003-06-05 16:30:00", "System", "0", NULL, "9c9aab05b15048c59bc35c8461507deb", "1");
+INSERT INTO t13 VALUES("2f6161e879db43c1a5b82c21ddc49089", "Default", "System", "2003-06-09 10:52:02", "The default content repository folder.", "3", "2003-06-05 16:30:00", "System", "0", NULL, "03eea05112b845949f3fd03278b5fe43", "1");
+INSERT INTO t13 VALUES("c373e9f5ad0791724315444553544200", "AddDocumentTest", "admin", "2003-06-09 10:51:25", "Movie Reviews", "0", "2003-06-09 10:51:25", "admin", "0", "2f6161e879db43c1a5b82c21ddc49089", "03eea05112b845949f3fd03278b5fe43", NULL);
+INSERT INTO t13 VALUES("c373e9f5ad07919e1963444553544200", "NewDestDirectory", "admin", "2003-06-09 10:51:28", "Adding new directory", "128", "2003-06-09 10:51:28", "admin", "0", "2f6161e879db43c1a5b82c21ddc49089", "03eea05112b845949f3fd03278b5fe43", NULL);
+INSERT INTO t13 VALUES("c373e9f5ad07919fe525444553544200", "SubDestDirectory", "admin", "2003-06-09 10:51:28", "Adding new directory", "128", "2003-06-09 10:51:28", "admin", "0", "c373e9f5ad07919e1963444553544200", "03eea05112b845949f3fd03278b5fe43", NULL);
+INSERT INTO t13 VALUES("c373e9f5ad0791a0dab5444553544200", "Level1", "admin", "2003-06-09 10:51:29", NULL, "0", "2003-06-09 10:51:29", "admin", "0", "2f6161e879db43c1a5b82c21ddc49089", "03eea05112b845949f3fd03278b5fe43", NULL);
+INSERT INTO t13 VALUES("c373e9f5ad0791a14669444553544200", "Level2", "admin", "2003-06-09 10:51:29", NULL, "0", "2003-06-09 10:51:29", "admin", "0", "c373e9f5ad0791a0dab5444553544200", "03eea05112b845949f3fd03278b5fe43", NULL);
+INSERT INTO t13 VALUES("c373e9f5ad0791a23c0e444553544200", "Level3", "admin", "2003-06-09 10:51:29", NULL, "0", "2003-06-09 10:51:29", "admin", "0", "c373e9f5ad0791a14669444553544200", "03eea05112b845949f3fd03278b5fe43", NULL);
+INSERT INTO t13 VALUES("c373e9f5ad0791a6b11f444553544200", "Dir1", "admin", "2003-06-09 10:51:30", NULL, "0", "2003-06-09 10:51:30", "admin", "0", "2f6161e879db43c1a5b82c21ddc49089", "03eea05112b845949f3fd03278b5fe43", NULL);
+INSERT INTO t13 VALUES("c373e9f5ad0791a897d6444553544200", "Dir2", "admin", "2003-06-09 10:51:30", NULL, "0", "2003-06-09 10:51:30", "admin", "0", "c373e9f5ad0791a6b11f444553544200", "03eea05112b845949f3fd03278b5fe43", NULL);
+INSERT INTO t13 VALUES("c373e9f5ad0791a9a063444553544200", "NewDestDirectory", "admin", "2003-06-09 10:51:31", NULL, "0", "2003-06-09 10:51:31", "admin", "0", "c373e9f5ad0791a897d6444553544200", "03eea05112b845949f3fd03278b5fe43", NULL);
+INSERT INTO t13 VALUES("c373e9f5ad0791aa73e3444553544200", "LevelA", "admin", "2003-06-09 10:51:31", NULL, "0", "2003-06-09 10:51:31", "admin", "0", "c373e9f5ad0791a0dab5444553544200", "03eea05112b845949f3fd03278b5fe43", NULL);
+INSERT INTO t13 VALUES("c373e9f5ad0791ab034b444553544200", "LevelB", "admin", "2003-06-09 10:51:31", NULL, "0", "2003-06-09 10:51:31", "admin", "0", "c373e9f5ad0791aa73e3444553544200", "03eea05112b845949f3fd03278b5fe43", NULL);
+INSERT INTO t13 VALUES("c373e9f5ad0791ac7311444553544200", "LevelC", "admin", "2003-06-09 10:51:32", NULL, "0", "2003-06-09 10:51:32", "admin", "0", "c373e9f5ad0791ab034b444553544200", "03eea05112b845949f3fd03278b5fe43", NULL);
+INSERT INTO t13 VALUES("c373e9f5ad0791ad66cf444553544200", "test2", "admin", "2003-06-09 10:51:32", NULL, "0", "2003-06-09 10:51:32", "admin", "0", "c373e9f5ad0791724315444553544200", "03eea05112b845949f3fd03278b5fe43", NULL);
+INSERT INTO t13 VALUES("c373e9f5ad0791aebd87444553544200", "test3", "admin", "2003-06-09 10:51:33", NULL, "0", "2003-06-09 10:51:33", "admin", "0", "c373e9f5ad0791ad66cf444553544200", "03eea05112b845949f3fd03278b5fe43", NULL);
+INSERT INTO t13 VALUES("c373e9f5ad0791dbaac4444553544200", "Special Café Folder", "admin", "2003-06-09 10:51:43", "test folder names with special chars", "0", "2003-06-09 10:51:43", "admin", "0", "2f6161e879db43c1a5b82c21ddc49089", "03eea05112b845949f3fd03278b5fe43", NULL);
+INSERT INTO t13 VALUES("c373e9f5ad0796bf913f444553544200", "CopiedFolder", "admin", "2003-06-09 11:09:05", "Movie Reviews", "0", "2003-06-09 11:09:05", "admin", "0", "c373e9f5ad0791a23c0e444553544200", "03eea05112b845949f3fd03278b5fe43", NULL);
+INSERT INTO t13 VALUES("c373e9f5ad0796c0eca4444553544200", "Movie Reviews", "admin", "2003-06-09 11:09:13", "Movie Reviews", "0", "2003-06-09 11:09:13", "admin", "33", "c373e9f5ad0796bf913f444553544200", "03eea05112b845949f3fd03278b5fe43", NULL);
+INSERT INTO t13 VALUES("c373e9f5ad0796d9b895444553544200", "NewBookFolder", "admin", "2003-06-09 11:12:41", "NewBooks - folder", "0", "2003-06-09 11:12:41", "admin", "0", "c373e9f5ad0796c0eca4444553544200", "03eea05112b845949f3fd03278b5fe43", NULL);
+INSERT INTO t13 VALUES("c373e9f5ad079b4c9355444553544200", "CopiedFolder", "admin", "2003-06-09 11:26:34", "Movie Reviews", "0", "2003-06-09 11:26:34", "admin", "0", "2f6161e879db43c1a5b82c21ddc49089", "03eea05112b845949f3fd03278b5fe43", NULL);
+
+
+INSERT INTO t14 VALUES("340d243c45f111d497b00010a4ef934d", "Document Layout", "The system Document Layouts Document Type", NULL, "2003-06-05 16:30:00", "System", "1");
+INSERT INTO t14 VALUES("340d243d45f111d497b00010a4ef934d", "Default", "The default system Document Type", NULL, "2003-06-05 16:30:00", "System", "1");
+INSERT INTO t14 VALUES("4d09dd60850711d4998a204c4f4f5020", "__SystemResourceType", "The type for all the uploaded resources", NULL, "2003-06-05 16:30:00", "System", "1");
+INSERT INTO t14 VALUES("91d4d595478211d497b40010a4ef934d", "__PmcSystemDefaultType", "The type for all the default available fields", NULL, "2003-06-05 16:30:00", "System", "1");
+INSERT INTO t14 VALUES("c373e9f59cf15a59b08a444553544200", "NoFieldDocType", "plain doc type", NULL, "2003-06-06 07:48:40", "admin", NULL);
+INSERT INTO t14 VALUES("c373e9f59cf15a5c6a99444553544200", "Movie Review", "This doc type is for movie reviews", "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<props autocheckin=\"false\" autopublish=\"false\" binary=\"choice\" categories=\"none\" cleanup=\"false\" folder=\"none\"><![CDATA[Doc type for cm tests]]></props>\r\n", "2003-06-06 07:48:40", "admin", NULL);
+INSERT INTO t14 VALUES("c373e9f59cf15a6116a5444553544200", "Special DocÃu20A4u20A4u0113ééøÉu016BType", "test special chars xxxé in doc type", NULL, "2003-06-06 07:48:41", "admin", NULL);
+INSERT INTO t14 VALUES("c373e9f59cf15a695d47444553544200", "Movie", NULL, NULL, "2003-06-06 07:48:41", "admin", NULL);
+INSERT INTO t14 VALUES("c373e9f5ad079174ff17444553544200", "Discussion", NULL, NULL, "2003-06-09 10:51:25", "admin", NULL);
+INSERT INTO t14 VALUES("c373e9f5ad0791da7e2b444553544200", "Books", "list of recommended books", "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<props autocheckin=\"false\" autopublish=\"false\" binary=\"choice\" categories=\"none\" cleanup=\"false\" folder=\"none\"><![CDATA[Doc type for cm tests]]><![CDATA[Doc type for book tests]]></props>\r\n", "2003-06-09 10:51:40", "admin", NULL);
+
+SELECT t12.*, t14.DOCTYPENAME, t11.CONTENTSIZE,t11.MIMETYPE FROM t12 INNER JOIN t14 ON t12.DOCTYPEID = t14.DOCTYPEID LEFT OUTER JOIN t11 ON t12.DOCID = t11.DOCID WHERE t12.FOLDERID IN(SELECT t13.FOLDERID FROM t13 WHERE t13.PARENTID IN(SELECT t13.FOLDERID FROM t13 WHERE t13.PARENTID IN(SELECT t13.FOLDERID FROM t13 WHERE t13.PARENTID IN(SELECT t13.FOLDERID FROM t13 WHERE t13.PARENTID IN(SELECT t13.FOLDERID FROM t13 WHERE t13.PARENTID='2f6161e879db43c1a5b82c21ddc49089' AND t13.FOLDERNAME = 'Level1') AND t13.FOLDERNAME = 'Level2') AND t13.FOLDERNAME = 'Level3') AND t13.FOLDERNAME = 'CopiedFolder') AND t13.FOLDERNAME = 'Movie Reviews') AND t12.DOCNAME = 'Last Discussion';
+
+--echo #
+--echo # MDEV-4420: non-expensive single-value subquery used as
+--echo #            used as an access key to join a table
+--echo #
+
+create table t15 (a varchar(3));
+insert into t15 values ('USA'), ('FRA');
+create table t16 select * from t15;
+insert into t16 values ('RUS');
+create table t17 select * from t16;
+create index idx on t17(a);
+
+#FIXME: explain extended
+#select * from t15, t16 left join t17 on ( t16.a = t17.a )
+#where t15.a = t16.a and ( t15.a = ( select min(a) from t15 ) or 0 );
+
+select * from t15, t16 left join t17 on ( t16.a = t17.a )
+where t15.a = t16.a and ( t15.a = ( select min(a) from t15 ) or 0 );
+
+--echo # End of subselect2 tests
+
+#
+# From subselect_exists2in.test
+#
+--source include/default_optimizer_switch.inc
+
+set optimizer_switch=default;
+set optimizer_switch='exists_to_in=on';
+
+--echo # 
+--echo # From group_min_max.test
+--echo # 
+create table t18 (
+  a1 char(64), a2 char(64), b char(16), c char(16) not null, d char(16), dummy char(64) default ' '
+);
+
+insert into t18 (a1, a2, b, c, d) values
+('a','a','a','a111','xy1'),('a','a','a','b111','xy2'),('a','a','a','c111','xy3'),('a','a','a','d111','xy4'),
+('a','a','b','e112','xy1'),('a','a','b','f112','xy2'),('a','a','b','g112','xy3'),('a','a','b','h112','xy4'),
+('a','b','a','i121','xy1'),('a','b','a','j121','xy2'),('a','b','a','k121','xy3'),('a','b','a','l121','xy4'),
+('a','b','b','m122','xy1'),('a','b','b','n122','xy2'),('a','b','b','o122','xy3'),('a','b','b','p122','xy4'),
+('b','a','a','a211','xy1'),('b','a','a','b211','xy2'),('b','a','a','c211','xy3'),('b','a','a','d211','xy4'),
+('b','a','b','e212','xy1'),('b','a','b','f212','xy2'),('b','a','b','g212','xy3'),('b','a','b','h212','xy4'),
+('b','b','a','i221','xy1'),('b','b','a','j221','xy2'),('b','b','a','k221','xy3'),('b','b','a','l221','xy4'),
+('b','b','b','m222','xy1'),('b','b','b','n222','xy2'),('b','b','b','o222','xy3'),('b','b','b','p222','xy4'),
+('c','a','a','a311','xy1'),('c','a','a','b311','xy2'),('c','a','a','c311','xy3'),('c','a','a','d311','xy4'),
+('c','a','b','e312','xy1'),('c','a','b','f312','xy2'),('c','a','b','g312','xy3'),('c','a','b','h312','xy4'),
+('c','b','a','i321','xy1'),('c','b','a','j321','xy2'),('c','b','a','k321','xy3'),('c','b','a','l321','xy4'),
+('c','b','b','m322','xy1'),('c','b','b','n322','xy2'),('c','b','b','o322','xy3'),('c','b','b','p322','xy4'),
+('d','a','a','a411','xy1'),('d','a','a','b411','xy2'),('d','a','a','c411','xy3'),('d','a','a','d411','xy4'),
+('d','a','b','e412','xy1'),('d','a','b','f412','xy2'),('d','a','b','g412','xy3'),('d','a','b','h412','xy4'),
+('d','b','a','i421','xy1'),('d','b','a','j421','xy2'),('d','b','a','k421','xy3'),('d','b','a','l421','xy4'),
+('d','b','b','m422','xy1'),('d','b','b','n422','xy2'),('d','b','b','o422','xy3'),('d','b','b','p422','xy4'),
+('a','a','a','a111','xy1'),('a','a','a','b111','xy2'),('a','a','a','c111','xy3'),('a','a','a','d111','xy4'),
+('a','a','b','e112','xy1'),('a','a','b','f112','xy2'),('a','a','b','g112','xy3'),('a','a','b','h112','xy4'),
+('a','b','a','i121','xy1'),('a','b','a','j121','xy2'),('a','b','a','k121','xy3'),('a','b','a','l121','xy4'),
+('a','b','b','m122','xy1'),('a','b','b','n122','xy2'),('a','b','b','o122','xy3'),('a','b','b','p122','xy4'),
+('b','a','a','a211','xy1'),('b','a','a','b211','xy2'),('b','a','a','c211','xy3'),('b','a','a','d211','xy4'),
+('b','a','b','e212','xy1'),('b','a','b','f212','xy2'),('b','a','b','g212','xy3'),('b','a','b','h212','xy4'),
+('b','b','a','i221','xy1'),('b','b','a','j221','xy2'),('b','b','a','k221','xy3'),('b','b','a','l221','xy4'),
+('b','b','b','m222','xy1'),('b','b','b','n222','xy2'),('b','b','b','o222','xy3'),('b','b','b','p222','xy4'),
+('c','a','a','a311','xy1'),('c','a','a','b311','xy2'),('c','a','a','c311','xy3'),('c','a','a','d311','xy4'),
+('c','a','b','e312','xy1'),('c','a','b','f312','xy2'),('c','a','b','g312','xy3'),('c','a','b','h312','xy4'),
+('c','b','a','i321','xy1'),('c','b','a','j321','xy2'),('c','b','a','k321','xy3'),('c','b','a','l321','xy4'),
+('c','b','b','m322','xy1'),('c','b','b','n322','xy2'),('c','b','b','o322','xy3'),('c','b','b','p322','xy4'),
+('d','a','a','a411','xy1'),('d','a','a','b411','xy2'),('d','a','a','c411','xy3'),('d','a','a','d411','xy4'),
+('d','a','b','e412','xy1'),('d','a','b','f412','xy2'),('d','a','b','g412','xy3'),('d','a','b','h412','xy4'),
+('d','b','a','i421','xy1'),('d','b','a','j421','xy2'),('d','b','a','k421','xy3'),('d','b','a','l421','xy4'),
+('d','b','b','m422','xy1'),('d','b','b','n422','xy2'),('d','b','b','o422','xy3'),('d','b','b','p422','xy4');
+
+create index idx_t18_0 on t18 (a1);
+create index idx_t18_1 on t18 (a1,a2,b,c);
+create index idx_t18_2 on t18 (a1,a2,b);
+
+# t19 is the same as t18, but with some NULLs in the MIN/MAX column, and
+# one more nullable attribute
+
+create table t19 (
+  a1 char(64), a2 char(64) not null, b char(16), c char(16), d char(16), dummy char(64) default ' '
+);
+insert into t19 select * from t18;
+# add few rows with NULL's in the MIN/MAX column
+insert into t19 (a1, a2, b, c, d) values
+('a','a',NULL,'a777','xyz'),('a','a',NULL,'a888','xyz'),('a','a',NULL,'a999','xyz'),
+('a','a','a',NULL,'xyz'),
+('a','a','b',NULL,'xyz'),
+('a','b','a',NULL,'xyz'),
+('c','a',NULL,'c777','xyz'),('c','a',NULL,'c888','xyz'),('c','a',NULL,'c999','xyz'),
+('d','b','b',NULL,'xyz'),
+('e','a','a',NULL,'xyz'),('e','a','a',NULL,'xyz'),('e','a','a',NULL,'xyz'),('e','a','a',NULL,'xyz'),
+('e','a','b',NULL,'xyz'),('e','a','b',NULL,'xyz'),('e','a','b',NULL,'xyz'),('e','a','b',NULL,'xyz'),
+('a','a',NULL,'a777','xyz'),('a','a',NULL,'a888','xyz'),('a','a',NULL,'a999','xyz'),
+('a','a','a',NULL,'xyz'),
+('a','a','b',NULL,'xyz'),
+('a','b','a',NULL,'xyz'),
+('c','a',NULL,'c777','xyz'),('c','a',NULL,'c888','xyz'),('c','a',NULL,'c999','xyz'),
+('d','b','b',NULL,'xyz'),
+('e','a','a',NULL,'xyz'),('e','a','a',NULL,'xyz'),('e','a','a',NULL,'xyz'),('e','a','a',NULL,'xyz'),
+('e','a','b',NULL,'xyz'),('e','a','b',NULL,'xyz'),('e','a','b',NULL,'xyz'),('e','a','b',NULL,'xyz');
+
+create index idx_t19_0 on t19 (a1);
+create index idx_t19_1 on t19 (a1,a2,b,c);
+create index idx_t19_2 on t19 (a1,a2,b);
+
+# Table t20 is the same as t18, but with smaller column lenghts.
+# This allows to test different branches of the cost computation procedure
+# when the number of keys per block are less than the number of keys in the
+# sub-groups formed by predicates over non-group attributes. 
+
+create table t20 (
+  a1 char(1), a2 char(1), b char(1), c char(4) not null, d char(3), dummy char(1) default ' '
+);
+
+insert into t20 (a1, a2, b, c, d) values
+('a','a','a','a111','xy1'),('a','a','a','b111','xy2'),('a','a','a','c111','xy3'),('a','a','a','d111','xy4'),
+('a','a','b','e112','xy1'),('a','a','b','f112','xy2'),('a','a','b','g112','xy3'),('a','a','b','h112','xy4'),
+('a','b','a','i121','xy1'),('a','b','a','j121','xy2'),('a','b','a','k121','xy3'),('a','b','a','l121','xy4'),
+('a','b','b','m122','xy1'),('a','b','b','n122','xy2'),('a','b','b','o122','xy3'),('a','b','b','p122','xy4'),
+('b','a','a','a211','xy1'),('b','a','a','b211','xy2'),('b','a','a','c211','xy3'),('b','a','a','d211','xy4'),
+('b','a','b','e212','xy1'),('b','a','b','f212','xy2'),('b','a','b','g212','xy3'),('b','a','b','h212','xy4'),
+('b','b','a','i221','xy1'),('b','b','a','j221','xy2'),('b','b','a','k221','xy3'),('b','b','a','l221','xy4'),
+('b','b','b','m222','xy1'),('b','b','b','n222','xy2'),('b','b','b','o222','xy3'),('b','b','b','p222','xy4'),
+('c','a','a','a311','xy1'),('c','a','a','b311','xy2'),('c','a','a','c311','xy3'),('c','a','a','d311','xy4'),
+('c','a','b','e312','xy1'),('c','a','b','f312','xy2'),('c','a','b','g312','xy3'),('c','a','b','h312','xy4'),
+('c','b','a','i321','xy1'),('c','b','a','j321','xy2'),('c','b','a','k321','xy3'),('c','b','a','l321','xy4'),
+('c','b','b','m322','xy1'),('c','b','b','n322','xy2'),('c','b','b','o322','xy3'),('c','b','b','p322','xy4');
+insert into t20 (a1, a2, b, c, d) values
+('a','a','a','a111','xy1'),('a','a','a','b111','xy2'),('a','a','a','c111','xy3'),('a','a','a','d111','xy4'),
+('a','a','b','e112','xy1'),('a','a','b','f112','xy2'),('a','a','b','g112','xy3'),('a','a','b','h112','xy4'),
+('a','b','a','i121','xy1'),('a','b','a','j121','xy2'),('a','b','a','k121','xy3'),('a','b','a','l121','xy4'),
+('a','b','b','m122','xy1'),('a','b','b','n122','xy2'),('a','b','b','o122','xy3'),('a','b','b','p122','xy4'),
+('b','a','a','a211','xy1'),('b','a','a','b211','xy2'),('b','a','a','c211','xy3'),('b','a','a','d211','xy4'),
+('b','a','b','e212','xy1'),('b','a','b','f212','xy2'),('b','a','b','g212','xy3'),('b','a','b','h212','xy4'),
+('b','b','a','i221','xy1'),('b','b','a','j221','xy2'),('b','b','a','k221','xy3'),('b','b','a','l221','xy4'),
+('b','b','b','m222','xy1'),('b','b','b','n222','xy2'),('b','b','b','o222','xy3'),('b','b','b','p222','xy4'),
+('c','a','a','a311','xy1'),('c','a','a','b311','xy2'),('c','a','a','c311','xy3'),('c','a','a','d311','xy4'),
+('c','a','b','e312','xy1'),('c','a','b','f312','xy2'),('c','a','b','g312','xy3'),('c','a','b','h312','xy4'),
+('c','b','a','i321','xy1'),('c','b','a','j321','xy2'),('c','b','a','k321','xy3'),('c','b','a','l321','xy4'),
+('c','b','b','m322','xy1'),('c','b','b','n322','xy2'),('c','b','b','o322','xy3'),('c','b','b','p322','xy4');
+insert into t20 (a1, a2, b, c, d) values
+('a','a','a','a111','xy1'),('a','a','a','b111','xy2'),('a','a','a','c111','xy3'),('a','a','a','d111','xy4'),
+('a','a','b','e112','xy1'),('a','a','b','f112','xy2'),('a','a','b','g112','xy3'),('a','a','b','h112','xy4'),
+('a','b','a','i121','xy1'),('a','b','a','j121','xy2'),('a','b','a','k121','xy3'),('a','b','a','l121','xy4'),
+('a','b','b','m122','xy1'),('a','b','b','n122','xy2'),('a','b','b','o122','xy3'),('a','b','b','p122','xy4'),
+('b','a','a','a211','xy1'),('b','a','a','b211','xy2'),('b','a','a','c211','xy3'),('b','a','a','d211','xy4'),
+('b','a','b','e212','xy1'),('b','a','b','f212','xy2'),('b','a','b','g212','xy3'),('b','a','b','h212','xy4'),
+('b','b','a','i221','xy1'),('b','b','a','j221','xy2'),('b','b','a','k221','xy3'),('b','b','a','l221','xy4'),
+('b','b','b','m222','xy1'),('b','b','b','n222','xy2'),('b','b','b','o222','xy3'),('b','b','b','p222','xy4'),
+('c','a','a','a311','xy1'),('c','a','a','b311','xy2'),('c','a','a','c311','xy3'),('c','a','a','d311','xy4'),
+('c','a','b','e312','xy1'),('c','a','b','f312','xy2'),('c','a','b','g312','xy3'),('c','a','b','h312','xy4'),
+('c','b','a','i321','xy1'),('c','b','a','j321','xy2'),('c','b','a','k321','xy3'),('c','b','a','l321','xy4'),
+('c','b','b','m322','xy1'),('c','b','b','n322','xy2'),('c','b','b','o322','xy3'),('c','b','b','p322','xy4');
+insert into t20 (a1, a2, b, c, d) values
+('a','a','a','a111','xy1'),('a','a','a','b111','xy2'),('a','a','a','c111','xy3'),('a','a','a','d111','xy4'),
+('a','a','b','e112','xy1'),('a','a','b','f112','xy2'),('a','a','b','g112','xy3'),('a','a','b','h112','xy4'),
+('a','b','a','i121','xy1'),('a','b','a','j121','xy2'),('a','b','a','k121','xy3'),('a','b','a','l121','xy4'),
+('a','b','b','m122','xy1'),('a','b','b','n122','xy2'),('a','b','b','o122','xy3'),('a','b','b','p122','xy4'),
+('b','a','a','a211','xy1'),('b','a','a','b211','xy2'),('b','a','a','c211','xy3'),('b','a','a','d211','xy4'),
+('b','a','b','e212','xy1'),('b','a','b','f212','xy2'),('b','a','b','g212','xy3'),('b','a','b','h212','xy4'),
+('b','b','a','i221','xy1'),('b','b','a','j221','xy2'),('b','b','a','k221','xy3'),('b','b','a','l221','xy4'),
+('b','b','b','m222','xy1'),('b','b','b','n222','xy2'),('b','b','b','o222','xy3'),('b','b','b','p222','xy4'),
+('c','a','a','a311','xy1'),('c','a','a','b311','xy2'),('c','a','a','c311','xy3'),('c','a','a','d311','xy4'),
+('c','a','b','e312','xy1'),('c','a','b','f312','xy2'),('c','a','b','g312','xy3'),('c','a','b','h312','xy4'),
+('c','b','a','i321','xy1'),('c','b','a','j321','xy2'),('c','b','a','k321','xy3'),('c','b','a','l321','xy4'),
+('c','b','b','m322','xy1'),('c','b','b','n322','xy2'),('c','b','b','o322','xy3'),('c','b','b','p322','xy4');
+
+create index idx_t20_0 on t20 (a1);
+create index idx_t20_1 on t20 (a1,a2,b,c);
+create index idx_t20_2 on t20 (a1,a2,b);
+
+
+--replace_column 9 #
+explain select a1,a2,b,c,min(c), max(c) from t18
+where exists ( select * from t19
+               where t19.c in (select c from t20 where t20.c > t18.b) and
+               t19.c > 'b1' )
+group by a1,a2,b;
+
+select a1,a2,b,c,min(c), max(c) from t18
+where exists ( select * from t19
+               where t19.c in (select c from t20 where t20.c > t18.b) and
+               t19.c > 'b1' )
+group by a1,a2,b;
+
+--replace_column 9 #
+explain select a1,a2,b,c,min(c), max(c) from t18
+where exists ( select * from t19
+               where t19.c in (select c from t20 where t20.c > t18.c) and
+               t19.c > 'b1' )
+group by a1,a2,b;
+
+select a1,a2,b,c,min(c), max(c) from t18
+where exists ( select * from t19
+               where t19.c in (select c from t20 where t20.c > t18.c) and
+               t19.c > 'b1' )
+group by a1,a2,b;
+
+#restore defaults
+set optimizer_switch=default;
+drop table t11,t12,t13,t14,t15,t16,t17,t18,t19,t20;
+--echo # End of subselect exists2in tests
+
+#
+# From subselect_mat_cost_bugs.test
+#
+--echo #
+--echo # MWL#89: test introduced after Sergey Petrunia's review - test that
+--echo # keyparts wihtout index prefix are used with the IN-EXISTS strategy.
+--echo #
+
+create table t21 (c1 int);
+insert into t21 values (1), (2), (3);
+
+create table t22 (kp1 int, kp2 int, c2 int, filler char(100));
+insert into t22 values (0,0,0,'filler'),(0,1,1,'filler'),(0,2,2,'filler'),(0,3,3,'filler');
+
+create index key1 on t22 (kp1, kp2);
+create index key2 on t22 (kp1);
+create index key3 on t22 (kp2);
+
+-- disable_query_log
+-- disable_result_log
+analyze table t22;
+-- enable_result_log
+-- enable_query_log
+
+SET @@optimizer_switch='materialization=off,semijoin=off,in_to_exists=on';
+
+--replace_column 9 #
+explain
+select c1 from t21 where c1 in (select kp1 from t22 where kp2 = 10 and c2 = 4) or c1 > 7;
+select c1 from t21 where c1 in (select kp1 from t22 where kp2 = 10 and c2 = 4) or c1 > 7;
+
+set @@optimizer_switch='default';
+
+--echo # End of subselect mat cost bugs tests
+
+#
+# DuplicateElimination strategy test (from subselect_sj2.test)
+#
+set @subselect_sj2_tmp= @@optimizer_switch;
+set optimizer_switch='semijoin=on,firstmatch=on,loosescan=on';
+set optimizer_switch='mrr=on,mrr_sort_keys=on,index_condition_pushdown=on';
+SET optimizer_switch=ifnull(@optimizer_switch_for_subselect_sj2_test,'outer_join_with_cache=off');
+SET optimizer_switch=ifnull(@optimizer_switch_for_subselect_sj2_test,'semijoin_with_cache=off');
+if (`select @join_cache_level_for_subselect_sj2_test is null`)
+{
+  set join_cache_level=1;
+}
+if (`select @join_cache_level_for_subselect_sj2_test is not null`)
+{
+  set join_cache_level=@join_cache_level_for_subselect_sj2_test;
+}
+
+#
+# BUG#33743 "nested subqueries, unique index, wrong result"
+#
+CREATE TABLE t23
+ (EMPNUM   CHAR(3) NOT NULL,
+  EMPNAME  CHAR(20),
+  GRADE    DECIMAL(4),
+  CITY     CHAR(15));
+
+CREATE TABLE t24
+ (PNUM     CHAR(3) NOT NULL,
+  PNAME    CHAR(20),
+  PTYPE    CHAR(6),
+  BUDGET   DECIMAL(9),
+  CITY     CHAR(15));
+
+CREATE TABLE t25
+ (EMPNUM   CHAR(3) NOT NULL,
+  PNUM     CHAR(3) NOT NULL,
+  HOURS    DECIMAL(5));
+
+INSERT INTO t23 VALUES ('E1','Alice',12,'Deale');
+INSERT INTO t23 VALUES ('E2','Betty',10,'Vienna');
+INSERT INTO t23 VALUES ('E3','Carmen',13,'Vienna');
+INSERT INTO t23 VALUES ('E4','Don',12,'Deale');
+INSERT INTO t23 VALUES ('E5','Ed',13,'Akron');
+
+INSERT INTO t24 VALUES ('P1','MXSS','Design',10000,'Deale');
+INSERT INTO t24 VALUES ('P2','CALM','Code',30000,'Vienna');
+INSERT INTO t24 VALUES ('P3','SDP','Test',30000,'Tampa');
+INSERT INTO t24 VALUES ('P4','SDP','Design',20000,'Deale');
+INSERT INTO t24 VALUES ('P5','IRM','Test',10000,'Vienna');
+INSERT INTO t24 VALUES ('P6','PAYR','Design',50000,'Deale');
+
+INSERT INTO t25 VALUES  ('E1','P1',40);
+INSERT INTO t25 VALUES  ('E1','P2',20);
+INSERT INTO t25 VALUES  ('E1','P3',80);
+INSERT INTO t25 VALUES  ('E1','P4',20);
+INSERT INTO t25 VALUES  ('E1','P5',12);
+INSERT INTO t25 VALUES  ('E1','P6',12);
+INSERT INTO t25 VALUES  ('E2','P1',40);
+INSERT INTO t25 VALUES  ('E2','P2',80);
+INSERT INTO t25 VALUES  ('E3','P2',20);
+INSERT INTO t25 VALUES  ('E4','P2',20);
+INSERT INTO t25 VALUES  ('E4','P4',40);
+INSERT INTO t25 VALUES  ('E4','P5',80);
+
+SELECT * FROM t23;
+CREATE INDEX t23_IDX ON t23(EMPNUM);
+--sorted_result
+SELECT EMPNAME
+FROM t23
+WHERE EMPNUM IN
+   (SELECT EMPNUM
+    FROM t25
+    WHERE PNUM IN
+       (SELECT PNUM
+        FROM t24
+        WHERE PTYPE = 'Design'));
+
+DROP INDEX t23_IDX ON t23;
+CREATE INDEX t23_IDX ON t23(EMPNUM);
+--sorted_result
+SELECT EMPNAME
+FROM t23
+WHERE EMPNUM IN
+   (SELECT EMPNUM
+    FROM t25
+    WHERE PNUM IN
+       (SELECT PNUM
+        FROM t24
+        WHERE PTYPE = 'Design'));
+
+DROP INDEX t23_IDX ON t23;
+--sorted_result
+SELECT EMPNAME
+FROM t23
+WHERE EMPNUM IN
+   (SELECT EMPNUM
+    FROM t25
+    WHERE PNUM IN
+       (SELECT PNUM
+        FROM t24
+        WHERE PTYPE = 'Design'));
+
+set optimizer_switch=@subselect_sj2_tmp;
+--echo # End of subselect sj2 tests
+
+#
+# testing of the BIT column type (from type_bit.test)
+#
+#
+# Bug #28631: problem after alter
+#
+create table t26(a bit(8));
+insert into t26 values(0x40);
+select hex(a) from t26;
+insert into t26 values(0x80);
+select hex(a) from t26;
+create index a on t26(a);
+insert into t26 values(0x81);
+select hex(a) from t26;
+show create table t26;
+
+--echo # End of type bit tests
+
+#
+# test of problem with date fields (from type_date.test)
+#
+#
+# Bug#28687: Search fails on '0000-00-00' date after sql_mode change
+#
+
+CREATE TABLE t27 (a DATE);
+CREATE TABLE t28 (a DATE);
+CREATE INDEX i ON t27 (a);
+INSERT INTO t27 VALUES ('0000-00-00'),('0000-00-00');
+INSERT INTO t28 VALUES ('0000-00-00'),('0000-00-00');
+SELECT * FROM t27 WHERE a = '0000-00-00';
+SELECT * FROM t28 WHERE a = '0000-00-00';
+SET SQL_MODE=TRADITIONAL;
+--replace_column 9 #
+EXPLAIN SELECT * FROM t27 WHERE a = '0000-00-00';
+SELECT * FROM t27 WHERE a = '0000-00-00';
+SELECT * FROM t28 WHERE a = '0000-00-00';
+--error ER_TRUNCATED_WRONG_VALUE
+INSERT INTO t27 VALUES ('0000-00-00');
+SET SQL_MODE=DEFAULT;
+
+#
+# Bug #31928: Search fails on '1000-00-00' date after sql_mode change
+#
+
+CREATE TABLE t29 (a DATE);
+CREATE TABLE t30 (a DATE);
+CREATE INDEX i ON t29 (a);
+INSERT INTO t29 VALUES ('1000-00-00'),('1000-00-00');
+INSERT INTO t30 VALUES ('1000-00-00'),('1000-00-00');
+SELECT * FROM t29 WHERE a = '1000-00-00';
+SELECT * FROM t30 WHERE a = '1000-00-00';
+SET SQL_MODE=TRADITIONAL;
+--replace_column 9 #
+EXPLAIN SELECT * FROM t29 WHERE a = '1000-00-00';
+SELECT * FROM t29 WHERE a = '1000-00-00';
+SELECT * FROM t30 WHERE a = '1000-00-00';
+--error ER_TRUNCATED_WRONG_VALUE
+INSERT INTO t29 VALUES ('1000-00-00');
+SET SQL_MODE=DEFAULT;
+
+drop table t21,t22,t23,t24,t25,t26,t27,t28,t29,t30;
+--echo # End of type date tests
+
+#
+# testing different DATETIME ranges (from type_datetime.test)
+#
+#
+# Test with bug when propagating DATETIME to integer and WHERE optimization
+#
+
+create table t31 (id int, dt datetime);
+insert into t31 values (1,"2001-08-14 00:00:00"),(2,"2001-08-15 00:00:00"),(3,"2001-08-16 00:00:00"),(4,"2003-09-15 01:20:30");
+select * from t31 where dt='2001-08-14 00:00:00' and dt =  if(id=1,'2001-08-14 00:00:00','1999-08-15');
+create index dt on t31 (dt);
+select * from t31 where dt > 20021020;
+select * from t31 ignore index (dt) where dt > 20021020;
+
+--echo # End of type datetime tests
+
+#
+# Test ranges for all types and some other basic tests (from type_ranges.test)
+#
+CREATE TABLE t32 (
+  auto int(5) unsigned NOT NULL auto_increment,
+  string char(10) default "hello",
+  tiny tinyint(4) DEFAULT '0' NOT NULL ,
+  short smallint(6) DEFAULT '1' NOT NULL ,
+  medium mediumint(8) DEFAULT '0' NOT NULL,
+  long_int int(11) DEFAULT '0' NOT NULL,
+  longlong bigint(13) DEFAULT '0' NOT NULL,
+  real_float float(13,1) DEFAULT 0.0 NOT NULL,
+  real_double double(16,4),
+  utiny tinyint(3) unsigned DEFAULT '0' NOT NULL,
+  ushort smallint(5) unsigned zerofill DEFAULT '00000' NOT NULL,
+  umedium mediumint(8) unsigned DEFAULT '0' NOT NULL,
+  ulong int(11) unsigned DEFAULT '0' NOT NULL,
+  ulonglong bigint(13) unsigned DEFAULT '0' NOT NULL,
+  time_stamp timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  date_field date,
+  time_field time,
+  date_time datetime,
+  blob_col blob,
+  tinyblob_col tinyblob,
+  mediumblob_col mediumblob  not null default '',
+  longblob_col longblob  not null default '',
+  options enum('one','two','tree') not null ,
+  flags set('one','two','tree') not null default '',
+  PRIMARY KEY (auto),
+  KEY (utiny),
+  KEY (tiny),
+  KEY (short),
+  KEY any_name (medium),
+  KEY (longlong),
+  KEY (real_float),
+  KEY (ushort),
+  KEY (umedium),
+  KEY (ulong),
+  KEY (ulonglong,ulong),
+  KEY (options,flags)
+);
+
+# We mask out the Privileges column because it differs with embedded server
+--replace_column 8 #
+show full fields from t32;
+show keys from t32;
+
+CREATE INDEX test on t32 ( auto ) ;
+CREATE INDEX test2 on t32 ( ulonglong,ulong) ;
+CREATE INDEX test3 on t32 ( medium ) ;
+DROP INDEX test ON t32;
+
+insert into t32 values (10, 1,1,1,1,1,1,1,1,1,1,1,1,1,NULL,0,0,0,1,1,1,1,'one','one');
+insert into t32 values (NULL,2,2,2,2,2,2,2,2,2,2,2,2,2,NULL,NULL,NULL,NULL,NULL,NULL,2,2,'two','two,one');
+insert ignore into t32 values (0,1/3,3,3,3,3,3,3,3,3,3,3,3,3,NULL,'19970303','10:10:10','19970303101010','','','','3',3,3);
+insert ignore into t32 values (0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,NULL,19970807,080706,19970403090807,-1,-1,-1,'-1',-1,-1);
+insert ignore into t32 values (0,-4294967295,-4294967295,-4294967295,-4294967295,-4294967295,-4294967295,-4294967295,-4294967295,-4294967295,-4294967295,-4294967295,-4294967295,-4294967295,NULL,0,0,0,-4294967295,-4294967295,-4294967295,'-4294967295',0,"one,two,tree");
+insert ignore into t32 values (0,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,NULL,0,0,0,4294967295,4294967295,4294967295,'4294967295',0,0);
+insert into t32 (tiny) values (1);
+
+select auto,string,tiny,short,medium,long_int,longlong,real_float,real_double,utiny,ushort,umedium,ulong,ulonglong,mod(floor(time_stamp/1000000),1000000)-mod(curdate(),1000000),date_field,time_field,date_time,blob_col,tinyblob_col,mediumblob_col,longblob_col from t32;
+
+--echo # End of type ranges tests
+
+#
+# From type_varchar.test
+#
+#
+# Bug #10543: convert varchar with index to text
+#
+create table t33 (f1 varchar(65500));
+create index index1 on t33(f1(10));
+show create table t33;
+
+create table t34 (f1 varchar(255));
+create index index1 on t34(f1(10));
+show create table t34;
+
+create table t35 (f1 tinytext);
+create index index1 on t35(f1(10));
+show create table t35;
+
+--echo # End of type varchar tests
+
+#
+# test of updating of keys (from update.test)
+#
+#
+# Bug #11868 Update with subquery with ref built with a key from the updated
+#            table crashes server
+#
+create table t36(f1 int, f2 int);
+create table t37(f3 int, f4 int);
+create index idx on t37(f3);
+insert into t36 values(1,0),(2,0);
+insert into t37 values(1,1),(2,2);
+UPDATE t36 SET t36.f2=(SELECT MAX(t37.f4) FROM t37 WHERE t37.f3=t36.f1);
+select * from t36;
+
+--echo # End of update tests
+
+#
+# From update_use_source.test
+#
+--source include/have_sequence.inc
+USE test;
+create table t38 (old_c1 integer, old_c2 integer,c1 integer, c2 integer, c3 integer) engine=eloq STATS_PERSISTENT=0;
+create view v1 as select * from t38 where c2=2;
+delimiter /;
+create trigger trg_t38 before update on t38 for each row
+begin
+  set new.old_c1=old.c1;
+  set new.old_c2=old.c2;
+end;
+/
+delimiter ;/
+
+insert into t38(c1,c2,c3) values (1,1,1);
+insert into t38(c1,c2,c3) values (1,2,2);
+insert into t38(c1,c2,c3) values (1,3,3);
+insert into t38(c1,c2,c3) values (2,1,4);
+insert into t38(c1,c2,c3) values (2,2,5);
+insert into t38(c1,c2,c3) values (2,3,6);
+insert into t38(c1,c2,c3) values (2,4,7);
+insert into t38(c1,c2,c3) values (2,5,8);
+
+commit;
+select * from t38;
+
+--echo Test with an index on updated columns
+create index t38_c2 on t38 (c2,c1);
+--source include/update_use_source_eloq.inc
+
+--echo Test with an index on updated columns
+create index t38_c3 on t38 (c3);
+--source include/update_use_source_eloq.inc
+
+drop index t38_c3 on t38;
+
+USE mono_test;
+--echo #
+--echo # Test with Eloq
+--echo #
+create table t39 (old_c1 integer, old_c2 integer,c1 integer, c2 integer, c3 integer) engine=eloq;
+insert t39 (c1,c2,c3) select 0,seq,seq%10 from seq_1_to_500;
+insert t39 (c1,c2,c3) select 1,seq,seq%10 from seq_1_to_400;
+insert t39 (c1,c2,c3) select 2,seq,seq%10 from seq_1_to_300;
+insert t39 (c1,c2,c3) select 3,seq,seq%10 from seq_1_to_200;
+create index t39_idx1 on t39(c3);
+
+update t39 set c1=2 where exists (select 'x' from t39);
+select count(*) from t39 where c1=2;
+update t39 set c1=3 where c3 in (select c3 from t39 b where t39.c3=b.c1);
+select count(*) from t39 where c1=3;
+
+drop table t31,t32,t33,t34,t35,t36,t37,t39;
+--echo # End of update use source tests
+
+#
+# From view.test
+#
+--source include/default_optimizer_switch.inc
+
+SET optimizer_switch='outer_join_with_cache=off';
+#
+# using VIEW where table is required
+#
+create table t40 (col1 int,col2 char(22));
+create view v2 as select * from t40;
+-- error ER_WRONG_OBJECT
+create index i1 on v2 (col1);
+
+# Bug#12941
+#
+create table t41 (
+  r_object_id char(16) NOT NULL,
+  group_name varchar(32) NOT NULL
+);
+
+create table t42 (
+  r_object_id char(16) NOT NULL,
+  i_position int(11) NOT NULL,
+  users_names varchar(32) default NULL
+);
+
+create view v3 as select r_object_id, group_name from t41;
+create view v4 as select r_object_id, i_position, users_names from t42;
+
+create index group_name on t41(group_name);
+create index users_names on t42(users_names);
+
+insert into t41 values('120001a080000542','tstgroup1');
+insert into t42 values('120001a080000542',-1, 'guser01');
+insert into t42 values('120001a080000542',-2, 'guser02');
+
+select v3.r_object_id, v4.users_names from v3, v4
+where (v3.group_name='tstgroup1') and v4.r_object_id=v3.r_object_id
+order by users_names;
+
+SET optimizer_switch='default';
+--echo # End of view tests
+
+#
+#  Window Functions Tests (from win.test)
+#
+
+--echo #
+--echo # MDEV-11990: window function over min/max aggregation
+--echo #
+
+create table t43 (id int);
+insert into t43 values (1), (2), (3), (2), (4), (2);
+
+select sum(max(id)) over (order by max(id)) from t43;
+--replace_column 9 #
+explain
+select sum(max(id)) over (order by max(id)) from t43;
+
+create index idx on t43(id);
+select sum(max(id)) over (order by max(id)) from t43;
+explain
+select sum(max(id)) over (order by max(id)) from t43;
+select sum(max(id)) over (order by max(id)) from t43 where id < 3;
+select count(max(id)) over (order by max(id)) from t43 where id < 3;
+select max(id), rank() over (order by max(id)) from t43 where id < 3;
+
+--echo # End of view tests
+# Clean up
+drop view test.v1;
+drop table test.t38;
+drop view v2,v3,v4;
+#FIXME: cause restart server failed.
+#drop table t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14,t15,t16,t17,t18,t19,t20,t21,t22,t23,t24,t25,t26,t27,t28,t29,t30,t31,t32,t33,t34,t35,t36,t37,t39,t40,t41,t42,t43;
+drop table t40,t41,t42,t43;
+drop database mono_test;
+
+--source include/restart_mysqld.inc

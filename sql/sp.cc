@@ -36,6 +36,10 @@
 #include <my_user.h>
 #include "mysql/psi/mysql_sp.h"
 
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+#include "eloq_db_dl.h"
+#endif
+
 sp_cache **Sp_handler_procedure::get_cache(THD *thd) const
 {
   return &thd->sp_proc_cache;
@@ -1231,11 +1235,31 @@ Sp_handler::sp_create_routine(THD *thd, const sp_head *sp) const
     exists. Design note: This won't work on virtual databases
     like information_schema.
   */
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+  bool mono_exist= false;
+  int mono_errno= eloq_exist_database(thd, sp->m_db, mono_exist);
+  if (mono_errno)
+  {
+    my_printf_error(mono_errno,
+        "Eloq check whether database '%s' exist failed",
+        MYF(0), sp->m_db.str);
+    DBUG_RETURN(TRUE);
+  }
+  else
+  {
+    if (!mono_exist)
+    {
+      my_error(ER_BAD_DB_ERROR, MYF(0), sp->m_db.str);
+      DBUG_RETURN(TRUE);
+    }
+  }
+#else
   if (check_db_dir_existence(sp->m_db.str))
   {
     my_error(ER_BAD_DB_ERROR, MYF(0), sp->m_db.str);
     DBUG_RETURN(TRUE);
   }
+#endif
 
 
   /* Reset sql_mode during data dictionary operations. */

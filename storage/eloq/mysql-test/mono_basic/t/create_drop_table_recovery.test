@@ -1,0 +1,43 @@
+
+--source include/have_eloq.inc
+
+--disable_warnings
+DROP DATABASE IF EXISTS mono_test;
+--enable_warnings
+--enable_info
+set @@default_storage_engine= eloq;
+
+CREATE DATABASE IF NOT EXISTS mono_test;
+
+USE mono_test;
+# Crash after commit_log and before post_all_lock.
+SET SESSION debug_dbug="+d,eloq;upsert_table_post_all_lock;node_id=-1";
+
+CREATE TABLE t1(i INT);
+--source include/restart_mysqld.inc
+USE mono_test;
+SELECT COUNT(*) FROM t1;
+
+
+--echo # Test create table with auto increment
+# Write file to make mysql-test-run.pl expect crash
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+
+SET SESSION debug_dbug="+d,eloq;upsert_table_crash_after_prepare_log;node_id=-1;action=panic";
+--error 2013
+CREATE TABLE t2(a INT AUTO_INCREMENT PRIMARY KEY, b INT);
+
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+
+--sleep 5
+USE mono_test;
+SHOW CREATE TABLE t2;
+
+INSERT INTO t2 (b) VALUES (11),(22),(33);
+SELECT * FROM t2;
+
+DROP TABLE t1,t2;
+DROP DATABASE mono_test;
+--disable_info
+

@@ -1,0 +1,25 @@
+{
+    "configurations": [
+        {
+            "name": "Mac",
+            "intelliSenseMode": "macos-clang-x64",
+            "includePath": [
+                "${workspaceFolder}/storage/eloq/tx_service/include/**",
+                "${workspaceFolder}/storage/eloq/tx_service/log_service/include/**",
+                "${workspaceFolder}/storage/eloq/*"
+            ],
+            "macFrameworkPath": [
+                "/System/Library/Frameworks"
+            ],
+            "browse": {
+                "limitSymbolsToIncludedHeaders": true
+            },
+            "defines": [],
+            "compilerPath": "/usr/bin/clang++",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "configurationProvider": "ms-vscode.cmake-tools"
+        }
+    ],
+    "version": 4
+}

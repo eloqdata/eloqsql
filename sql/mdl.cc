@@ -1039,6 +1039,9 @@ void MDL_request::init_by_key_with_source(const MDL_key *key_arg,
   m_src_line= src_line;
 }
 
+#ifdef COROUTINE_ENABLED
+thread_local MdlTicketPool ticket_pool;
+#endif
 
 /**
   Auxiliary functions needed for creation/destruction of MDL_ticket
@@ -1054,21 +1057,32 @@ MDL_ticket *MDL_ticket::create(MDL_context *ctx_arg, enum_mdl_type type_arg
 #endif
                                )
 {
+#ifdef COROUTINE_ENABLED
+  return ticket_pool.Create(ctx_arg, type_arg
+#ifndef DBUG_OFF
+                            , duration_arg
+#endif
+  );
+#else
   return new (std::nothrow)
              MDL_ticket(ctx_arg, type_arg
 #ifndef DBUG_OFF
                         , duration_arg
 #endif
                         );
+#endif
 }
-
 
 void MDL_ticket::destroy(MDL_ticket *ticket)
 {
   mysql_mdl_destroy(ticket->m_psi);
   ticket->m_psi= NULL;
 
+#ifdef COROUTINE_ENABLED
+  ticket_pool.Recycle(ticket);
+#else
   delete ticket;
+#endif
 }
 
 
@@ -2374,11 +2388,11 @@ MDL_context::acquire_lock(MDL_request *mdl_request, double lock_wait_timeout)
 
   find_deadlock();
 
+  wait_status= MDL_wait::EMPTY;
   struct timespec abs_timeout, abs_shortwait;
   set_timespec_nsec(abs_timeout,
                     (ulonglong)(lock_wait_timeout * 1000000000ULL));
   set_timespec(abs_shortwait, 1);
-  wait_status= MDL_wait::EMPTY;
 
   while (cmp_timespec(abs_shortwait, abs_timeout) <= 0)
   {

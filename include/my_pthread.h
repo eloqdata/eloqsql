@@ -456,7 +456,7 @@ void safe_mutex_free_deadlock_data(safe_mutex_t *mp);
 #define rw_trywrlock(A) pthread_mutex_trylock((A))
 #define rw_unlock(A) pthread_mutex_unlock((A))
 #define rwlock_destroy(A) pthread_mutex_destroy((A))
-#elif defined(HAVE_PTHREAD_RWLOCK_RDLOCK)
+#elif defined(HAVE_PTHREAD_RWLOCK_RDLOCK) && !defined(COROUTINE_ENABLED)
 #define rw_lock_t pthread_rwlock_t
 #define my_rwlock_init(A,B) pthread_rwlock_init((A),(B))
 #define rw_rdlock(A) pthread_rwlock_rdlock(A)
@@ -601,7 +601,7 @@ extern int my_rw_wrlock(my_rw_lock_t *);
 extern int my_rw_unlock(my_rw_lock_t *);
 extern int my_rw_tryrdlock(my_rw_lock_t *);
 extern int my_rw_trywrlock(my_rw_lock_t *);
-#ifdef SAFE_MUTEX
+#if defined (SAFE_MUTEX) && !defined (COROUTINE_ENABLED)
 #define my_rw_lock_assert_write_owner(A) \
   DBUG_ASSERT((A)->state == -1 && pthread_equal(pthread_self(), \
                                                 (A)->write_thread))

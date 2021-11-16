@@ -1,0 +1,2107 @@
+drop table if exists t1;
+SET @test_character_set= 'euckr';
+SET @test_collation= 'euckr_korean_ci';
+SET @safe_character_set_server= @@character_set_server;
+SET @safe_collation_server= @@collation_server;
+SET @safe_character_set_client= @@character_set_client;
+SET @safe_character_set_results= @@character_set_results;
+SET character_set_server= @test_character_set;
+SET collation_server= @test_collation;
+CREATE DATABASE d1;
+USE d1;
+CREATE TABLE t1 (c CHAR(10), KEY(c));
+SHOW FULL COLUMNS FROM t1;
+Field	Type	Collation	Null	Key	Default	Extra	Privileges	Comment
+c	char(10)	euckr_korean_ci	YES	MUL	NULL			
+INSERT INTO t1 VALUES ('aaa'),('aaaa'),('aaaaa');
+SELECT c as want3results FROM t1 WHERE c LIKE 'aaa%';
+want3results
+aaa
+aaaa
+aaaaa
+DROP TABLE t1;
+CREATE TABLE t1 (c1 varchar(15), KEY c1 (c1(2)));
+SHOW FULL COLUMNS FROM t1;
+Field	Type	Collation	Null	Key	Default	Extra	Privileges	Comment
+c1	varchar(15)	euckr_korean_ci	YES	MUL	NULL			
+INSERT INTO t1 VALUES ('location'),('loberge'),('lotre'),('boabab');
+SELECT c1 as want3results from t1 where c1 like 'l%';
+want3results
+location
+loberge
+lotre
+SELECT c1 as want3results from t1 where c1 like 'lo%';
+want3results
+location
+loberge
+lotre
+SELECT c1 as want1result  from t1 where c1 like 'loc%';
+want1result
+location
+SELECT c1 as want1result  from t1 where c1 like 'loca%';
+want1result
+location
+SELECT c1 as want1result  from t1 where c1 like 'locat%';
+want1result
+location
+SELECT c1 as want1result  from t1 where c1 like 'locati%';
+want1result
+location
+SELECT c1 as want1result  from t1 where c1 like 'locatio%';
+want1result
+location
+SELECT c1 as want1result  from t1 where c1 like 'location%';
+want1result
+location
+DROP TABLE t1;
+create table t1 (a set('a') not null);
+insert ignore into t1 values (),();
+Warnings:
+Warning	1364	Field 'a' doesn't have a default value
+select cast(a as char(1)) from t1;
+cast(a as char(1))
+
+
+select a sounds like a from t1;
+a sounds like a
+1
+1
+select 1 from t1 order by cast(a as char(1));
+1
+1
+1
+drop table t1;
+#
+# MDEV-6134 SUBSTRING_INDEX returns wrong result for 8bit character sets when delimiter is not found
+#
+SET character_set_client=latin1;
+SET character_set_connection= @test_character_set;
+SET collation_connection= @test_collation;
+SELECT COLLATION('.'), SUBSTRING_INDEX('.wwwmysqlcom', '.', -2) AS c1;
+COLLATION('.')	c1
+euckr_korean_ci	.wwwmysqlcom
+set names utf8;
+create table t1 (
+name varchar(10),
+level smallint unsigned);
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `name` varchar(10) DEFAULT NULL,
+  `level` smallint(5) unsigned DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=euckr
+insert into t1 values ('string',1);
+select concat(name,space(level)), concat(name, repeat(' ',level)) from t1;
+concat(name,space(level))	concat(name, repeat(' ',level))
+string 	string 
+drop table t1;
+DROP DATABASE d1;
+USE test;
+SET character_set_server= @safe_character_set_server;
+SET collation_server= @safe_collation_server;
+SET character_set_client= @safe_character_set_client;
+SET character_set_results= @safe_character_set_results;
+SET NAMES euckr;
+SET collation_connection='euckr_korean_ci';
+create table t1 select repeat('a',4000) a;
+delete from t1;
+insert into t1 values ('a'), ('a '), ('a\t');
+select collation(a),hex(a) from t1 order by a;
+collation(a)	hex(a)
+euckr_korean_ci	6109
+euckr_korean_ci	61
+euckr_korean_ci	6120
+drop table t1;
+#
+# MDEV-5453 Assertion `src' fails in my_strnxfrm_unicode on GROUP BY MID(..) WITH ROLLUP
+#
+SELECT @@collation_connection;
+@@collation_connection
+euckr_korean_ci
+CREATE TABLE t1 (i INT) ENGINE=MyISAM;
+INSERT INTO t1 VALUES (1),(2);
+SELECT * FROM t1 GROUP BY MID(CURRENT_USER,0) WITH ROLLUP;
+i
+1
+1
+SELECT * FROM t1 GROUP BY MID('test',0) WITH ROLLUP;
+i
+1
+1
+DROP TABLE t1;
+#
+# MDEV-6170 Incorrect ordering with utf8_bin and utf8mb4_bin collations
+#
+SELECT @@collation_connection;
+@@collation_connection
+euckr_korean_ci
+CREATE TABLE t1 ENGINE=MEMORY AS SELECT REPEAT('a',5) AS a LIMIT 0;
+INSERT INTO t1 (a) VALUES ("a");
+INSERT INTO t1 (a) VALUES ("b");
+INSERT INTO t1 (a) VALUES ("c");
+INSERT INTO t1 (a) VALUES ("d");
+INSERT INTO t1 (a) VALUES ("e");
+INSERT INTO t1 (a) VALUES ("f");
+INSERT INTO t1 (a) VALUES ("g");
+INSERT INTO t1 (a) VALUES ("h");
+INSERT INTO t1 (a) VALUES ("i");
+INSERT INTO t1 (a) VALUES ("j");
+INSERT INTO t1 (a) VALUES ("k");
+INSERT INTO t1 (a) VALUES ("l");
+INSERT INTO t1 (a) VALUES ("m");
+SELECT * FROM t1 ORDER BY LOWER(a);
+a
+a
+b
+c
+d
+e
+f
+g
+h
+i
+j
+k
+l
+m
+SELECT * FROM t1 ORDER BY LOWER(a) DESC;
+a
+m
+l
+k
+j
+i
+h
+g
+f
+e
+d
+c
+b
+a
+DROP TABLE t1;
+create table t1 engine=eloq select repeat('a',50) as c1;
+DROP TABLE t1;
+create table t1(index(c1(5))) engine=eloq select repeat('a',50) as c1;
+insert into t1 values ('abcdefg'),('abcde100'),('abcde110'),('abcde111');
+select collation(c1) from t1 limit 1;
+collation(c1)
+euckr_korean_ci
+select c1 from t1 where c1 like 'abcdef%' order by c1;
+c1
+abcdefg
+select c1 from t1 where c1 like 'abcde1%' order by c1;
+c1
+abcde100
+abcde110
+abcde111
+select c1 from t1 where c1 like 'abcde11%' order by c1;
+c1
+abcde110
+abcde111
+select c1 from t1 where c1 like 'abcde111%' order by c1;
+c1
+abcde111
+drop table t1;
+select @@collation_connection;
+@@collation_connection
+euckr_korean_ci
+create table t1 ROW_FORMAT=DYNAMIC select repeat('a',50) as c1 ;
+insert into t1 values('abcdef');
+insert into t1 values('_bcdef');
+insert into t1 values('a_cdef');
+insert into t1 values('ab_def');
+insert into t1 values('abc_ef');
+insert into t1 values('abcd_f');
+insert into t1 values('abcde_');
+select c1 as c1u from t1 where c1 like 'ab\_def';
+c1u
+ab_def
+select c1 as c2h from t1 where c1 like 'ab#_def' escape '#';
+c2h
+ab_def
+drop table t1;
+SELECT @@collation_connection;
+@@collation_connection
+euckr_korean_ci
+SELECT '\%b' LIKE '%\%';
+'\%b' LIKE '%\%'
+0
+CREATE TABLE t1(PRIMARY KEY(a),KEY(b)) AS
+SELECT 10 AS a, REPEAT('a',20) AS b, REPEAT('a',8) AS c, REPEAT('a',8) AS d;
+INSERT INTO t1 (a, b) VALUES (1, repeat(0xF1F2,5));
+INSERT INTO t1 (a, b) VALUES (2, repeat(0xF1F2,10));
+INSERT INTO t1 (a, b) VALUES (3, repeat(0xF1F2,11));
+INSERT INTO t1 (a, b) VALUES (4, repeat(0xF1F2,12));
+SELECT hex(concat(repeat(0xF1F2, 10), '%'));
+hex(concat(repeat(0xF1F2, 10), '%'))
+F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F225
+3 rows expected
+SELECT a, hex(b), c FROM t1 WHERE b LIKE concat(repeat(0xF1F2,10), '%');
+a	hex(b)	c
+2	F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2	NULL
+3	F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2	NULL
+4	F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2	NULL
+DROP TABLE t1;
+SET collation_connection='euckr_bin';
+create table t1 select repeat('a',4000) a;
+delete from t1;
+insert into t1 values ('a'), ('a '), ('a\t');
+select collation(a),hex(a) from t1 order by a;
+collation(a)	hex(a)
+euckr_bin	6109
+euckr_bin	61
+euckr_bin	6120
+drop table t1;
+#
+# MDEV-5453 Assertion `src' fails in my_strnxfrm_unicode on GROUP BY MID(..) WITH ROLLUP
+#
+SELECT @@collation_connection;
+@@collation_connection
+euckr_bin
+CREATE TABLE t1 (i INT) ENGINE=MyISAM;
+INSERT INTO t1 VALUES (1),(2);
+SELECT * FROM t1 GROUP BY MID(CURRENT_USER,0) WITH ROLLUP;
+i
+1
+1
+SELECT * FROM t1 GROUP BY MID('test',0) WITH ROLLUP;
+i
+1
+1
+DROP TABLE t1;
+#
+# MDEV-6170 Incorrect ordering with utf8_bin and utf8mb4_bin collations
+#
+SELECT @@collation_connection;
+@@collation_connection
+euckr_bin
+CREATE TABLE t1 ENGINE=MEMORY AS SELECT REPEAT('a',5) AS a LIMIT 0;
+INSERT INTO t1 (a) VALUES ("a");
+INSERT INTO t1 (a) VALUES ("b");
+INSERT INTO t1 (a) VALUES ("c");
+INSERT INTO t1 (a) VALUES ("d");
+INSERT INTO t1 (a) VALUES ("e");
+INSERT INTO t1 (a) VALUES ("f");
+INSERT INTO t1 (a) VALUES ("g");
+INSERT INTO t1 (a) VALUES ("h");
+INSERT INTO t1 (a) VALUES ("i");
+INSERT INTO t1 (a) VALUES ("j");
+INSERT INTO t1 (a) VALUES ("k");
+INSERT INTO t1 (a) VALUES ("l");
+INSERT INTO t1 (a) VALUES ("m");
+SELECT * FROM t1 ORDER BY LOWER(a);
+a
+a
+b
+c
+d
+e
+f
+g
+h
+i
+j
+k
+l
+m
+SELECT * FROM t1 ORDER BY LOWER(a) DESC;
+a
+m
+l
+k
+j
+i
+h
+g
+f
+e
+d
+c
+b
+a
+DROP TABLE t1;
+create table t1 engine=eloq select repeat('a',50) as c1;
+DROP TABLE t1;
+create table t1(index(c1(5))) engine=eloq select repeat('a',50) as c1;
+insert into t1 values ('abcdefg'),('abcde100'),('abcde110'),('abcde111');
+select collation(c1) from t1 limit 1;
+collation(c1)
+euckr_bin
+select c1 from t1 where c1 like 'abcdef%' order by c1;
+c1
+abcdefg
+select c1 from t1 where c1 like 'abcde1%' order by c1;
+c1
+abcde100
+abcde110
+abcde111
+select c1 from t1 where c1 like 'abcde11%' order by c1;
+c1
+abcde110
+abcde111
+select c1 from t1 where c1 like 'abcde111%' order by c1;
+c1
+abcde111
+drop table t1;
+select @@collation_connection;
+@@collation_connection
+euckr_bin
+create table t1 ROW_FORMAT=DYNAMIC select repeat('a',50) as c1 ;
+insert into t1 values('abcdef');
+insert into t1 values('_bcdef');
+insert into t1 values('a_cdef');
+insert into t1 values('ab_def');
+insert into t1 values('abc_ef');
+insert into t1 values('abcd_f');
+insert into t1 values('abcde_');
+select c1 as c1u from t1 where c1 like 'ab\_def';
+c1u
+ab_def
+select c1 as c2h from t1 where c1 like 'ab#_def' escape '#';
+c2h
+ab_def
+drop table t1;
+SELECT @@collation_connection;
+@@collation_connection
+euckr_bin
+SELECT '\%b' LIKE '%\%';
+'\%b' LIKE '%\%'
+0
+CREATE TABLE t1(PRIMARY KEY(a),KEY(b)) AS
+SELECT 10 AS a, REPEAT('a',20) AS b, REPEAT('a',8) AS c, REPEAT('a',8) AS d;
+INSERT INTO t1 (a, b) VALUES (1, repeat(0xF1F2,5));
+INSERT INTO t1 (a, b) VALUES (2, repeat(0xF1F2,10));
+INSERT INTO t1 (a, b) VALUES (3, repeat(0xF1F2,11));
+INSERT INTO t1 (a, b) VALUES (4, repeat(0xF1F2,12));
+SELECT hex(concat(repeat(0xF1F2, 10), '%'));
+hex(concat(repeat(0xF1F2, 10), '%'))
+F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F225
+3 rows expected
+SELECT a, hex(b), c FROM t1 WHERE b LIKE concat(repeat(0xF1F2,10), '%');
+a	hex(b)	c
+2	F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2	NULL
+3	F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2	NULL
+4	F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2F1F2	NULL
+DROP TABLE t1;
+SET NAMES euckr;
+CREATE TABLE t1 (a text) character set euckr;
+INSERT INTO t1 VALUES (0xA2E6),(0xFEF7);
+SELECT hex(a) FROM t1 ORDER BY a;
+hex(a)
+A2E6
+FEF7
+DROP TABLE t1;
+create table t1 (s1 varchar(5) character set euckr);
+insert into t1 values (0xA141);
+insert into t1 values (0xA15A);
+insert into t1 values (0xA161);
+insert into t1 values (0xA17A);
+insert into t1 values (0xA181);
+insert into t1 values (0xA1FE);
+insert ignore into t1 values (0xA140);
+Warnings:
+Warning	1366	Incorrect string value: '\xA1@' for column `test`.`t1`.`s1` at row 1
+insert ignore into t1 values (0xA15B);
+Warnings:
+Warning	1366	Incorrect string value: '\xA1[' for column `test`.`t1`.`s1` at row 1
+insert ignore into t1 values (0xA160);
+Warnings:
+Warning	1366	Incorrect string value: '\xA1`' for column `test`.`t1`.`s1` at row 1
+insert ignore into t1 values (0xA17B);
+Warnings:
+Warning	1366	Incorrect string value: '\xA1{' for column `test`.`t1`.`s1` at row 1
+insert ignore into t1 values (0xA180);
+Warnings:
+Warning	1366	Incorrect string value: '\xA1\x80' for column `test`.`t1`.`s1` at row 1
+insert ignore into t1 values (0xA1FF);
+Warnings:
+Warning	1366	Incorrect string value: '\xA1\xFF' for column `test`.`t1`.`s1` at row 1
+select hex(s1), hex(convert(s1 using utf8)) from t1 order by binary s1;
+hex(s1)	hex(convert(s1 using utf8))
+3F3F	3F3F
+3F3F	3F3F
+3F40	3F40
+3F5B	3F5B
+3F60	3F60
+3F7B	3F7B
+A141	ECA2A5
+A15A	ECA381
+A161	ECA382
+A17A	ECA3A5
+A181	ECA3A6
+A1FE	EFBFA2
+drop table t1;
+End of 5.0 tests
+Start of 5.4 tests
+#
+# WL#3997 New euckr characters
+#
+SET NAMES utf8;
+CREATE TABLE t1 (a varchar(10) character set euckr);
+INSERT INTO t1 VALUES (0xA2E6), (0xA2E7);
+SELECT hex(a), hex(@utf8:=convert(a using utf8)), hex(convert(@utf8 using euckr)) FROM t1;
+hex(a)	hex(@utf8:=convert(a using utf8))	hex(convert(@utf8 using euckr))
+A2E6	E282AC	A2E6
+A2E7	C2AE	A2E7
+DROP TABLE t1;
+#
+# WL#3332 Korean Enhancements
+# euckr valid codes are now [81..FE][41..5A,61..7A,81..FE]
+#
+End of 5.4 tests
+#
+# Start of 5.5 tests
+#
+#
+# Testing WL#4583 Case conversion in Asian character sets 
+#
+SET NAMES utf8;
+SET collation_connection=euckr_korean_ci;
+CREATE TABLE t1 (b VARCHAR(2));
+INSERT INTO t1 VALUES ('0'),('1'),('2'),('3'),('4'),('5'),('6'),('7');
+INSERT INTO t1 VALUES ('8'),('9'),('A'),('B'),('C'),('D'),('E'),('F');
+CREATE TEMPORARY TABLE head AS SELECT concat(b1.b, b2.b) AS head FROM t1 b1, t1 b2;
+CREATE TEMPORARY TABLE tail AS SELECT concat(b1.b, b2.b) AS tail FROM t1 b1, t1 b2;
+DROP TABLE t1;
+CREATE TABLE t1 AS
+SELECT concat(head, tail) AS code, ' ' AS a
+FROM head, tail
+WHERE (head BETWEEN '80' AND 'FF') AND (tail BETWEEN '20' AND 'FF')
+ORDER BY head, tail;
+DROP TEMPORARY TABLE head, tail;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `code` varchar(8) DEFAULT NULL,
+  `a` varchar(1) CHARACTER SET euckr NOT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+UPDATE IGNORE t1 SET a=unhex(code) ORDER BY code;
+Warnings:
+Warning	1366	Incorrect string value: '\x80 ' for column `test`.`t1`.`a` at row 1
+Warning	1366	Incorrect string value: '\x80!' for column `test`.`t1`.`a` at row 2
+Warning	1366	Incorrect string value: '\x80"' for column `test`.`t1`.`a` at row 3
+Warning	1366	Incorrect string value: '\x80#' for column `test`.`t1`.`a` at row 4
+Warning	1366	Incorrect string value: '\x80$' for column `test`.`t1`.`a` at row 5
+Warning	1366	Incorrect string value: '\x80%' for column `test`.`t1`.`a` at row 6
+Warning	1366	Incorrect string value: '\x80&' for column `test`.`t1`.`a` at row 7
+Warning	1366	Incorrect string value: '\x80'' for column `test`.`t1`.`a` at row 8
+Warning	1366	Incorrect string value: '\x80(' for column `test`.`t1`.`a` at row 9
+Warning	1366	Incorrect string value: '\x80)' for column `test`.`t1`.`a` at row 10
+Warning	1366	Incorrect string value: '\x80*' for column `test`.`t1`.`a` at row 11
+Warning	1366	Incorrect string value: '\x80+' for column `test`.`t1`.`a` at row 12
+Warning	1366	Incorrect string value: '\x80,' for column `test`.`t1`.`a` at row 13
+Warning	1366	Incorrect string value: '\x80-' for column `test`.`t1`.`a` at row 14
+Warning	1366	Incorrect string value: '\x80.' for column `test`.`t1`.`a` at row 15
+Warning	1366	Incorrect string value: '\x80/' for column `test`.`t1`.`a` at row 16
+Warning	1366	Incorrect string value: '\x800' for column `test`.`t1`.`a` at row 17
+Warning	1366	Incorrect string value: '\x801' for column `test`.`t1`.`a` at row 18
+Warning	1366	Incorrect string value: '\x802' for column `test`.`t1`.`a` at row 19
+Warning	1366	Incorrect string value: '\x803' for column `test`.`t1`.`a` at row 20
+Warning	1366	Incorrect string value: '\x804' for column `test`.`t1`.`a` at row 21
+Warning	1366	Incorrect string value: '\x805' for column `test`.`t1`.`a` at row 22
+Warning	1366	Incorrect string value: '\x806' for column `test`.`t1`.`a` at row 23
+Warning	1366	Incorrect string value: '\x807' for column `test`.`t1`.`a` at row 24
+Warning	1366	Incorrect string value: '\x808' for column `test`.`t1`.`a` at row 25
+Warning	1366	Incorrect string value: '\x809' for column `test`.`t1`.`a` at row 26
+Warning	1366	Incorrect string value: '\x80:' for column `test`.`t1`.`a` at row 27
+Warning	1366	Incorrect string value: '\x80;' for column `test`.`t1`.`a` at row 28
+Warning	1366	Incorrect string value: '\x80<' for column `test`.`t1`.`a` at row 29
+Warning	1366	Incorrect string value: '\x80=' for column `test`.`t1`.`a` at row 30
+Warning	1366	Incorrect string value: '\x80>' for column `test`.`t1`.`a` at row 31
+Warning	1366	Incorrect string value: '\x80?' for column `test`.`t1`.`a` at row 32
+Warning	1366	Incorrect string value: '\x80@' for column `test`.`t1`.`a` at row 33
+Warning	1366	Incorrect string value: '\x80A' for column `test`.`t1`.`a` at row 34
+Warning	1366	Incorrect string value: '\x80B' for column `test`.`t1`.`a` at row 35
+Warning	1366	Incorrect string value: '\x80C' for column `test`.`t1`.`a` at row 36
+Warning	1366	Incorrect string value: '\x80D' for column `test`.`t1`.`a` at row 37
+Warning	1366	Incorrect string value: '\x80E' for column `test`.`t1`.`a` at row 38
+Warning	1366	Incorrect string value: '\x80F' for column `test`.`t1`.`a` at row 39
+Warning	1366	Incorrect string value: '\x80G' for column `test`.`t1`.`a` at row 40
+Warning	1366	Incorrect string value: '\x80H' for column `test`.`t1`.`a` at row 41
+Warning	1366	Incorrect string value: '\x80I' for column `test`.`t1`.`a` at row 42
+Warning	1366	Incorrect string value: '\x80J' for column `test`.`t1`.`a` at row 43
+Warning	1366	Incorrect string value: '\x80K' for column `test`.`t1`.`a` at row 44
+Warning	1366	Incorrect string value: '\x80L' for column `test`.`t1`.`a` at row 45
+Warning	1366	Incorrect string value: '\x80M' for column `test`.`t1`.`a` at row 46
+Warning	1366	Incorrect string value: '\x80N' for column `test`.`t1`.`a` at row 47
+Warning	1366	Incorrect string value: '\x80O' for column `test`.`t1`.`a` at row 48
+Warning	1366	Incorrect string value: '\x80P' for column `test`.`t1`.`a` at row 49
+Warning	1366	Incorrect string value: '\x80Q' for column `test`.`t1`.`a` at row 50
+Warning	1366	Incorrect string value: '\x80R' for column `test`.`t1`.`a` at row 51
+Warning	1366	Incorrect string value: '\x80S' for column `test`.`t1`.`a` at row 52
+Warning	1366	Incorrect string value: '\x80T' for column `test`.`t1`.`a` at row 53
+Warning	1366	Incorrect string value: '\x80U' for column `test`.`t1`.`a` at row 54
+Warning	1366	Incorrect string value: '\x80V' for column `test`.`t1`.`a` at row 55
+Warning	1366	Incorrect string value: '\x80W' for column `test`.`t1`.`a` at row 56
+Warning	1366	Incorrect string value: '\x80X' for column `test`.`t1`.`a` at row 57
+Warning	1366	Incorrect string value: '\x80Y' for column `test`.`t1`.`a` at row 58
+Warning	1366	Incorrect string value: '\x80Z' for column `test`.`t1`.`a` at row 59
+Warning	1366	Incorrect string value: '\x80[' for column `test`.`t1`.`a` at row 60
+Warning	1366	Incorrect string value: '\x80\' for column `test`.`t1`.`a` at row 61
+Warning	1366	Incorrect string value: '\x80]' for column `test`.`t1`.`a` at row 62
+Warning	1366	Incorrect string value: '\x80^' for column `test`.`t1`.`a` at row 63
+Warning	1366	Incorrect string value: '\x80_' for column `test`.`t1`.`a` at row 64
+SELECT COUNT(*) FROM t1 WHERE a<>'?';
+COUNT(*)
+22428
+SELECT code, hex(upper(a)), hex(lower(a)),a, upper(a), lower(a) FROM t1 WHERE hex(a)<>hex(upper(a)) OR hex(a)<>hex(lower(a));
+code	hex(upper(a))	hex(lower(a))	a	upper(a)	lower(a)
+A3C1	A3C1	A3E1	Ａ	Ａ	ａ
+A3C2	A3C2	A3E2	Ｂ	Ｂ	ｂ
+A3C3	A3C3	A3E3	Ｃ	Ｃ	ｃ
+A3C4	A3C4	A3E4	Ｄ	Ｄ	ｄ
+A3C5	A3C5	A3E5	Ｅ	Ｅ	ｅ
+A3C6	A3C6	A3E6	Ｆ	Ｆ	ｆ
+A3C7	A3C7	A3E7	Ｇ	Ｇ	ｇ
+A3C8	A3C8	A3E8	Ｈ	Ｈ	ｈ
+A3C9	A3C9	A3E9	Ｉ	Ｉ	ｉ
+A3CA	A3CA	A3EA	Ｊ	Ｊ	ｊ
+A3CB	A3CB	A3EB	Ｋ	Ｋ	ｋ
+A3CC	A3CC	A3EC	Ｌ	Ｌ	ｌ
+A3CD	A3CD	A3ED	Ｍ	Ｍ	ｍ
+A3CE	A3CE	A3EE	Ｎ	Ｎ	ｎ
+A3CF	A3CF	A3EF	Ｏ	Ｏ	ｏ
+A3D0	A3D0	A3F0	Ｐ	Ｐ	ｐ
+A3D1	A3D1	A3F1	Ｑ	Ｑ	ｑ
+A3D2	A3D2	A3F2	Ｒ	Ｒ	ｒ
+A3D3	A3D3	A3F3	Ｓ	Ｓ	ｓ
+A3D4	A3D4	A3F4	Ｔ	Ｔ	ｔ
+A3D5	A3D5	A3F5	Ｕ	Ｕ	ｕ
+A3D6	A3D6	A3F6	Ｖ	Ｖ	ｖ
+A3D7	A3D7	A3F7	Ｗ	Ｗ	ｗ
+A3D8	A3D8	A3F8	Ｘ	Ｘ	ｘ
+A3D9	A3D9	A3F9	Ｙ	Ｙ	ｙ
+A3DA	A3DA	A3FA	Ｚ	Ｚ	ｚ
+A3E1	A3C1	A3E1	ａ	Ａ	ａ
+A3E2	A3C2	A3E2	ｂ	Ｂ	ｂ
+A3E3	A3C3	A3E3	ｃ	Ｃ	ｃ
+A3E4	A3C4	A3E4	ｄ	Ｄ	ｄ
+A3E5	A3C5	A3E5	ｅ	Ｅ	ｅ
+A3E6	A3C6	A3E6	ｆ	Ｆ	ｆ
+A3E7	A3C7	A3E7	ｇ	Ｇ	ｇ
+A3E8	A3C8	A3E8	ｈ	Ｈ	ｈ
+A3E9	A3C9	A3E9	ｉ	Ｉ	ｉ
+A3EA	A3CA	A3EA	ｊ	Ｊ	ｊ
+A3EB	A3CB	A3EB	ｋ	Ｋ	ｋ
+A3EC	A3CC	A3EC	ｌ	Ｌ	ｌ
+A3ED	A3CD	A3ED	ｍ	Ｍ	ｍ
+A3EE	A3CE	A3EE	ｎ	Ｎ	ｎ
+A3EF	A3CF	A3EF	ｏ	Ｏ	ｏ
+A3F0	A3D0	A3F0	ｐ	Ｐ	ｐ
+A3F1	A3D1	A3F1	ｑ	Ｑ	ｑ
+A3F2	A3D2	A3F2	ｒ	Ｒ	ｒ
+A3F3	A3D3	A3F3	ｓ	Ｓ	ｓ
+A3F4	A3D4	A3F4	ｔ	Ｔ	ｔ
+A3F5	A3D5	A3F5	ｕ	Ｕ	ｕ
+A3F6	A3D6	A3F6	ｖ	Ｖ	ｖ
+A3F7	A3D7	A3F7	ｗ	Ｗ	ｗ
+A3F8	A3D8	A3F8	ｘ	Ｘ	ｘ
+A3F9	A3D9	A3F9	ｙ	Ｙ	ｙ
+A3FA	A3DA	A3FA	ｚ	Ｚ	ｚ
+A5A1	A5B0	A5A1	ⅰ	Ⅰ	ⅰ
+A5A2	A5B1	A5A2	ⅱ	Ⅱ	ⅱ
+A5A3	A5B2	A5A3	ⅲ	Ⅲ	ⅲ
+A5A4	A5B3	A5A4	ⅳ	Ⅳ	ⅳ
+A5A5	A5B4	A5A5	ⅴ	Ⅴ	ⅴ
+A5A6	A5B5	A5A6	ⅵ	Ⅵ	ⅵ
+A5A7	A5B6	A5A7	ⅶ	Ⅶ	ⅶ
+A5A8	A5B7	A5A8	ⅷ	Ⅷ	ⅷ
+A5A9	A5B8	A5A9	ⅸ	Ⅸ	ⅸ
+A5AA	A5B9	A5AA	ⅹ	Ⅹ	ⅹ
+A5B0	A5B0	A5A1	Ⅰ	Ⅰ	ⅰ
+A5B1	A5B1	A5A2	Ⅱ	Ⅱ	ⅱ
+A5B2	A5B2	A5A3	Ⅲ	Ⅲ	ⅲ
+A5B3	A5B3	A5A4	Ⅳ	Ⅳ	ⅳ
+A5B4	A5B4	A5A5	Ⅴ	Ⅴ	ⅴ
+A5B5	A5B5	A5A6	Ⅵ	Ⅵ	ⅵ
+A5B6	A5B6	A5A7	Ⅶ	Ⅶ	ⅶ
+A5B7	A5B7	A5A8	Ⅷ	Ⅷ	ⅷ
+A5B8	A5B8	A5A9	Ⅸ	Ⅸ	ⅸ
+A5B9	A5B9	A5AA	Ⅹ	Ⅹ	ⅹ
+A5C1	A5C1	A5E1	Α	Α	α
+A5C2	A5C2	A5E2	Β	Β	β
+A5C3	A5C3	A5E3	Γ	Γ	γ
+A5C4	A5C4	A5E4	Δ	Δ	δ
+A5C5	A5C5	A5E5	Ε	Ε	ε
+A5C6	A5C6	A5E6	Ζ	Ζ	ζ
+A5C7	A5C7	A5E7	Η	Η	η
+A5C8	A5C8	A5E8	Θ	Θ	θ
+A5C9	A5C9	A5E9	Ι	Ι	ι
+A5CA	A5CA	A5EA	Κ	Κ	κ
+A5CB	A5CB	A5EB	Λ	Λ	λ
+A5CC	A5CC	A5EC	Μ	Μ	μ
+A5CD	A5CD	A5ED	Ν	Ν	ν
+A5CE	A5CE	A5EE	Ξ	Ξ	ξ
+A5CF	A5CF	A5EF	Ο	Ο	ο
+A5D0	A5D0	A5F0	Π	Π	π
+A5D1	A5D1	A5F1	Ρ	Ρ	ρ
+A5D2	A5D2	A5F2	Σ	Σ	σ
+A5D3	A5D3	A5F3	Τ	Τ	τ
+A5D4	A5D4	A5F4	Υ	Υ	υ
+A5D5	A5D5	A5F5	Φ	Φ	φ
+A5D6	A5D6	A5F6	Χ	Χ	χ
+A5D7	A5D7	A5F7	Ψ	Ψ	ψ
+A5D8	A5D8	A5F8	Ω	Ω	ω
+A5E1	A5C1	A5E1	α	Α	α
+A5E2	A5C2	A5E2	β	Β	β
+A5E3	A5C3	A5E3	γ	Γ	γ
+A5E4	A5C4	A5E4	δ	Δ	δ
+A5E5	A5C5	A5E5	ε	Ε	ε
+A5E6	A5C6	A5E6	ζ	Ζ	ζ
+A5E7	A5C7	A5E7	η	Η	η
+A5E8	A5C8	A5E8	θ	Θ	θ
+A5E9	A5C9	A5E9	ι	Ι	ι
+A5EA	A5CA	A5EA	κ	Κ	κ
+A5EB	A5CB	A5EB	λ	Λ	λ
+A5EC	A5CC	A5EC	μ	Μ	μ
+A5ED	A5CD	A5ED	ν	Ν	ν
+A5EE	A5CE	A5EE	ξ	Ξ	ξ
+A5EF	A5CF	A5EF	ο	Ο	ο
+A5F0	A5D0	A5F0	π	Π	π
+A5F1	A5D1	A5F1	ρ	Ρ	ρ
+A5F2	A5D2	A5F2	σ	Σ	σ
+A5F3	A5D3	A5F3	τ	Τ	τ
+A5F4	A5D4	A5F4	υ	Υ	υ
+A5F5	A5D5	A5F5	φ	Φ	φ
+A5F6	A5D6	A5F6	χ	Χ	χ
+A5F7	A5D7	A5F7	ψ	Ψ	ψ
+A5F8	A5D8	A5F8	ω	Ω	ω
+A7D9	A7D9	A5F8	Ω	Ω	ω
+A8A1	A8A1	A9A1	Æ	Æ	æ
+A8A2	A8A2	A9A3	Ð	Ð	ð
+A8A4	A8A4	A9A4	Ħ	Ħ	ħ
+A8A6	A8A6	A9A6	Ĳ	Ĳ	ĳ
+A8A8	A8A8	A9A8	Ŀ	Ŀ	ŀ
+A8A9	A8A9	A9A9	Ł	Ł	ł
+A8AA	A8AA	A9AA	Ø	Ø	ø
+A8AB	A8AB	A9AB	Œ	Œ	œ
+A8AD	A8AD	A9AD	Þ	Þ	þ
+A8AE	A8AE	A9AE	Ŧ	Ŧ	ŧ
+A8AF	A8AF	A9AF	Ŋ	Ŋ	ŋ
+A9A1	A8A1	A9A1	æ	Æ	æ
+A9A3	A8A2	A9A3	ð	Ð	ð
+A9A4	A8A4	A9A4	ħ	Ħ	ħ
+A9A5	49	A9A5	ı	I	ı
+A9A6	A8A6	A9A6	ĳ	Ĳ	ĳ
+A9A8	A8A8	A9A8	ŀ	Ŀ	ŀ
+A9A9	A8A9	A9A9	ł	Ł	ł
+A9AA	A8AA	A9AA	ø	Ø	ø
+A9AB	A8AB	A9AB	œ	Œ	œ
+A9AD	A8AD	A9AD	þ	Þ	þ
+A9AE	A8AE	A9AE	ŧ	Ŧ	ŧ
+A9AF	A8AF	A9AF	ŋ	Ŋ	ŋ
+ACA1	ACA1	ACD1	А	А	а
+ACA2	ACA2	ACD2	Б	Б	б
+ACA3	ACA3	ACD3	В	В	в
+ACA4	ACA4	ACD4	Г	Г	г
+ACA5	ACA5	ACD5	Д	Д	д
+ACA6	ACA6	ACD6	Е	Е	е
+ACA7	ACA7	ACD7	Ё	Ё	ё
+ACA8	ACA8	ACD8	Ж	Ж	ж
+ACA9	ACA9	ACD9	З	З	з
+ACAA	ACAA	ACDA	И	И	и
+ACAB	ACAB	ACDB	Й	Й	й
+ACAC	ACAC	ACDC	К	К	к
+ACAD	ACAD	ACDD	Л	Л	л
+ACAE	ACAE	ACDE	М	М	м
+ACAF	ACAF	ACDF	Н	Н	н
+ACB0	ACB0	ACE0	О	О	о
+ACB1	ACB1	ACE1	П	П	п
+ACB2	ACB2	ACE2	Р	Р	р
+ACB3	ACB3	ACE3	С	С	с
+ACB4	ACB4	ACE4	Т	Т	т
+ACB5	ACB5	ACE5	У	У	у
+ACB6	ACB6	ACE6	Ф	Ф	ф
+ACB7	ACB7	ACE7	Х	Х	х
+ACB8	ACB8	ACE8	Ц	Ц	ц
+ACB9	ACB9	ACE9	Ч	Ч	ч
+ACBA	ACBA	ACEA	Ш	Ш	ш
+ACBB	ACBB	ACEB	Щ	Щ	щ
+ACBC	ACBC	ACEC	Ъ	Ъ	ъ
+ACBD	ACBD	ACED	Ы	Ы	ы
+ACBE	ACBE	ACEE	Ь	Ь	ь
+ACBF	ACBF	ACEF	Э	Э	э
+ACC0	ACC0	ACF0	Ю	Ю	ю
+ACC1	ACC1	ACF1	Я	Я	я
+ACD1	ACA1	ACD1	а	А	а
+ACD2	ACA2	ACD2	б	Б	б
+ACD3	ACA3	ACD3	в	В	в
+ACD4	ACA4	ACD4	г	Г	г
+ACD5	ACA5	ACD5	д	Д	д
+ACD6	ACA6	ACD6	е	Е	е
+ACD7	ACA7	ACD7	ё	Ё	ё
+ACD8	ACA8	ACD8	ж	Ж	ж
+ACD9	ACA9	ACD9	з	З	з
+ACDA	ACAA	ACDA	и	И	и
+ACDB	ACAB	ACDB	й	Й	й
+ACDC	ACAC	ACDC	к	К	к
+ACDD	ACAD	ACDD	л	Л	л
+ACDE	ACAE	ACDE	м	М	м
+ACDF	ACAF	ACDF	н	Н	н
+ACE0	ACB0	ACE0	о	О	о
+ACE1	ACB1	ACE1	п	П	п
+ACE2	ACB2	ACE2	р	Р	р
+ACE3	ACB3	ACE3	с	С	с
+ACE4	ACB4	ACE4	т	Т	т
+ACE5	ACB5	ACE5	у	У	у
+ACE6	ACB6	ACE6	ф	Ф	ф
+ACE7	ACB7	ACE7	х	Х	х
+ACE8	ACB8	ACE8	ц	Ц	ц
+ACE9	ACB9	ACE9	ч	Ч	ч
+ACEA	ACBA	ACEA	ш	Ш	ш
+ACEB	ACBB	ACEB	щ	Щ	щ
+ACEC	ACBC	ACEC	ъ	Ъ	ъ
+ACED	ACBD	ACED	ы	Ы	ы
+ACEE	ACBE	ACEE	ь	Ь	ь
+ACEF	ACBF	ACEF	э	Э	э
+ACF0	ACC0	ACF0	ю	Ю	ю
+ACF1	ACC1	ACF1	я	Я	я
+SELECT * FROM t1
+WHERE HEX(CAST(LOWER(a) AS CHAR CHARACTER SET utf8)) <>
+HEX(LOWER(CAST(a AS CHAR CHARACTER SET utf8))) ORDER BY code;
+code	a
+A1CA	Å
+Warnings:
+Warning	1977	Cannot convert 'euckr' character 0xA2E8 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2E8 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2E9 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2E9 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2EA to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2EA to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2EB to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2EB to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2EC to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2EC to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2ED to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2ED to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2EE to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2EE to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2EF to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2EF to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F0 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F0 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F1 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F1 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F2 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F2 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F3 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F3 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F4 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F4 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F5 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F5 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F6 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F6 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F7 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F7 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F8 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F8 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F9 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F9 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2FA to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2FA to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2FB to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2FB to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2FC to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2FC to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2FD to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2FD to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2FE to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2FE to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5AB to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5AB to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5AC to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5AC to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5AD to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5AD to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5AE to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5AE to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5AF to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5AF to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5BA to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5BA to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5BB to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5BB to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5BC to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5BC to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5BD to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5BD to 'utf8mb3'
+SELECT * FROM t1
+WHERE HEX(CAST(UPPER(a) AS CHAR CHARACTER SET utf8)) <>
+HEX(UPPER(CAST(a AS CHAR CHARACTER SET utf8))) ORDER BY code;
+code	a
+A8CD	ⓐ
+A8CE	ⓑ
+A8CF	ⓒ
+A8D0	ⓓ
+A8D1	ⓔ
+A8D2	ⓕ
+A8D3	ⓖ
+A8D4	ⓗ
+A8D5	ⓘ
+A8D6	ⓙ
+A8D7	ⓚ
+A8D8	ⓛ
+A8D9	ⓜ
+A8DA	ⓝ
+A8DB	ⓞ
+A8DC	ⓟ
+A8DD	ⓠ
+A8DE	ⓡ
+A8DF	ⓢ
+A8E0	ⓣ
+A8E1	ⓤ
+A8E2	ⓥ
+A8E3	ⓦ
+A8E4	ⓧ
+A8E5	ⓨ
+A8E6	ⓩ
+A9A2	đ
+Warnings:
+Warning	1977	Cannot convert 'euckr' character 0xA2E8 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2E8 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2E9 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2E9 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2EA to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2EA to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2EB to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2EB to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2EC to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2EC to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2ED to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2ED to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2EE to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2EE to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2EF to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2EF to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F0 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F0 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F1 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F1 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F2 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F2 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F3 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F3 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F4 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F4 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F5 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F5 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F6 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F6 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F7 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F7 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F8 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F8 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F9 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2F9 to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2FA to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2FA to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2FB to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2FB to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2FC to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2FC to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2FD to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2FD to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2FE to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA2FE to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5AB to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5AB to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5AC to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5AC to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5AD to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5AD to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5AE to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5AE to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5AF to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5AF to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5BA to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5BA to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5BB to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5BB to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5BC to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5BC to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5BD to 'utf8mb3'
+Warning	1977	Cannot convert 'euckr' character 0xA5BD to 'utf8mb3'
+DROP TABLE t1;
+#
+# End of 5.5 tests
+#
+#
+# Start of 5.6 tests
+#
+#
+# WL#3664 WEIGHT_STRING
+#
+set names euckr;
+select @@collation_connection;
+@@collation_connection
+euckr_korean_ci
+CREATE TABLE t1 AS SELECT 'a' AS a;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` varchar(1) CHARACTER SET euckr NOT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+CREATE TABLE t2 AS SELECT WEIGHT_STRING(a) AS ws FROM t1;
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `ws` varbinary(2) DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+SELECT HEX(WEIGHT_STRING(a)) FROM t1;
+HEX(WEIGHT_STRING(a))
+41
+SELECT HEX(ws) FROM t2;
+HEX(ws)
+41
+DROP TABLE t2;
+DROP TABLE t1;
+CREATE TABLE t1 AS SELECT REPEAT('a',5) AS a;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` varchar(5) CHARACTER SET euckr DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+CREATE TABLE t2 AS SELECT WEIGHT_STRING(a) AS ws FROM t1;
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `ws` varbinary(10) DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+SELECT HEX(WEIGHT_STRING(a)) FROM t1;
+HEX(WEIGHT_STRING(a))
+4141414141
+SELECT HEX(ws) FROM t2;
+HEX(ws)
+4141414141
+DROP TABLE t2;
+CREATE TABLE t2 AS SELECT WEIGHT_STRING(a AS CHAR(3)) AS ws FROM t1;
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `ws` varbinary(6) DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+SELECT HEX(WEIGHT_STRING(a AS CHAR(3))) FROM t1;
+HEX(WEIGHT_STRING(a AS CHAR(3)))
+414141
+SELECT HEX(ws) FROM t2;
+HEX(ws)
+414141
+DROP TABLE t2;
+CREATE TABLE t2 AS SELECT WEIGHT_STRING(a AS CHAR(10)) AS ws FROM t1;
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `ws` varbinary(20) DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+SELECT HEX(WEIGHT_STRING(a AS CHAR(10))) FROM t1;
+HEX(WEIGHT_STRING(a AS CHAR(10)))
+41414141412020202020
+SELECT HEX(ws) FROM t2;
+HEX(ws)
+41414141412020202020
+DROP TABLE t2;
+DROP TABLE t1;
+select hex(weight_string('a'));
+hex(weight_string('a'))
+41
+select hex(weight_string('A'));
+hex(weight_string('A'))
+41
+select hex(weight_string('abc'));
+hex(weight_string('abc'))
+414243
+select hex(weight_string('abc' as char(2)));
+hex(weight_string('abc' as char(2)))
+4142
+select hex(weight_string('abc' as char(3)));
+hex(weight_string('abc' as char(3)))
+414243
+select hex(weight_string('abc' as char(5)));
+hex(weight_string('abc' as char(5)))
+4142432020
+select hex(weight_string('abc', 1, 2, 0xC0));
+hex(weight_string('abc', 1, 2, 0xC0))
+41
+select hex(weight_string('abc', 2, 2, 0xC0));
+hex(weight_string('abc', 2, 2, 0xC0))
+4142
+select hex(weight_string('abc', 3, 2, 0xC0));
+hex(weight_string('abc', 3, 2, 0xC0))
+414220
+select hex(weight_string('abc', 4, 2, 0xC0));
+hex(weight_string('abc', 4, 2, 0xC0))
+41422020
+select hex(weight_string('abc', 5, 2, 0xC0));
+hex(weight_string('abc', 5, 2, 0xC0))
+4142202020
+select hex(weight_string('abc',25, 2, 0xC0));
+hex(weight_string('abc',25, 2, 0xC0))
+41422020202020202020202020202020202020202020202020
+select hex(weight_string('abc', 1, 3, 0xC0));
+hex(weight_string('abc', 1, 3, 0xC0))
+41
+select hex(weight_string('abc', 2, 3, 0xC0));
+hex(weight_string('abc', 2, 3, 0xC0))
+4142
+select hex(weight_string('abc', 3, 3, 0xC0));
+hex(weight_string('abc', 3, 3, 0xC0))
+414243
+select hex(weight_string('abc', 4, 3, 0xC0));
+hex(weight_string('abc', 4, 3, 0xC0))
+41424320
+select hex(weight_string('abc', 5, 3, 0xC0));
+hex(weight_string('abc', 5, 3, 0xC0))
+4142432020
+select hex(weight_string('abc',25, 3, 0xC0));
+hex(weight_string('abc',25, 3, 0xC0))
+41424320202020202020202020202020202020202020202020
+select hex(weight_string('abc', 1, 4, 0xC0));
+hex(weight_string('abc', 1, 4, 0xC0))
+41
+select hex(weight_string('abc', 2, 4, 0xC0));
+hex(weight_string('abc', 2, 4, 0xC0))
+4142
+select hex(weight_string('abc', 3, 4, 0xC0));
+hex(weight_string('abc', 3, 4, 0xC0))
+414243
+select hex(weight_string('abc', 4, 4, 0xC0));
+hex(weight_string('abc', 4, 4, 0xC0))
+41424320
+select hex(weight_string('abc', 5, 4, 0xC0));
+hex(weight_string('abc', 5, 4, 0xC0))
+4142432020
+select hex(weight_string('abc',25, 4, 0xC0));
+hex(weight_string('abc',25, 4, 0xC0))
+41424320202020202020202020202020202020202020202020
+select @@collation_connection;
+@@collation_connection
+euckr_korean_ci
+select hex(weight_string('a' LEVEL 1));
+hex(weight_string('a' LEVEL 1))
+41
+select hex(weight_string('A' LEVEL 1));
+hex(weight_string('A' LEVEL 1))
+41
+select hex(weight_string('abc' LEVEL 1));
+hex(weight_string('abc' LEVEL 1))
+414243
+select hex(weight_string('abc' as char(2) LEVEL 1));
+hex(weight_string('abc' as char(2) LEVEL 1))
+4142
+select hex(weight_string('abc' as char(3) LEVEL 1));
+hex(weight_string('abc' as char(3) LEVEL 1))
+414243
+select hex(weight_string('abc' as char(5) LEVEL 1));
+hex(weight_string('abc' as char(5) LEVEL 1))
+4142432020
+select hex(weight_string('abc' as char(5) LEVEL 1 REVERSE));
+hex(weight_string('abc' as char(5) LEVEL 1 REVERSE))
+2020434241
+select hex(weight_string('abc' as char(5) LEVEL 1 DESC));
+hex(weight_string('abc' as char(5) LEVEL 1 DESC))
+BEBDBCDFDF
+select hex(weight_string('abc' as char(5) LEVEL 1 DESC REVERSE));
+hex(weight_string('abc' as char(5) LEVEL 1 DESC REVERSE))
+DFDFBCBDBE
+select collation(cast(0xA1A1 as char));
+collation(cast(0xA1A1 as char))
+euckr_korean_ci
+select hex(weight_string(cast(0x6141 as char)));
+hex(weight_string(cast(0x6141 as char)))
+4141
+select hex(weight_string(cast(0xA1A1 as char)));
+hex(weight_string(cast(0xA1A1 as char)))
+A1A1
+select hex(weight_string(cast(0xA1A1 as char) as char(1)));
+hex(weight_string(cast(0xA1A1 as char) as char(1)))
+A1A1
+select hex(weight_string(cast(0xA1A1A1A1 as char) as char(1)));
+hex(weight_string(cast(0xA1A1A1A1 as char) as char(1)))
+A1A1
+select hex(weight_string(cast(0xA1A1 as char) as char(3)));
+hex(weight_string(cast(0xA1A1 as char) as char(3)))
+A1A12020
+select hex(weight_string(cast(0xA1A1A1A1 as char) as char(3)));
+hex(weight_string(cast(0xA1A1A1A1 as char) as char(3)))
+A1A1A1A120
+select hex(weight_string(cast(0x40A1A1 as char) as char(3)));
+hex(weight_string(cast(0x40A1A1 as char) as char(3)))
+40A1A120
+select hex(weight_string(cast(0x40A1A1A1A1 as char) as char(3)));
+hex(weight_string(cast(0x40A1A1A1A1 as char) as char(3)))
+40A1A1A1A1
+select hex(weight_string(cast(0x40A1A1A1A1A1A1 as char) as char(3)));
+hex(weight_string(cast(0x40A1A1A1A1A1A1 as char) as char(3)))
+40A1A1A1A1
+select hex(weight_string(cast(0x4040A1A1A1A1A1A1 as char) as char(3)));
+hex(weight_string(cast(0x4040A1A1A1A1A1A1 as char) as char(3)))
+4040A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 1, 2, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 1, 2, 0xC0))
+A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 2, 2, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 2, 2, 0xC0))
+A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 3, 2, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 3, 2, 0xC0))
+A1A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 4, 2, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 4, 2, 0xC0))
+A1A1A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 5, 2, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 5, 2, 0xC0))
+A1A1A1A120
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char),25, 2, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char),25, 2, 0xC0))
+A1A1A1A1202020202020202020202020202020202020202020
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 1, 3, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 1, 3, 0xC0))
+A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 2, 3, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 2, 3, 0xC0))
+A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 3, 3, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 3, 3, 0xC0))
+A1A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 4, 3, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 4, 3, 0xC0))
+A1A1A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 5, 3, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 5, 3, 0xC0))
+A1A1A1A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char),25, 3, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char),25, 3, 0xC0))
+A1A1A1A1A1A120202020202020202020202020202020202020
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 1, 4, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 1, 4, 0xC0))
+A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 2, 4, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 2, 4, 0xC0))
+A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 3, 4, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 3, 4, 0xC0))
+A1A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 4, 4, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 4, 4, 0xC0))
+A1A1A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 5, 4, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 5, 4, 0xC0))
+A1A1A1A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char),25, 4, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char),25, 4, 0xC0))
+A1A1A1A1A1A120202020202020202020202020202020202020
+set collation_connection=euckr_bin;
+select @@collation_connection;
+@@collation_connection
+euckr_bin
+CREATE TABLE t1 AS SELECT 'a' AS a;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` varchar(1) CHARACTER SET euckr COLLATE euckr_bin NOT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+CREATE TABLE t2 AS SELECT WEIGHT_STRING(a) AS ws FROM t1;
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `ws` varbinary(2) DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+SELECT HEX(WEIGHT_STRING(a)) FROM t1;
+HEX(WEIGHT_STRING(a))
+61
+SELECT HEX(ws) FROM t2;
+HEX(ws)
+61
+DROP TABLE t2;
+DROP TABLE t1;
+CREATE TABLE t1 AS SELECT REPEAT('a',5) AS a;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` varchar(5) CHARACTER SET euckr COLLATE euckr_bin DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+CREATE TABLE t2 AS SELECT WEIGHT_STRING(a) AS ws FROM t1;
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `ws` varbinary(10) DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+SELECT HEX(WEIGHT_STRING(a)) FROM t1;
+HEX(WEIGHT_STRING(a))
+6161616161
+SELECT HEX(ws) FROM t2;
+HEX(ws)
+6161616161
+DROP TABLE t2;
+CREATE TABLE t2 AS SELECT WEIGHT_STRING(a AS CHAR(3)) AS ws FROM t1;
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `ws` varbinary(6) DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+SELECT HEX(WEIGHT_STRING(a AS CHAR(3))) FROM t1;
+HEX(WEIGHT_STRING(a AS CHAR(3)))
+616161
+SELECT HEX(ws) FROM t2;
+HEX(ws)
+616161
+DROP TABLE t2;
+CREATE TABLE t2 AS SELECT WEIGHT_STRING(a AS CHAR(10)) AS ws FROM t1;
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `ws` varbinary(20) DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+SELECT HEX(WEIGHT_STRING(a AS CHAR(10))) FROM t1;
+HEX(WEIGHT_STRING(a AS CHAR(10)))
+61616161612020202020
+SELECT HEX(ws) FROM t2;
+HEX(ws)
+61616161612020202020
+DROP TABLE t2;
+DROP TABLE t1;
+select hex(weight_string('a'));
+hex(weight_string('a'))
+61
+select hex(weight_string('A'));
+hex(weight_string('A'))
+41
+select hex(weight_string('abc'));
+hex(weight_string('abc'))
+616263
+select hex(weight_string('abc' as char(2)));
+hex(weight_string('abc' as char(2)))
+6162
+select hex(weight_string('abc' as char(3)));
+hex(weight_string('abc' as char(3)))
+616263
+select hex(weight_string('abc' as char(5)));
+hex(weight_string('abc' as char(5)))
+6162632020
+select hex(weight_string('abc', 1, 2, 0xC0));
+hex(weight_string('abc', 1, 2, 0xC0))
+61
+select hex(weight_string('abc', 2, 2, 0xC0));
+hex(weight_string('abc', 2, 2, 0xC0))
+6162
+select hex(weight_string('abc', 3, 2, 0xC0));
+hex(weight_string('abc', 3, 2, 0xC0))
+616220
+select hex(weight_string('abc', 4, 2, 0xC0));
+hex(weight_string('abc', 4, 2, 0xC0))
+61622020
+select hex(weight_string('abc', 5, 2, 0xC0));
+hex(weight_string('abc', 5, 2, 0xC0))
+6162202020
+select hex(weight_string('abc',25, 2, 0xC0));
+hex(weight_string('abc',25, 2, 0xC0))
+61622020202020202020202020202020202020202020202020
+select hex(weight_string('abc', 1, 3, 0xC0));
+hex(weight_string('abc', 1, 3, 0xC0))
+61
+select hex(weight_string('abc', 2, 3, 0xC0));
+hex(weight_string('abc', 2, 3, 0xC0))
+6162
+select hex(weight_string('abc', 3, 3, 0xC0));
+hex(weight_string('abc', 3, 3, 0xC0))
+616263
+select hex(weight_string('abc', 4, 3, 0xC0));
+hex(weight_string('abc', 4, 3, 0xC0))
+61626320
+select hex(weight_string('abc', 5, 3, 0xC0));
+hex(weight_string('abc', 5, 3, 0xC0))
+6162632020
+select hex(weight_string('abc',25, 3, 0xC0));
+hex(weight_string('abc',25, 3, 0xC0))
+61626320202020202020202020202020202020202020202020
+select hex(weight_string('abc', 1, 4, 0xC0));
+hex(weight_string('abc', 1, 4, 0xC0))
+61
+select hex(weight_string('abc', 2, 4, 0xC0));
+hex(weight_string('abc', 2, 4, 0xC0))
+6162
+select hex(weight_string('abc', 3, 4, 0xC0));
+hex(weight_string('abc', 3, 4, 0xC0))
+616263
+select hex(weight_string('abc', 4, 4, 0xC0));
+hex(weight_string('abc', 4, 4, 0xC0))
+61626320
+select hex(weight_string('abc', 5, 4, 0xC0));
+hex(weight_string('abc', 5, 4, 0xC0))
+6162632020
+select hex(weight_string('abc',25, 4, 0xC0));
+hex(weight_string('abc',25, 4, 0xC0))
+61626320202020202020202020202020202020202020202020
+select @@collation_connection;
+@@collation_connection
+euckr_bin
+select hex(weight_string('a' LEVEL 1));
+hex(weight_string('a' LEVEL 1))
+61
+select hex(weight_string('A' LEVEL 1));
+hex(weight_string('A' LEVEL 1))
+41
+select hex(weight_string('abc' LEVEL 1));
+hex(weight_string('abc' LEVEL 1))
+616263
+select hex(weight_string('abc' as char(2) LEVEL 1));
+hex(weight_string('abc' as char(2) LEVEL 1))
+6162
+select hex(weight_string('abc' as char(3) LEVEL 1));
+hex(weight_string('abc' as char(3) LEVEL 1))
+616263
+select hex(weight_string('abc' as char(5) LEVEL 1));
+hex(weight_string('abc' as char(5) LEVEL 1))
+6162632020
+select hex(weight_string('abc' as char(5) LEVEL 1 REVERSE));
+hex(weight_string('abc' as char(5) LEVEL 1 REVERSE))
+2020636261
+select hex(weight_string('abc' as char(5) LEVEL 1 DESC));
+hex(weight_string('abc' as char(5) LEVEL 1 DESC))
+9E9D9CDFDF
+select hex(weight_string('abc' as char(5) LEVEL 1 DESC REVERSE));
+hex(weight_string('abc' as char(5) LEVEL 1 DESC REVERSE))
+DFDF9C9D9E
+select collation(cast(0xA1A1 as char));
+collation(cast(0xA1A1 as char))
+euckr_bin
+select hex(weight_string(cast(0x6141 as char)));
+hex(weight_string(cast(0x6141 as char)))
+6141
+select hex(weight_string(cast(0xA1A1 as char)));
+hex(weight_string(cast(0xA1A1 as char)))
+A1A1
+select hex(weight_string(cast(0xA1A1 as char) as char(1)));
+hex(weight_string(cast(0xA1A1 as char) as char(1)))
+A1A1
+select hex(weight_string(cast(0xA1A1A1A1 as char) as char(1)));
+hex(weight_string(cast(0xA1A1A1A1 as char) as char(1)))
+A1A1
+select hex(weight_string(cast(0xA1A1 as char) as char(3)));
+hex(weight_string(cast(0xA1A1 as char) as char(3)))
+A1A12020
+select hex(weight_string(cast(0xA1A1A1A1 as char) as char(3)));
+hex(weight_string(cast(0xA1A1A1A1 as char) as char(3)))
+A1A1A1A120
+select hex(weight_string(cast(0x40A1A1 as char) as char(3)));
+hex(weight_string(cast(0x40A1A1 as char) as char(3)))
+40A1A120
+select hex(weight_string(cast(0x40A1A1A1A1 as char) as char(3)));
+hex(weight_string(cast(0x40A1A1A1A1 as char) as char(3)))
+40A1A1A1A1
+select hex(weight_string(cast(0x40A1A1A1A1A1A1 as char) as char(3)));
+hex(weight_string(cast(0x40A1A1A1A1A1A1 as char) as char(3)))
+40A1A1A1A1
+select hex(weight_string(cast(0x4040A1A1A1A1A1A1 as char) as char(3)));
+hex(weight_string(cast(0x4040A1A1A1A1A1A1 as char) as char(3)))
+4040A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 1, 2, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 1, 2, 0xC0))
+A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 2, 2, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 2, 2, 0xC0))
+A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 3, 2, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 3, 2, 0xC0))
+A1A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 4, 2, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 4, 2, 0xC0))
+A1A1A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 5, 2, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 5, 2, 0xC0))
+A1A1A1A120
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char),25, 2, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char),25, 2, 0xC0))
+A1A1A1A1202020202020202020202020202020202020202020
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 1, 3, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 1, 3, 0xC0))
+A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 2, 3, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 2, 3, 0xC0))
+A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 3, 3, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 3, 3, 0xC0))
+A1A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 4, 3, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 4, 3, 0xC0))
+A1A1A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 5, 3, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 5, 3, 0xC0))
+A1A1A1A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char),25, 3, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char),25, 3, 0xC0))
+A1A1A1A1A1A120202020202020202020202020202020202020
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 1, 4, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 1, 4, 0xC0))
+A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 2, 4, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 2, 4, 0xC0))
+A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 3, 4, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 3, 4, 0xC0))
+A1A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 4, 4, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 4, 4, 0xC0))
+A1A1A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 5, 4, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char), 5, 4, 0xC0))
+A1A1A1A1A1
+select hex(weight_string(cast(0xA1A1A1A1A1A1 as char),25, 4, 0xC0));
+hex(weight_string(cast(0xA1A1A1A1A1A1 as char),25, 4, 0xC0))
+A1A1A1A1A1A120202020202020202020202020202020202020
+#
+# End of 5.6 tests
+#
+#
+# Start of 10.0 tests
+#
+SET NAMES utf8, character_set_connection=euckr;
+#
+# MDEV-13118 Wrong results with LOWER and UPPER and subquery
+#
+SET @save_optimizer_switch=@@optimizer_switch;
+SET optimizer_switch=_latin1'derived_merge=on';
+CREATE TABLE t1 AS SELECT REPEAT('a', 10) AS t LIMIT 0;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `t` varchar(10) CHARACTER SET euckr DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+INSERT INTO t1 VALUES ('abcdefghi'),('ABCDEFGHI');
+SELECT CONCAT(t2,'-',t2) c2 FROM (SELECT LOWER(t) t2 FROM t1) sub;
+c2
+abcdefghi-abcdefghi
+abcdefghi-abcdefghi
+SELECT CONCAT(t2,'-',t2) c2 FROM (SELECT UPPER(t) t2 FROM t1) sub;
+c2
+ABCDEFGHI-ABCDEFGHI
+ABCDEFGHI-ABCDEFGHI
+DROP TABLE t1;
+SET optimizer_switch=@save_optimizer_switch;
+#
+# End of 10.0 tests
+#
+#
+# Start of 10.2 tests
+#
+#
+# MDEV-9711 NO PAD Collatons
+#
+SET character_set_connection=euckr;
+SET DEFAULT_STORAGE_ENGINE=eloq;
+#
+# Start of ctype_pad.inc
+#
+#
+# Unique indexes
+#
+CREATE TABLE t1 (a VARCHAR(10) PRIMARY KEY) COLLATE 'euckr_korean_nopad_ci';
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` varchar(10) COLLATE euckr_korean_nopad_ci NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ELOQ DEFAULT CHARSET=euckr COLLATE=euckr_korean_nopad_ci
+INSERT INTO t1 VALUES ('abc'),('abc  '),(' a'),(' a '),('a   ');
+SELECT HEX(a), a FROM t1 ORDER BY a;
+HEX(a)	a
+2061	 a
+206120	 a 
+61202020	a   
+616263	abc
+6162632020	abc  
+SELECT HEX(a), a FROM t1 IGNORE INDEX(PRIMARY) ORDER BY a;
+HEX(a)	a
+2061	 a
+206120	 a 
+61202020	a   
+616263	abc
+6162632020	abc  
+SELECT HEX(a), a FROM t1 IGNORE INDEX(PRIMARY) ORDER BY a DESC;
+HEX(a)	a
+6162632020	abc  
+616263	abc
+61202020	a   
+206120	 a 
+2061	 a
+#
+# UNION
+#
+CREATE TABLE t2 (a VARCHAR(10)) COLLATE 'euckr_korean_nopad_ci';
+INSERT INTO t2 VALUES ('abc '),('abc  '),(' a'),('a ');
+SELECT HEX(a),a FROM (SELECT * FROM t1 UNION SELECT * FROM t2 ORDER BY a) td;
+HEX(a)	a
+2061	 a
+206120	 a 
+6120	a 
+61202020	a   
+616263	abc
+61626320	abc 
+6162632020	abc  
+DROP TABLE t1;
+DROP TABLE t2;
+#
+# DISTINCT, COUNT, MAX
+#
+CREATE TABLE t1 (a VARCHAR(10)) COLLATE 'euckr_korean_nopad_ci';
+INSERT INTO t1 VALUES ('a'),('a  '),(' a'),(' a '),('a   ');
+SELECT HEX(a), a FROM (SELECT DISTINCT a FROM t1 ORDER BY a) td;
+HEX(a)	a
+2061	 a
+206120	 a 
+61	a
+612020	a  
+61202020	a   
+SELECT COUNT(DISTINCT a) FROM t1 ORDER BY a;
+COUNT(DISTINCT a)
+5
+SELECT HEX(MAX(a)), MAX(a) FROM t1;
+HEX(MAX(a))	MAX(a)
+61202020	a   
+#
+# GROUP BY
+#
+CREATE TABLE t2 (a VARCHAR(10), b int, c varchar(10)) COLLATE 'euckr_korean_nopad_ci';
+INSERT t2 values('ab', 12, 'cd'), ('ab', 2, 'ed'), ('aa', 20, 'er'), ('aa  ', 0, 'er ');
+SELECT HEX(a), cnt FROM (SELECT a, COUNT(a) AS cnt FROM t2 GROUP BY a ORDER BY a) AS td;
+HEX(a)	cnt
+6161	1
+61612020	1
+6162	2
+DROP TABLE t2;
+#
+# Weights
+#
+SELECT HEX(WEIGHT_STRING(a AS CHAR(10))) FROM t1;
+HEX(WEIGHT_STRING(a AS CHAR(10)))
+41000000000000000000
+41202000000000000000
+20410000000000000000
+20412000000000000000
+41202020000000000000
+DROP TABLE t1;
+#
+# IF, CASE, LEAST
+#
+SELECT IF('abc' COLLATE 'euckr_korean_nopad_ci' = 'abc ', 'pad', 'nopad');
+IF('abc' COLLATE 'euckr_korean_nopad_ci' = 'abc ', 'pad', 'nopad')
+nopad
+SELECT CASE 'abc' COLLATE 'euckr_korean_nopad_ci' WHEN 'abc ' THEN 'pad' ELSE 'nopad' END;
+CASE 'abc' COLLATE 'euckr_korean_nopad_ci' WHEN 'abc ' THEN 'pad' ELSE 'nopad' END
+nopad
+SELECT CASE WHEN 'abc' COLLATE 'euckr_korean_nopad_ci' = 'abc ' THEN 'pad' ELSE 'nopad' END;
+CASE WHEN 'abc' COLLATE 'euckr_korean_nopad_ci' = 'abc ' THEN 'pad' ELSE 'nopad' END
+nopad
+SELECT HEX(LEAST('abc ' COLLATE 'euckr_korean_nopad_ci', 'abc  '));
+HEX(LEAST('abc ' COLLATE 'euckr_korean_nopad_ci', 'abc  '))
+61626320
+SELECT HEX(GREATEST('abc ' COLLATE 'euckr_korean_nopad_ci', 'abc  '));
+HEX(GREATEST('abc ' COLLATE 'euckr_korean_nopad_ci', 'abc  '))
+6162632020
+#
+# Collation mix
+#
+CREATE TABLE t1 (a VARCHAR(10)) COLLATE 'euckr_korean_ci';
+INSERT INTO t1 VALUES ('a'),('a ');
+SELECT COUNT(*) FROM t1 WHERE a='a';
+COUNT(*)
+2
+SELECT COUNT(*) FROM t1 WHERE a='a' COLLATE 'euckr_korean_ci';
+COUNT(*)
+2
+SELECT COUNT(*) FROM t1 WHERE a='a' COLLATE 'euckr_korean_nopad_ci';
+COUNT(*)
+1
+ALTER TABLE t1 MODIFY a VARCHAR(10) COLLATE 'euckr_korean_nopad_ci';
+SELECT COUNT(*) FROM t1 WHERE a='a';
+COUNT(*)
+1
+SELECT COUNT(*) FROM t1 WHERE a='a' COLLATE 'euckr_korean_ci';
+COUNT(*)
+2
+SELECT COUNT(*) FROM t1 WHERE a='a' COLLATE 'euckr_korean_nopad_ci';
+COUNT(*)
+1
+DROP TABLE t1;
+#
+# End of ctype_pad.inc
+#
+SET DEFAULT_STORAGE_ENGINE=HEAP;
+#
+# Start of ctype_pad.inc
+#
+#
+# Unique indexes
+#
+CREATE TABLE t1 (a VARCHAR(10) PRIMARY KEY) COLLATE 'euckr_korean_nopad_ci';
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` varchar(10) COLLATE euckr_korean_nopad_ci NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=MEMORY DEFAULT CHARSET=euckr COLLATE=euckr_korean_nopad_ci
+INSERT INTO t1 VALUES ('abc'),('abc  '),(' a'),(' a '),('a   ');
+SELECT HEX(a), a FROM t1 ORDER BY a;
+HEX(a)	a
+2061	 a
+206120	 a 
+61202020	a   
+616263	abc
+6162632020	abc  
+SELECT HEX(a), a FROM t1 IGNORE INDEX(PRIMARY) ORDER BY a;
+HEX(a)	a
+2061	 a
+206120	 a 
+61202020	a   
+616263	abc
+6162632020	abc  
+SELECT HEX(a), a FROM t1 IGNORE INDEX(PRIMARY) ORDER BY a DESC;
+HEX(a)	a
+6162632020	abc  
+616263	abc
+61202020	a   
+206120	 a 
+2061	 a
+#
+# UNION
+#
+CREATE TABLE t2 (a VARCHAR(10)) COLLATE 'euckr_korean_nopad_ci';
+INSERT INTO t2 VALUES ('abc '),('abc  '),(' a'),('a ');
+SELECT HEX(a),a FROM (SELECT * FROM t1 UNION SELECT * FROM t2 ORDER BY a) td;
+HEX(a)	a
+2061	 a
+206120	 a 
+6120	a 
+61202020	a   
+616263	abc
+61626320	abc 
+6162632020	abc  
+DROP TABLE t1;
+DROP TABLE t2;
+#
+# DISTINCT, COUNT, MAX
+#
+CREATE TABLE t1 (a VARCHAR(10)) COLLATE 'euckr_korean_nopad_ci';
+INSERT INTO t1 VALUES ('a'),('a  '),(' a'),(' a '),('a   ');
+SELECT HEX(a), a FROM (SELECT DISTINCT a FROM t1 ORDER BY a) td;
+HEX(a)	a
+2061	 a
+206120	 a 
+61	a
+612020	a  
+61202020	a   
+SELECT COUNT(DISTINCT a) FROM t1 ORDER BY a;
+COUNT(DISTINCT a)
+5
+SELECT HEX(MAX(a)), MAX(a) FROM t1;
+HEX(MAX(a))	MAX(a)
+61202020	a   
+#
+# GROUP BY
+#
+CREATE TABLE t2 (a VARCHAR(10), b int, c varchar(10)) COLLATE 'euckr_korean_nopad_ci';
+INSERT t2 values('ab', 12, 'cd'), ('ab', 2, 'ed'), ('aa', 20, 'er'), ('aa  ', 0, 'er ');
+SELECT HEX(a), cnt FROM (SELECT a, COUNT(a) AS cnt FROM t2 GROUP BY a ORDER BY a) AS td;
+HEX(a)	cnt
+6161	1
+61612020	1
+6162	2
+DROP TABLE t2;
+#
+# Weights
+#
+SELECT HEX(WEIGHT_STRING(a AS CHAR(10))) FROM t1;
+HEX(WEIGHT_STRING(a AS CHAR(10)))
+41000000000000000000
+41202000000000000000
+20410000000000000000
+20412000000000000000
+41202020000000000000
+DROP TABLE t1;
+#
+# IF, CASE, LEAST
+#
+SELECT IF('abc' COLLATE 'euckr_korean_nopad_ci' = 'abc ', 'pad', 'nopad');
+IF('abc' COLLATE 'euckr_korean_nopad_ci' = 'abc ', 'pad', 'nopad')
+nopad
+SELECT CASE 'abc' COLLATE 'euckr_korean_nopad_ci' WHEN 'abc ' THEN 'pad' ELSE 'nopad' END;
+CASE 'abc' COLLATE 'euckr_korean_nopad_ci' WHEN 'abc ' THEN 'pad' ELSE 'nopad' END
+nopad
+SELECT CASE WHEN 'abc' COLLATE 'euckr_korean_nopad_ci' = 'abc ' THEN 'pad' ELSE 'nopad' END;
+CASE WHEN 'abc' COLLATE 'euckr_korean_nopad_ci' = 'abc ' THEN 'pad' ELSE 'nopad' END
+nopad
+SELECT HEX(LEAST('abc ' COLLATE 'euckr_korean_nopad_ci', 'abc  '));
+HEX(LEAST('abc ' COLLATE 'euckr_korean_nopad_ci', 'abc  '))
+61626320
+SELECT HEX(GREATEST('abc ' COLLATE 'euckr_korean_nopad_ci', 'abc  '));
+HEX(GREATEST('abc ' COLLATE 'euckr_korean_nopad_ci', 'abc  '))
+6162632020
+#
+# Collation mix
+#
+CREATE TABLE t1 (a VARCHAR(10)) COLLATE 'euckr_korean_ci';
+INSERT INTO t1 VALUES ('a'),('a ');
+SELECT COUNT(*) FROM t1 WHERE a='a';
+COUNT(*)
+2
+SELECT COUNT(*) FROM t1 WHERE a='a' COLLATE 'euckr_korean_ci';
+COUNT(*)
+2
+SELECT COUNT(*) FROM t1 WHERE a='a' COLLATE 'euckr_korean_nopad_ci';
+COUNT(*)
+1
+ALTER TABLE t1 MODIFY a VARCHAR(10) COLLATE 'euckr_korean_nopad_ci';
+SELECT COUNT(*) FROM t1 WHERE a='a';
+COUNT(*)
+1
+SELECT COUNT(*) FROM t1 WHERE a='a' COLLATE 'euckr_korean_ci';
+COUNT(*)
+2
+SELECT COUNT(*) FROM t1 WHERE a='a' COLLATE 'euckr_korean_nopad_ci';
+COUNT(*)
+1
+DROP TABLE t1;
+#
+# End of ctype_pad.inc
+#
+SET DEFAULT_STORAGE_ENGINE=Default;
+SET DEFAULT_STORAGE_ENGINE=eloq;
+#
+# Start of ctype_pad.inc
+#
+#
+# Unique indexes
+#
+CREATE TABLE t1 (a VARCHAR(10) PRIMARY KEY) COLLATE 'euckr_nopad_bin';
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` varchar(10) COLLATE euckr_nopad_bin NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ELOQ DEFAULT CHARSET=euckr COLLATE=euckr_nopad_bin
+INSERT INTO t1 VALUES ('abc'),('abc  '),(' a'),(' a '),('a   ');
+SELECT HEX(a), a FROM t1 ORDER BY a;
+HEX(a)	a
+2061	 a
+206120	 a 
+61202020	a   
+616263	abc
+6162632020	abc  
+SELECT HEX(a), a FROM t1 IGNORE INDEX(PRIMARY) ORDER BY a;
+HEX(a)	a
+2061	 a
+206120	 a 
+61202020	a   
+616263	abc
+6162632020	abc  
+SELECT HEX(a), a FROM t1 IGNORE INDEX(PRIMARY) ORDER BY a DESC;
+HEX(a)	a
+6162632020	abc  
+616263	abc
+61202020	a   
+206120	 a 
+2061	 a
+#
+# UNION
+#
+CREATE TABLE t2 (a VARCHAR(10)) COLLATE 'euckr_nopad_bin';
+INSERT INTO t2 VALUES ('abc '),('abc  '),(' a'),('a ');
+SELECT HEX(a),a FROM (SELECT * FROM t1 UNION SELECT * FROM t2 ORDER BY a) td;
+HEX(a)	a
+2061	 a
+206120	 a 
+6120	a 
+61202020	a   
+616263	abc
+61626320	abc 
+6162632020	abc  
+DROP TABLE t1;
+DROP TABLE t2;
+#
+# DISTINCT, COUNT, MAX
+#
+CREATE TABLE t1 (a VARCHAR(10)) COLLATE 'euckr_nopad_bin';
+INSERT INTO t1 VALUES ('a'),('a  '),(' a'),(' a '),('a   ');
+SELECT HEX(a), a FROM (SELECT DISTINCT a FROM t1 ORDER BY a) td;
+HEX(a)	a
+2061	 a
+206120	 a 
+61	a
+612020	a  
+61202020	a   
+SELECT COUNT(DISTINCT a) FROM t1 ORDER BY a;
+COUNT(DISTINCT a)
+5
+SELECT HEX(MAX(a)), MAX(a) FROM t1;
+HEX(MAX(a))	MAX(a)
+61202020	a   
+#
+# GROUP BY
+#
+CREATE TABLE t2 (a VARCHAR(10), b int, c varchar(10)) COLLATE 'euckr_nopad_bin';
+INSERT t2 values('ab', 12, 'cd'), ('ab', 2, 'ed'), ('aa', 20, 'er'), ('aa  ', 0, 'er ');
+SELECT HEX(a), cnt FROM (SELECT a, COUNT(a) AS cnt FROM t2 GROUP BY a ORDER BY a) AS td;
+HEX(a)	cnt
+6161	1
+61612020	1
+6162	2
+DROP TABLE t2;
+#
+# Weights
+#
+SELECT HEX(WEIGHT_STRING(a AS CHAR(10))) FROM t1;
+HEX(WEIGHT_STRING(a AS CHAR(10)))
+61000000000000000000
+61202000000000000000
+20610000000000000000
+20612000000000000000
+61202020000000000000
+DROP TABLE t1;
+#
+# IF, CASE, LEAST
+#
+SELECT IF('abc' COLLATE 'euckr_nopad_bin' = 'abc ', 'pad', 'nopad');
+IF('abc' COLLATE 'euckr_nopad_bin' = 'abc ', 'pad', 'nopad')
+nopad
+SELECT CASE 'abc' COLLATE 'euckr_nopad_bin' WHEN 'abc ' THEN 'pad' ELSE 'nopad' END;
+CASE 'abc' COLLATE 'euckr_nopad_bin' WHEN 'abc ' THEN 'pad' ELSE 'nopad' END
+nopad
+SELECT CASE WHEN 'abc' COLLATE 'euckr_nopad_bin' = 'abc ' THEN 'pad' ELSE 'nopad' END;
+CASE WHEN 'abc' COLLATE 'euckr_nopad_bin' = 'abc ' THEN 'pad' ELSE 'nopad' END
+nopad
+SELECT HEX(LEAST('abc ' COLLATE 'euckr_nopad_bin', 'abc  '));
+HEX(LEAST('abc ' COLLATE 'euckr_nopad_bin', 'abc  '))
+61626320
+SELECT HEX(GREATEST('abc ' COLLATE 'euckr_nopad_bin', 'abc  '));
+HEX(GREATEST('abc ' COLLATE 'euckr_nopad_bin', 'abc  '))
+6162632020
+#
+# Collation mix
+#
+CREATE TABLE t1 (a VARCHAR(10)) COLLATE 'euckr_bin';
+INSERT INTO t1 VALUES ('a'),('a ');
+SELECT COUNT(*) FROM t1 WHERE a='a';
+COUNT(*)
+2
+SELECT COUNT(*) FROM t1 WHERE a='a' COLLATE 'euckr_bin';
+COUNT(*)
+2
+SELECT COUNT(*) FROM t1 WHERE a='a' COLLATE 'euckr_nopad_bin';
+COUNT(*)
+1
+ALTER TABLE t1 MODIFY a VARCHAR(10) COLLATE 'euckr_nopad_bin';
+SELECT COUNT(*) FROM t1 WHERE a='a';
+COUNT(*)
+1
+SELECT COUNT(*) FROM t1 WHERE a='a' COLLATE 'euckr_bin';
+COUNT(*)
+2
+SELECT COUNT(*) FROM t1 WHERE a='a' COLLATE 'euckr_nopad_bin';
+COUNT(*)
+1
+DROP TABLE t1;
+#
+# End of ctype_pad.inc
+#
+SET DEFAULT_STORAGE_ENGINE=HEAP;
+#
+# Start of ctype_pad.inc
+#
+#
+# Unique indexes
+#
+CREATE TABLE t1 (a VARCHAR(10) PRIMARY KEY) COLLATE 'euckr_nopad_bin';
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` varchar(10) COLLATE euckr_nopad_bin NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=MEMORY DEFAULT CHARSET=euckr COLLATE=euckr_nopad_bin
+INSERT INTO t1 VALUES ('abc'),('abc  '),(' a'),(' a '),('a   ');
+SELECT HEX(a), a FROM t1 ORDER BY a;
+HEX(a)	a
+2061	 a
+206120	 a 
+61202020	a   
+616263	abc
+6162632020	abc  
+SELECT HEX(a), a FROM t1 IGNORE INDEX(PRIMARY) ORDER BY a;
+HEX(a)	a
+2061	 a
+206120	 a 
+61202020	a   
+616263	abc
+6162632020	abc  
+SELECT HEX(a), a FROM t1 IGNORE INDEX(PRIMARY) ORDER BY a DESC;
+HEX(a)	a
+6162632020	abc  
+616263	abc
+61202020	a   
+206120	 a 
+2061	 a
+#
+# UNION
+#
+CREATE TABLE t2 (a VARCHAR(10)) COLLATE 'euckr_nopad_bin';
+INSERT INTO t2 VALUES ('abc '),('abc  '),(' a'),('a ');
+SELECT HEX(a),a FROM (SELECT * FROM t1 UNION SELECT * FROM t2 ORDER BY a) td;
+HEX(a)	a
+2061	 a
+206120	 a 
+6120	a 
+61202020	a   
+616263	abc
+61626320	abc 
+6162632020	abc  
+DROP TABLE t1;
+DROP TABLE t2;
+#
+# DISTINCT, COUNT, MAX
+#
+CREATE TABLE t1 (a VARCHAR(10)) COLLATE 'euckr_nopad_bin';
+INSERT INTO t1 VALUES ('a'),('a  '),(' a'),(' a '),('a   ');
+SELECT HEX(a), a FROM (SELECT DISTINCT a FROM t1 ORDER BY a) td;
+HEX(a)	a
+2061	 a
+206120	 a 
+61	a
+612020	a  
+61202020	a   
+SELECT COUNT(DISTINCT a) FROM t1 ORDER BY a;
+COUNT(DISTINCT a)
+5
+SELECT HEX(MAX(a)), MAX(a) FROM t1;
+HEX(MAX(a))	MAX(a)
+61202020	a   
+#
+# GROUP BY
+#
+CREATE TABLE t2 (a VARCHAR(10), b int, c varchar(10)) COLLATE 'euckr_nopad_bin';
+INSERT t2 values('ab', 12, 'cd'), ('ab', 2, 'ed'), ('aa', 20, 'er'), ('aa  ', 0, 'er ');
+SELECT HEX(a), cnt FROM (SELECT a, COUNT(a) AS cnt FROM t2 GROUP BY a ORDER BY a) AS td;
+HEX(a)	cnt
+6161	1
+61612020	1
+6162	2
+DROP TABLE t2;
+#
+# Weights
+#
+SELECT HEX(WEIGHT_STRING(a AS CHAR(10))) FROM t1;
+HEX(WEIGHT_STRING(a AS CHAR(10)))
+61000000000000000000
+61202000000000000000
+20610000000000000000
+20612000000000000000
+61202020000000000000
+DROP TABLE t1;
+#
+# IF, CASE, LEAST
+#
+SELECT IF('abc' COLLATE 'euckr_nopad_bin' = 'abc ', 'pad', 'nopad');
+IF('abc' COLLATE 'euckr_nopad_bin' = 'abc ', 'pad', 'nopad')
+nopad
+SELECT CASE 'abc' COLLATE 'euckr_nopad_bin' WHEN 'abc ' THEN 'pad' ELSE 'nopad' END;
+CASE 'abc' COLLATE 'euckr_nopad_bin' WHEN 'abc ' THEN 'pad' ELSE 'nopad' END
+nopad
+SELECT CASE WHEN 'abc' COLLATE 'euckr_nopad_bin' = 'abc ' THEN 'pad' ELSE 'nopad' END;
+CASE WHEN 'abc' COLLATE 'euckr_nopad_bin' = 'abc ' THEN 'pad' ELSE 'nopad' END
+nopad
+SELECT HEX(LEAST('abc ' COLLATE 'euckr_nopad_bin', 'abc  '));
+HEX(LEAST('abc ' COLLATE 'euckr_nopad_bin', 'abc  '))
+61626320
+SELECT HEX(GREATEST('abc ' COLLATE 'euckr_nopad_bin', 'abc  '));
+HEX(GREATEST('abc ' COLLATE 'euckr_nopad_bin', 'abc  '))
+6162632020
+#
+# Collation mix
+#
+CREATE TABLE t1 (a VARCHAR(10)) COLLATE 'euckr_bin';
+INSERT INTO t1 VALUES ('a'),('a ');
+SELECT COUNT(*) FROM t1 WHERE a='a';
+COUNT(*)
+2
+SELECT COUNT(*) FROM t1 WHERE a='a' COLLATE 'euckr_bin';
+COUNT(*)
+2
+SELECT COUNT(*) FROM t1 WHERE a='a' COLLATE 'euckr_nopad_bin';
+COUNT(*)
+1
+ALTER TABLE t1 MODIFY a VARCHAR(10) COLLATE 'euckr_nopad_bin';
+SELECT COUNT(*) FROM t1 WHERE a='a';
+COUNT(*)
+1
+SELECT COUNT(*) FROM t1 WHERE a='a' COLLATE 'euckr_bin';
+COUNT(*)
+2
+SELECT COUNT(*) FROM t1 WHERE a='a' COLLATE 'euckr_nopad_bin';
+COUNT(*)
+1
+DROP TABLE t1;
+#
+# End of ctype_pad.inc
+#
+SET DEFAULT_STORAGE_ENGINE=Default;
+#
+# End of 10.2 tests
+#
+#
+# Start of 10.5 tests
+#
+#
+# MDEV-22625 SIGSEGV in intern_find_sys_var (optimized builds)
+#
+SET NAMES euckr;
+SET @seq=_euckr 0xA2E8;
+#
+# SET STATEMENT (bad|good.bad|bad.good)=1
+#
+EXECUTE IMMEDIATE CONCAT('SET STATEMENT ',@seq, '=1 SELECT 1');
+ERROR HY000: Invalid euckr character string: '\xA2\xE8'
+EXECUTE IMMEDIATE CONCAT('SET STATEMENT ',@seq, '.a=1 SELECT 1');
+ERROR HY000: Invalid euckr character string: '\xA2\xE8'
+EXECUTE IMMEDIATE CONCAT('SET STATEMENT a.',@seq, '=1 SELECT 1');
+ERROR HY000: Invalid euckr character string: '\xA2\xE8'
+#
+# SET SESSION (bad|good.bad|bad.good)=1
+#
+EXECUTE IMMEDIATE CONCAT('SET SESSION ',@seq, '=1 SELECT 1');
+ERROR HY000: Invalid euckr character string: '\xA2\xE8'
+EXECUTE IMMEDIATE CONCAT('SET SESSION ',@seq, '.a=1 SELECT 1');
+ERROR HY000: Invalid euckr character string: '\xA2\xE8'
+EXECUTE IMMEDIATE CONCAT('SET SESSION a.',@seq, '=1 SELECT 1');
+ERROR HY000: Invalid euckr character string: '\xA2\xE8'
+#
+# SET (bad|good.bad|bad.good)=1
+#
+EXECUTE IMMEDIATE CONCAT('SET ', @seq, '=1');
+ERROR HY000: Invalid euckr character string: '\xA2\xE8'
+EXECUTE IMMEDIATE CONCAT('SET ', @seq, '.a=1');
+ERROR HY000: Invalid euckr character string: '\xA2\xE8'
+EXECUTE IMMEDIATE CONCAT('SET a.', @seq, '=1');
+ERROR HY000: Invalid euckr character string: '\xA2\xE8'
+#
+# Oracle SP call: BEGIN (bad|good.bad|bad.good)(params); END
+#
+SET sql_mode=ORACLE;
+EXECUTE IMMEDIATE CONCAT('BEGIN ',@seq, '(1); END;');
+ERROR HY000: Invalid euckr character string: '\xA2\xE8'
+EXECUTE IMMEDIATE CONCAT('BEGIN ',@seq, '.a(1); END;');
+ERROR HY000: Invalid euckr character string: '\xA2\xE8'
+EXECUTE IMMEDIATE CONCAT('BEGIN a.',@seq, '(1); END;');
+ERROR HY000: Invalid euckr character string: '\xA2\xE8'
+#
+# Oracle assignment: (bad|good.bad|bad.good):= value
+#
+EXECUTE IMMEDIATE CONCAT(@seq, ':=1');
+ERROR HY000: Invalid euckr character string: '\xA2\xE8'
+EXECUTE IMMEDIATE CONCAT(@seq, '.a:=1');
+ERROR HY000: Invalid euckr character string: '\xA2\xE8'
+EXECUTE IMMEDIATE CONCAT('a.', @seq, ':=1');
+ERROR HY000: Invalid euckr character string: '\xA2\xE8'
+SET sql_mode=DEFAULT;
+#
+# End of 10.5 tests
+#

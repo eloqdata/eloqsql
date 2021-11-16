@@ -1,0 +1,238 @@
+--source include/have_eloq.inc
+--source include/have_range_partition.inc
+
+--let $mono_server_count= 3
+--source include/mono_init.inc
+
+
+--disable_warnings
+DROP DATABASE IF EXISTS mono_test;
+--enable_warnings
+set @@default_storage_engine= eloq;
+
+--connection serv_1
+
+CREATE DATABASE IF NOT EXISTS mono_test;
+
+USE mono_test;
+
+--echo #***************************************************************
+--echo #             Test CREATE INDEX
+--echo #***************************************************************
+
+--echo #
+--echo # Test 1 add index operation.
+--echo #
+#FIXME: auto inc
+create table t3 (c0 int primary key, c1 char(200), c2 varchar(200), c3 text, c4 int);
+--echo Insert data...
+let $counter= 0;
+--disable_query_log
+while($counter < 10000)
+{
+    let $charv= charvalue_$counter;
+    let $varcharv= varcharvalue_$counter;
+    let $textp= _textvalues;
+    let $ftextv= $counter$textp;
+    let $q=insert into t3 values ($counter + 1, '$charv', '$varcharv', '$ftextv', $counter);
+    eval $q;
+    inc $counter;
+}
+--enable_query_log
+
+# count is 10000
+select count(*) from t3;
+
+create index idx_c1 on t3 (c1);
+create index idx_c2 on t3 (c2);
+create index idx_c3 on t3 (c3(10));
+
+show create table t3;
+
+select c0, c1, c2, c3, c4 from t3 where c4 < 10;
+select c0, c1, c2, c3, c4 from t3 use index (idx_c1) where c4 >=100 and c4 < 105;
+select c0, c1, c2, c3, c4 from t3 use index (idx_c2) where c4 >=200 and c4 < 210;
+select c0, c1, c2, c3, c4 from t3 use index (idx_c3) where c4 >=800 and c4 <= 805;
+
+
+--echo #
+--echo # Test 2 during add index, for concurrent dml operation, double write.
+--echo #
+SET SESSION debug_dbug="+d,eloq;term_AlterTableIndex_GeneratePackedSkOp_Continue;node_id=-1";
+
+--send_eval create index idx_c4c1 on t3 (c4, c1);
+
+--connection serv_2
+USE mono_test;
+
+show create table t3;
+
+select count(*) from t3;
+select c0, c1, c2, c3, c4 from t3 use index (idx_c2) where c4 >=200 and c4 < 210;
+select c0, c1, c2, c3, c4 from t3 use index (idx_c1) where c4 >=100 and c4 < 110;
+
+## Currently, if range read lock request be blocked, this request will be aborted.
+## Therefore, should retry to avoid unnecessary test case failed.
+--disable_query_log
+--disable_result_log
+--let $insert_query= insert into t3 values (10001, 'insert char value during double write', 'insert varchar value during double write', 'insert text value during double write', 10001);
+--let $retry_times= 5
+--error 0,199,212
+--eval $insert_query
+while ( $mysql_errno != 0 )
+{
+    if ( $retry_times == 0 )
+    {
+        --die Query: $insert_query failed with error code: $mysql_errno .
+    }
+    --sleep 3
+    --error 0,199,212
+    --eval $insert_query
+    --dec $retry_times
+}
+
+--let $insert_query= insert into t3 values (10002, 'insert char value during double write', 'insert varchar value during double write', 'insert text value during double write', 10002);
+--let $retry_times= 5
+--error 0,199,212
+--eval $insert_query
+while ( $mysql_errno != 0 )
+{
+    if ( $retry_times == 0 )
+    {
+        --die Query: $insert_query failed with error code: $mysql_errno .
+    }
+    --sleep 3
+    --error 0,199,212
+    --eval $insert_query
+    --dec $retry_times
+}
+
+--let $insert_query= insert into t3 values (10003, 'insert char value during double write', 'insert varchar value during double write', 'insert text value during double write', 10003);
+--let $retry_times= 5
+--error 0,199,212
+--eval $insert_query
+while ( $mysql_errno != 0 )
+{
+    if ( $retry_times == 0 )
+    {
+        --die Query: $insert_query failed with error code: $mysql_errno .
+    }
+    --sleep 3
+    --error 0,199,212
+    --eval $insert_query
+    --dec $retry_times
+}
+
+--let $insert_query= insert into t3 values (10004, 'insert char value during double write', 'insert varchar value during double write', 'insert text value during double write', 10004), (10005, 'insert char value during double write', 'insert varchar value during double write', 'insert text value during double write', 10005), (10006, 'insert char value during double write', 'insert varchar value during double write', 'insert text value during double write', 10006);
+--let $retry_times= 5
+--error 0,199,212
+--eval $insert_query
+while ( $mysql_errno != 0 )
+{
+    if ( $retry_times == 0 )
+    {
+        --die Query: $insert_query failed with error code: $mysql_errno .
+    }
+    --sleep 3
+    --error 0,199,212
+    --eval $insert_query
+    --dec $retry_times
+}
+
+--let $update_query= update t3 set c1='update char value during double write', c2='update varchar value dring double write', c3='update text value during double write' where c4>=200 and c4 < 210;
+--let $retry_times= 5
+--error 0,199,212
+--eval $update_query
+while ( $mysql_errno != 0 )
+{
+    if ( $retry_times == 0 )
+    {
+        --die Query: $update_query failed with error code: $mysql_errno .
+    }
+    --sleep 3
+    --error 0,199,212
+    --eval $update_query
+    --dec $retry_times
+}
+
+# will delete 10 records
+--let $delete_query= delete from t3 where c4>=100 and c4 < 110;
+--let $retry_times= 5
+--error 0,199,212
+--eval $delete_query
+while ( $mysql_errno != 0 )
+{
+    if ( $retry_times == 0 )
+    {
+        --die Query: $delete_query failed with error code: $mysql_errno .
+    }
+    --sleep 3
+    --error 0,199,212
+    --eval $delete_query
+    --dec $retry_times
+}
+
+--enable_result_log
+--enable_query_log
+
+# count is 9996
+select count(*) from t3;
+
+select c0, c1, c2, c3, c4 from t3 use index (idx_c2) where c4 >=200 and c4 < 210;
+# empty result
+select c0, c1, c2, c3, c4 from t3 use index (idx_c1) where c4 >=100 and c4 < 110;
+
+--connection serv_1_1
+SET SESSION debug_dbug="-d,eloq;term_AlterTableIndex_GeneratePackedSkOp_Continue;node_id=-1";
+
+--disconnect serv_1_1
+--source include/wait_until_disconnected.inc
+
+--connection serv_1
+--reap
+
+USE mono_test;
+
+# datas have been updated
+select c0, c1, c2, c3, c4 from t3 use index (idx_c4c1) where c4 >=200 and c4 < 210;
+# datas have been deleted, empty result
+select c0, c1, c2, c3, c4 from t3 use index (idx_c4c1) where c4 >=100 and c4 < 110;
+
+create index idx_c4c2 on t3 (c4, c2);
+create index idx_c4c3 on t3 (c4, c3(8));
+
+show create table t3;
+
+insert into t3 values (10011, 'char value after add index', 'varchar value after add index', 'text value after add index', 10011);
+insert into t3 values (10012, 'char value after add index', 'varchar value after add index', 'text value after add index', 10012);
+insert into t3 values (10013, 'char value after add index', 'varchar value after add index', 'text value after add index', 10013);
+
+update t3
+    set c1='update char value after add index',
+        c2='update varchar value after add index',
+        c3='update text value after add index'
+    where c4>=300 and c4 < 310;
+
+delete from t3 where c4>=120 and c4 < 130;
+
+select c0, c1, c2, c3, c4 from t3 where c4 < 10;
+select c0, c1, c2, c3, c4 from t3 use index (idx_c1) where c4 >=100 and c4 < 130;
+select c0, c1, c2, c3, c4 from t3 use index (idx_c2) where c4 >=200 and c4 < 210;
+select c0, c1, c2, c3, c4 from t3 use index (idx_c3) where c3 = 'text value after add index';
+select c0, c1, c2, c3, c4 from t3 use index (idx_c4c1) where c4 >=400 and c4 < 410;
+select c0, c1, c2, c3, c4 from t3 use index (idx_c4c2) where c4 >=300 and c4 < 310;
+select c0, c1, c2, c3, c4 from t3 use index (idx_c4c3) where c4 > 10000;
+select c0, c1, c2, c3, c4 from t3 use index (idx_c4c1) where c4 > 10000;
+
+drop index idx_c1 on t3;
+drop index idx_c2 on t3;
+drop index idx_c3 on t3;
+
+show create table t3;
+
+--echo #
+--echo # Clean up
+
+DROP TABLE t3;
+DROP DATABASE IF EXISTS mono_test;
+

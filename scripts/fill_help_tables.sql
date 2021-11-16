@@ -32,7 +32,7 @@ delete from help_category;
 delete from help_keyword;
 delete from help_relation;
 
-lock tables help_topic write, help_category write, help_keyword write, help_relation write;
+#FIXME:lock tables help_topic write, help_category write, help_keyword write, help_relation write;
 insert into help_category (help_category_id,name,parent_category_id,url) values (1,'Geographic',0,'');
 insert into help_category (help_category_id,name,parent_category_id,url) values (2,'Polygon Properties',34,'');
 insert into help_category (help_category_id,name,parent_category_id,url) values (3,'WKT',34,'');
@@ -865,4 +865,4 @@ insert into help_relation values (672,4);
 insert into help_relation values (673,4);
 insert into help_relation values (675,4);
 insert into help_relation values (676,4);
-unlock tables;
+#FIXME:unlock tables;

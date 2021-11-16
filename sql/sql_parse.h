@@ -105,7 +105,8 @@ enum dispatch_command_return
 {
   DISPATCH_COMMAND_SUCCESS=0,
   DISPATCH_COMMAND_CLOSE_CONNECTION= 1,
-  DISPATCH_COMMAND_WOULDBLOCK= 2
+  DISPATCH_COMMAND_WOULDBLOCK= 2,
+  DISPATCH_COMMAND_YIELD= 3
 };
 
 dispatch_command_return do_command(THD *thd, bool blocking = true);

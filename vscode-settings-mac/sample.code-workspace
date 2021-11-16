@@ -1,0 +1,24 @@
+{
+	// order matters
+	"folders": [
+		{
+			"path": "/Users/jojo/workspace/mariadb/storage/eloq/tx_service/log_service"
+		},
+		{
+			"path": "/Users/jojo/workspace/mariadb/storage/eloq/tx_service"
+		},
+		{
+			"path": "/Users/jojo/workspace/mariadb/storage/eloq"
+		},
+		{
+			"path": "/Users/jojo/workspace/mariadb"
+		}
+	],
+	"settings": {
+		"[cpp]": {
+			"editor.defaultFormatter": "choose-your-formatter",
+			"editor.formatOnSave": false,
+			"editor.quickSuggestions": true,
+		},
+	}
+}

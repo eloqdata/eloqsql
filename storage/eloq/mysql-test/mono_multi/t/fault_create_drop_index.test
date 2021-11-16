@@ -1,0 +1,242 @@
+--source include/have_eloq.inc
+--source include/long_test.inc
+--source include/have_range_partition.inc
+# Skip for dynamodb temporary.
+if (!`SELECT count(*) FROM information_schema.GLOBAL_VARIABLES
+        WHERE VARIABLE_NAME='eloq_kv_storage'
+        AND VARIABLE_VALUE='cass'`){
+    skip Need Cassandra enabled;
+}
+--disable_query_log
+call mtr.add_suppression("Failed to load slave replication state from table");
+--enable_query_log
+
+--let $mono_server_count= 3
+--source include/mono_init.inc
+
+--disable_warnings
+DROP DATABASE IF EXISTS mono_test;
+--enable_warnings
+set @@default_storage_engine= eloq;
+
+--connection serv_1
+
+CREATE DATABASE IF NOT EXISTS mono_test;
+
+USE mono_test;
+
+--echo #***************************************************************
+--echo #             Test CREATE INDEX
+--echo #***************************************************************
+
+--echo #
+--echo # Test 1 Block index addition and deletion during dml operations
+--echo #
+CREATE TABLE t1 (c0 INT PRIMARY KEY, c1 CHAR(200), c2 VARCHAR(200), c3 TEXT, c4 INT, KEY idx_c4 (c4));
+--sleep 2
+--echo # Insert data
+let $counter= 0;
+--disable_query_log
+while($counter < 10000)
+{
+    let $charv= charvalue_$counter;
+    let $varcharv= varcharvalue_$counter;
+    let $textp= _textvalues;
+    let $ftextv= $counter$textp;
+    let $q=INSERT INTO t1 VALUES ($counter + 1, '$charv', '$varcharv', '$ftextv', $counter);
+    eval $q;
+    inc $counter;
+}
+--enable_query_log
+
+# Simulate continuous dml operation
+SET SESSION debug_dbug="+d,eloq;delay_release_write_lock_on_pk;node_id=0";
+
+--send_eval INSERT INTO t1 VALUES (10001, 'char value holding WL', 'varchar value holding WL', 'text value holding WL', 10001),(10002, 'char value holding WL', 'varchar value holding WL', 'text value holding WL', 10002);
+
+--connection serv_2
+USE mono_test;
+
+# This add index operation will be blocked.
+--send_eval CREATE INDEX idx_c1 ON t1 (c1);
+
+
+--connection serv_1_1
+SET SESSION debug_dbug="-d,eloq;delay_release_write_lock_on_pk;node_id=0";
+USE mono_test;
+SELECT count(*) FROM t1;
+
+--disconnect serv_1_1
+--source include/wait_until_disconnected.inc
+
+
+--connection serv_1
+--reap
+
+--connection serv_2
+--reap
+
+--let $res = `SELECT count(*) FROM mono_test.t1 FORCE INDEX (idx_c4)`
+if ($res != 10002)
+{
+    --die Result of the COUNT(*) by idx_c4 error with: $res , should be 10002.
+}
+
+--connection serv_1
+USE mono_test;
+SHOW CREATE TABLE t1;
+
+--echo #
+--echo # Test 2 server node recovery.
+--echo #
+--echo # Test participant node recovery during flush data
+# Setup participate node 2 to crash during flush sk data
+SET SESSION debug_dbug="+d,eloq;term_FlushDataAllRPC_SK_crashed;node_id=2;action=panic";
+
+# Write file to make mysql-test-run.pl expect crash and restart
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.3.expect
+
+# Run the crashing query
+CREATE INDEX idx_c2c1 ON t1 (c2(16), c1(32));
+
+--sleep 10
+SHOW CREATE TABLE t1;
+--let $res = `SELECT count(*) FROM t1 FORCE INDEX (idx_c2c1)`
+if ($res != 10002)
+{
+    --die Result of the COUNT(*) by idx_c2c1 error with: $res , should be 10002.
+}
+
+
+--echo # Test coordinate node recovery during flush packed sk(before flush prepare index log)
+# Setup coordinate node 0 to crash during flush sk data
+SET SESSION debug_dbug="+d,eloq;term_AlterTableIndex_FlushPrepareIndexTableLogOp;node_id=0;action=panic";
+
+# Write file to make mysql-test-run.pl expect crash and restart
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+
+# Run the crashing query
+--error 2013
+CREATE INDEX idx_c3c4 ON t1 (c3(256), c4);
+
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+
+USE mono_test;
+
+--disable_abort_on_error
+--disable_result_log
+--let $res= 0
+--let $max_loop= 10
+while (! $res)
+{
+    --sleep 5
+    --let $res= `SHOW INDEX FROM t1 WHERE key_name='idx_c3c4'`
+    --dec $max_loop
+    if (! $max_loop)
+    {
+        # break this loop if do not find expected index yet.
+        if (! $res)
+        {
+            --let $res= 404
+        }
+    }
+}
+
+if ( $res == 404)
+{
+    --die ERROR: Recovery for creating index idx_c3c4 failed.
+}
+
+--enable_result_log
+--enable_abort_on_error
+
+SHOW CREATE TABLE t1;
+SELECT count(*) FROM t1 FORCE INDEX (idx_c3c4);
+
+ 
+--echo # Test coordinate node recovery during upload packed sk(before flush new index table data)
+# Setup coordinate node 0 to crash during upload packed sk
+SET SESSION debug_dbug="+d,eloq;term_AlterTableIndex_FlushNewPackedSKOp;node_id=0;action=panic";
+
+# Write file to make mysql-test-run.pl expect crash and restart
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+
+# Run the crashing query
+--error 2013
+CREATE INDEX idx_c4c2 ON t1 (c4,c2);
+
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+
+USE mono_test;
+
+--disable_abort_on_error
+--disable_result_log
+--let $res= 0
+--let $max_loop= 10
+while (! $res)
+{
+    --sleep 5
+    --let $res= `SHOW INDEX FROM t1 WHERE key_name='idx_c4c2'`
+    --dec $max_loop
+    if (! $max_loop)
+    {
+        # break this loop if do not find expected index yet.
+        if (! $res)
+        {
+            --let $res= 404
+        }
+    }
+}
+
+if ( $res == 404)
+{
+    --die ERROR: Recovery for creating index idx_c4c2 failed.
+}
+
+--enable_result_log
+--enable_abort_on_error
+
+SHOW CREATE TABLE t1;
+--replace_column 9 #
+EXPLAIN SELECT count(*) FROM t1 FORCE INDEX (idx_c4c2);
+SELECT count(*) FROM t1 FORCE INDEX (idx_c4c2);
+
+
+--echo # Test range doundary mismatch
+# Setup coordinate node 1 to return error GET_RANGE_ID_ERR
+SET SESSION debug_dbug="+d,eloq;term_AlterTableIndex_RangeBoundaryMismatch;node_id=1";
+
+# Run the query
+CREATE INDEX idx_c1c4 ON t1 (c1(64),c4);
+
+SHOW CREATE TABLE t1;
+--replace_column 9 #
+EXPLAIN SELECT count(*) FROM t1 FORCE INDEX (idx_c1c4);
+SELECT count(*) FROM t1 FORCE INDEX (idx_c1c4);
+
+SET SESSION debug_dbug="-d,eloq;term_AlterTableIndex_RangeBoundaryMismatch;node_id=1";
+
+
+--echo # Test remote uploadbatchcc timeout
+# Setup node 1 to sleep when a request is received to simulate this service timeout
+SET SESSION debug_dbug="+d,eloq;term_UploadBatch_Timeout;node_id=1";
+
+# Run the query
+CREATE INDEX idx_c4c2c3 ON t1 (c4,c2(8),c3(8));
+
+SHOW CREATE TABLE t1;
+--replace_column 9 #
+EXPLAIN SELECT count(c4) FROM t1 FORCE INDEX (idx_c4c2c3);
+SELECT count(c4) FROM t1 FORCE INDEX (idx_c4c2c3);
+
+SET SESSION debug_dbug="-d,eloq;term_UploadBatch_Timeout;node_id=1";
+
+
+--echo #
+--echo # Clean up
+
+DROP TABLE t1;
+DROP DATABASE IF EXISTS mono_test;
+

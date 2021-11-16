@@ -28,6 +28,19 @@
 #define HAVE_IOCP
 #endif
 
+#ifdef COROUTINE_ENABLED
+#include "../storage/eloq/tx_service/include/circular_queue.h"
+#include <bthread/moodycamelqueue.h>
+#include "../storage/eloq/tx_service/include/concurrent_queue_wsize.h"
+#include <mutex>
+#include <chrono>
+#include <functional>
+#ifdef IOURING_ENABLED
+#include <liburing.h>
+#endif
+
+#endif
+
 
 #ifdef _WIN32
 typedef HANDLE TP_file_handle;
@@ -91,6 +104,7 @@ struct TP_connection_generic :public TP_connection
   bool bound_to_poll_descriptor;
   int waiting;
   bool fix_group;
+  LIST *acquired_mutexes{0};
 #ifdef _WIN32
   win_aiosocket win_sock{};
   void init_vio(st_vio *vio) override
@@ -128,6 +142,28 @@ struct thread_group_counters_t
   ulonglong polls[2];
 };
 
+#ifdef COROUTINE_ENABLED
+extern std::function<
+  std::pair<std::function<void()>, std::function<void(int16_t)>>(int16_t)>
+  get_tx_service_functors;
+
+struct CoroutineInfo
+{
+  txservice::ConcurrentQueueWSize<TP_connection_generic *> resume_queue_;
+  std::atomic<int16_t> running_thds_{0};
+  std::atomic<uint16_t> thd_cnt_{0};
+  txservice::ConcurrentQueueWSize<TP_connection_generic *> req_queue_;
+  std::atomic<uint16_t> coro_cnt_{0};
+  size_t empty_run_cnt_{0};
+  std::chrono::time_point<std::chrono::system_clock> empty_begin_tp_;
+  int16_t group_id_{-1};
+#ifdef EXT_TX_PROC_ENABLED
+  std::function<void()> tx_processor_exec_{nullptr};
+  std::function<void(int16_t)> update_ext_proc_{nullptr};
+#endif
+};
+#endif
+
 struct thread_group_t
 {
   mysql_mutex_t mutex;
@@ -137,21 +173,60 @@ struct thread_group_t
   pthread_attr_t* pthread_attr;
   TP_file_handle  pollfd;
   int  thread_count;
-  int  active_thread_count;
+#ifdef COROUTINE_ENABLED
+  std::atomic<int>  active_thread_count;
+#else
+  int active_thread_count;
+#endif
   int  connection_count;
   /* Stats for the deadlock detection timer routine.*/
+#ifdef COROUTINE_ENABLED
+  std::atomic<int> io_event_count;
+#else
   int io_event_count;
+#endif
+#ifdef COROUTINE_ENABLED
+  std::atomic<int> queue_event_count;
+#else
   int queue_event_count;
+#endif
   ulonglong last_thread_creation_time;
   int  shutdown_pipe[2];
+#ifdef COROUTINE_ENABLED
+  std::atomic<bool> shutdown;
+#else
   bool shutdown;
+#endif
+#ifdef COROUTINE_ENABLED
+  std::atomic<bool> stalled;
+#else
   bool stalled;
+#endif
   thread_group_counters_t counters;
+#ifdef COROUTINE_ENABLED
+  std::unique_ptr<CoroutineInfo> coroutine_info_;
+#endif
   char pad[CPU_LEVEL1_DCACHE_LINESIZE];
+
+  int WakeOrCreateThread();
 };
 
 #define TP_INCREMENT_GROUP_COUNTER(group,var) do {group->counters.var++;}while(0)
 
 extern thread_group_t* all_groups;
+
+#if defined(COROUTINE_ENABLED) && defined(IOURING_ENABLED)
+class IoUringWrapper
+{
+public:
+  IoUringWrapper();
+  ~IoUringWrapper();
+
+  bool init_success_{false};
+  struct io_uring ring_;
+  uint32_t to_submit_reqs_{0};
+  uint32_t to_peek_reqs_{0};
+};
 #endif
 
+#endif

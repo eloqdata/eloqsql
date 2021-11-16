@@ -23,6 +23,8 @@
 #include <mysql_com.h>
 #include <lf.h>
 
+#include "../storage/eloq/tx_service/include/circular_queue.h"
+
 class THD;
 
 class MDL_context;
@@ -735,6 +737,7 @@ public:
                          PRE_ACQUIRE_NOTIFY, POST_RELEASE_NOTIFY };
 private:
   friend class MDL_context;
+  friend class MdlTicketPool;
 
   MDL_ticket(MDL_context *ctx_arg, enum_mdl_type type_arg
 #ifndef DBUG_OFF
@@ -788,6 +791,64 @@ private:
   MDL_ticket &operator=(const MDL_ticket &);    /* not implemented */
 };
 
+class MdlTicketPool
+{
+public:
+  MdlTicketPool() = default;
+  ~MdlTicketPool()
+  {
+    while (ticket_pool_.Size() > 0)
+    {
+      MDL_ticket *ticket = ticket_pool_.Peek();
+      ticket_pool_.Dequeue();
+      delete ticket;
+    }
+
+    assert(ticket_pool_.Size() == 0);
+  }
+
+  MDL_ticket *Create(MDL_context *ctx_arg, enum_mdl_type type_arg
+#ifndef DBUG_OFF
+                     , enum_mdl_duration duration_arg
+#endif
+  )
+  {
+    MDL_ticket *ticket = nullptr;
+    if (ticket_pool_.Size() > 0)
+    {
+      ticket = ticket_pool_.Peek();
+      ticket_pool_.Dequeue();
+
+      ticket->m_type = type_arg;
+#ifndef DBUG_OFF
+      ticket->m_duration = duration_arg;
+#endif
+      ticket->m_ctx = ctx_arg;
+      ticket->m_lock = nullptr;
+      ticket->m_psi = nullptr;
+      ticket->next_in_context = nullptr;
+      ticket->prev_in_context = nullptr;
+    }
+    else
+    {
+      ticket = new (std::nothrow) MDL_ticket(ctx_arg, type_arg
+#ifndef DBUG_OFF
+                                             , duration_arg
+#endif
+      );
+    }
+
+    return ticket;
+  }
+
+  void Recycle(MDL_ticket *ticket)
+  {
+    ticket_pool_.Enqueue(ticket);
+  }
+
+private:
+  CircularQueue<MDL_ticket *> ticket_pool_;
+};
 
 /**
   Savepoint for MDL context.

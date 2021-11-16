@@ -991,8 +991,13 @@ public:
                         const char *user_host, size_t user_host_len, ulonglong query_utime,
                         ulonglong lock_utime, bool is_command,
                         const char *sql_text, size_t sql_text_len)= 0;
+
   virtual bool log_error(enum loglevel level, const char *format,
                          va_list args)= 0;
+#ifdef WITH_GLOG
+  virtual bool log_error(enum loglevel level, const char *file, int line,
+                         const char *format, va_list args)= 0;
+#endif /* WITH_GLOG */
   virtual bool log_general(THD *thd, my_hrtime_t event_time, const char *user_host, size_t user_host_len, my_thread_id thread_id,
                            const char *command_type, size_t command_type_len,
                            const char *sql_text, size_t sql_text_len,
@@ -1020,6 +1025,10 @@ public:
                         const char *sql_text, size_t sql_text_len);
   virtual bool log_error(enum loglevel level, const char *format,
                          va_list args);
+#ifdef WITH_GLOG
+  virtual bool log_error(enum loglevel level, const char *file, int line,
+                         const char *format, va_list args);
+#endif /* WITH_GLOG */
   virtual bool log_general(THD *thd, my_hrtime_t event_time, const char *user_host, size_t user_host_len, my_thread_id thread_id,
                            const char *command_type, size_t command_type_len,
                            const char *sql_text, size_t sql_text_len,
@@ -1050,6 +1059,10 @@ public:
                         const char *sql_text, size_t sql_text_len);
   virtual bool log_error(enum loglevel level, const char *format,
                          va_list args);
+#ifdef WITH_GLOG
+  virtual bool log_error(enum loglevel level, const char *file, int line,
+                         const char *format, va_list args);
+#endif /* WITH_GLOG */
   virtual bool log_general(THD *thd, my_hrtime_t event_time, const char *user_host, size_t user_host_len, my_thread_id thread_id,
                            const char *command_type, size_t command_type_len,
                            const char *sql_text, size_t sql_text_len,
@@ -1084,8 +1097,8 @@ public:
   LOGGER() : inited(0), table_log_handler(NULL),
              file_log_handler(NULL), is_log_tables_initialized(FALSE)
   {}
-  void lock_shared() { mysql_rwlock_rdlock(&LOCK_logger); }
-  void lock_exclusive() { mysql_rwlock_wrlock(&LOCK_logger); }
+  void lock_shared();
+  void lock_exclusive();
   void unlock() { mysql_rwlock_unlock(&LOCK_logger); }
   bool is_log_table_enabled(uint log_table_type);
   bool log_command(THD *thd, enum enum_server_command command);
@@ -1106,6 +1119,8 @@ public:
   void cleanup_end();
   bool error_log_print(enum loglevel level, const char *format,
                       va_list args);
+  bool error_log_print(enum loglevel level, const char *file, int line,
+                       const char *format, va_list args);
   bool slow_log_print(THD *thd, const char *query, size_t query_length,
                       ulonglong current_utime);
   bool general_log_print(THD *thd,enum enum_server_command command,
@@ -1146,15 +1161,45 @@ int query_error_code(THD *thd, bool not_killed);
 uint purge_log_get_error_code(int res);
 
 int vprint_msg_to_log(enum loglevel level, const char *format, va_list args);
+#ifndef WITH_GLOG
 void sql_print_error(const char *format, ...);
 void sql_print_warning(const char *format, ...);
 void sql_print_information(const char *format, ...);
+#else
+void sql_print_error_(const char *format, ...);
+void sql_print_warning_(const char *format, ...);
+void sql_print_information_(const char *format, ...);
+#endif /* ifndef WITH_GLOG */
 void sql_print_information_v(const char *format, va_list ap);
 typedef void (*sql_print_message_func)(const char *format, ...);
 extern sql_print_message_func sql_print_message_handlers[];
 
 int error_log_print(enum loglevel level, const char *format,
                     va_list args);
+
+#ifdef WITH_GLOG
+#define sql_print_error(format, ...)                                          \
+  glog_print_error(__FILE__, __LINE__, format, ##__VA_ARGS__)
+#define sql_print_warning(format, ...)                                        \
+  glog_print_warning(__FILE__, __LINE__, format, ##__VA_ARGS__)
+#define sql_print_information(format, ...)                                    \
+  glog_print_information(__FILE__, __LINE__, format, ##__VA_ARGS__)
+
+int vprint_msg_to_log(enum loglevel level, const char *file, int line,
+                      const char *format, va_list args);
+void glog_print_error(const char *file, int line, const char *format, ...);
+void glog_print_warning(const char *file, int line, const char *format, ...);
+void glog_print_information(const char *file, int line, const char *format,
+                            ...);
+void glog_print_information_v(const char *file, int line, const char *format,
+                             va_list ap);
+typedef void (*glog_print_message_func)(const char *file, int line,
+                                        const char *format, ...);
+extern glog_print_message_func glog_vprint_message_handlers[];
+
+int error_log_print(enum loglevel level, const char *file, int line,
+                    const char *format, va_list args);
+#endif
 
 bool slow_log_print(THD *thd, const char *query, uint query_length,
                     ulonglong current_utime);

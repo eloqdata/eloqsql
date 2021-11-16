@@ -63,6 +63,7 @@
 */
 
 #include "sql_lifo_buffer.h"
+#include <vector>
 
 class DsMrr_impl;
 class Mrr_ordered_index_reader;
@@ -403,8 +404,11 @@ private:
   Rowid_filter *rowid_filter;
 
   int refill_from_index_reader();
+  //If the engine support to load a batch of records by rowids.
+  bool batch_rowid;
+  //Fetch all the rowids in current cache.
+  void fetch_all_rowids(std::vector<uchar*> &vct_rid);
 };
-
 
 /*
   A primitive "factory" of various Mrr_*_reader classes (the point is to 

@@ -1,0 +1,33 @@
+#This case test what will happen if the node 1 crash before it write log
+#Here have 2 cases, node 1 is log group leader or not
+
+--source include/have_eloq.inc
+
+--let $mono_server_count= 3
+--source include/mono_init.inc
+
+--sleep 2 #Here is bug, If not sleep, the mysqld will not return result.
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+--connection serv_2
+create table t1(i int primary key, j int) engine= eloq;
+
+insert into t1 values(2,2);
+select * from t1;
+# raft log has been replicated (on_apply succeeds)
+SET SESSION debug_dbug="+d,eloq;before_raft_execute_write_log;node_id=1;action=panic";
+
+# Write file to make mysql-test-run.pl expect crash
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+
+insert into t1 values(1,1);
+
+--sleep 3
+select * from t1;
+
+--sleep 2
+SET SESSION debug_dbug="-d,eloq;before_raft_execute_write_log";
+DROP TABLE IF EXISTS t1;

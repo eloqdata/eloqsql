@@ -1,0 +1,166 @@
+include/mono_init.inc
+DROP DATABASE IF EXISTS mono_test;
+set @@default_storage_engine= eloq;
+connection serv_1;
+CREATE DATABASE IF NOT EXISTS mono_test;
+USE mono_test;
+#***************************************************************
+#             Test CREATE INDEX
+#***************************************************************
+#
+# Test 1 Block index addition and deletion during dml operations
+#
+CREATE TABLE t1 (c0 INT PRIMARY KEY, c1 CHAR(200), c2 VARCHAR(200), c3 TEXT, c4 INT, KEY idx_c4 (c4));
+# Insert data
+SET SESSION debug_dbug="+d,eloq;delay_release_write_lock_on_pk;node_id=0";
+INSERT INTO t1 VALUES (10001, 'char value holding WL', 'varchar value holding WL', 'text value holding WL', 10001),(10002, 'char value holding WL', 'varchar value holding WL', 'text value holding WL', 10002);;
+connection serv_2;
+USE mono_test;
+CREATE INDEX idx_c1 ON t1 (c1);;
+connection serv_1_1;
+SET SESSION debug_dbug="-d,eloq;delay_release_write_lock_on_pk;node_id=0";
+USE mono_test;
+SELECT count(*) FROM t1;
+count(*)
+10002
+disconnect serv_1_1;
+connection serv_1;
+connection serv_2;
+connection serv_1;
+USE mono_test;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c0` int(11) NOT NULL,
+  `c1` char(200) DEFAULT NULL,
+  `c2` varchar(200) DEFAULT NULL,
+  `c3` text DEFAULT NULL,
+  `c4` int(11) DEFAULT NULL,
+  PRIMARY KEY (`c0`),
+  KEY `idx_c4` (`c4`),
+  KEY `idx_c1` (`c1`)
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+#
+# Test 2 server node recovery.
+#
+# Test participant node recovery during flush data
+SET SESSION debug_dbug="+d,eloq;term_FlushDataAllRPC_SK_crashed;node_id=2;action=panic";
+CREATE INDEX idx_c2c1 ON t1 (c2(16), c1(32));
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c0` int(11) NOT NULL,
+  `c1` char(200) DEFAULT NULL,
+  `c2` varchar(200) DEFAULT NULL,
+  `c3` text DEFAULT NULL,
+  `c4` int(11) DEFAULT NULL,
+  PRIMARY KEY (`c0`),
+  KEY `idx_c4` (`c4`),
+  KEY `idx_c1` (`c1`),
+  KEY `idx_c2c1` (`c2`(16),`c1`(32))
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+# Test coordinate node recovery during flush packed sk(before flush prepare index log)
+SET SESSION debug_dbug="+d,eloq;term_AlterTableIndex_FlushPrepareIndexTableLogOp;node_id=0;action=panic";
+CREATE INDEX idx_c3c4 ON t1 (c3(256), c4);
+ERROR HY000: Lost connection to server during query
+USE mono_test;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c0` int(11) NOT NULL,
+  `c1` char(200) DEFAULT NULL,
+  `c2` varchar(200) DEFAULT NULL,
+  `c3` text DEFAULT NULL,
+  `c4` int(11) DEFAULT NULL,
+  PRIMARY KEY (`c0`),
+  KEY `idx_c4` (`c4`),
+  KEY `idx_c1` (`c1`),
+  KEY `idx_c2c1` (`c2`(16),`c1`(32)),
+  KEY `idx_c3c4` (`c3`(256),`c4`)
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1 FORCE INDEX (idx_c3c4);
+count(*)
+10002
+# Test coordinate node recovery during upload packed sk(before flush new index table data)
+SET SESSION debug_dbug="+d,eloq;term_AlterTableIndex_FlushNewPackedSKOp;node_id=0;action=panic";
+CREATE INDEX idx_c4c2 ON t1 (c4,c2);
+ERROR HY000: Lost connection to server during query
+USE mono_test;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c0` int(11) NOT NULL,
+  `c1` char(200) DEFAULT NULL,
+  `c2` varchar(200) DEFAULT NULL,
+  `c3` text DEFAULT NULL,
+  `c4` int(11) DEFAULT NULL,
+  PRIMARY KEY (`c0`),
+  KEY `idx_c4` (`c4`),
+  KEY `idx_c1` (`c1`),
+  KEY `idx_c2c1` (`c2`(16),`c1`(32)),
+  KEY `idx_c3c4` (`c3`(256),`c4`),
+  KEY `idx_c4c2` (`c4`,`c2`)
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+EXPLAIN SELECT count(*) FROM t1 FORCE INDEX (idx_c4c2);
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	index	NULL	idx_c4c2	208	NULL	#	Using index
+SELECT count(*) FROM t1 FORCE INDEX (idx_c4c2);
+count(*)
+10002
+# Test range doundary mismatch
+SET SESSION debug_dbug="+d,eloq;term_AlterTableIndex_RangeBoundaryMismatch;node_id=1";
+CREATE INDEX idx_c1c4 ON t1 (c1(64),c4);
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c0` int(11) NOT NULL,
+  `c1` char(200) DEFAULT NULL,
+  `c2` varchar(200) DEFAULT NULL,
+  `c3` text DEFAULT NULL,
+  `c4` int(11) DEFAULT NULL,
+  PRIMARY KEY (`c0`),
+  KEY `idx_c4` (`c4`),
+  KEY `idx_c1` (`c1`),
+  KEY `idx_c2c1` (`c2`(16),`c1`(32)),
+  KEY `idx_c3c4` (`c3`(256),`c4`),
+  KEY `idx_c4c2` (`c4`,`c2`),
+  KEY `idx_c1c4` (`c1`(64),`c4`)
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+EXPLAIN SELECT count(*) FROM t1 FORCE INDEX (idx_c1c4);
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	index	NULL	idx_c1c4	70	NULL	#	Using index
+SELECT count(*) FROM t1 FORCE INDEX (idx_c1c4);
+count(*)
+10002
+SET SESSION debug_dbug="-d,eloq;term_AlterTableIndex_RangeBoundaryMismatch;node_id=1";
+# Test remote uploadbatchcc timeout
+SET SESSION debug_dbug="+d,eloq;term_UploadBatch_Timeout;node_id=1";
+CREATE INDEX idx_c4c2c3 ON t1 (c4,c2(8),c3(8));
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c0` int(11) NOT NULL,
+  `c1` char(200) DEFAULT NULL,
+  `c2` varchar(200) DEFAULT NULL,
+  `c3` text DEFAULT NULL,
+  `c4` int(11) DEFAULT NULL,
+  PRIMARY KEY (`c0`),
+  KEY `idx_c4` (`c4`),
+  KEY `idx_c1` (`c1`),
+  KEY `idx_c2c1` (`c2`(16),`c1`(32)),
+  KEY `idx_c3c4` (`c3`(256),`c4`),
+  KEY `idx_c4c2` (`c4`,`c2`),
+  KEY `idx_c1c4` (`c1`(64),`c4`),
+  KEY `idx_c4c2c3` (`c4`,`c2`(8),`c3`(8))
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+EXPLAIN SELECT count(c4) FROM t1 FORCE INDEX (idx_c4c2c3);
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	index	NULL	idx_c4c2c3	27	NULL	#	Using index
+SELECT count(c4) FROM t1 FORCE INDEX (idx_c4c2c3);
+count(c4)
+10002
+SET SESSION debug_dbug="-d,eloq;term_UploadBatch_Timeout;node_id=1";
+#
+# Clean up
+DROP TABLE t1;
+DROP DATABASE IF EXISTS mono_test;

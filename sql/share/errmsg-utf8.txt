@@ -10060,3 +10060,11 @@ ER_REMOVED_ORPHAN_TRIGGER
 ER_STORAGE_ENGINE_DISABLED
         eng "Storage engine %s is disabled"
         spa "El motor de almacenaje %s está desactivado"
+ER_ELOQ__TRANSACTION
+        eng "Failed to start transaction at eloq engine, please check eloq txservice"
+ER_ELOQ_COMMIT_TRANSACTION
+        eng "Failed to commit transaction at eloq engine, please retry"
+ER_ELOQ_TABLE_NAME_ERROR
+        eng "Failed to create table, the given table name contains illegal characters"
+ER_ELOQ_NOTIFY_RELOAD_CACHE_ERROR
+        eng "Failed to reload cache on all node groups"

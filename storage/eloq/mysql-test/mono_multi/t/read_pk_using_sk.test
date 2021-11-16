@@ -1,0 +1,52 @@
+# This case is to test 
+
+--source include/have_eloq.inc
+--sleep 2 #Here is bug, If not sleep, the mysqld will not return result.
+
+--let $mono_server_count= 3
+--source include/mono_init.inc
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+--connection serv_1
+set session transaction isolation level read committed;
+select @@tx_isolation;
+
+CREATE TABLE t1 (pk INT , sk INT, col INT, PRIMARY KEY (pk), INDEX sk (sk)) ENGINE=eloq;
+INSERT INTO t1 VALUES (1,10,100),(2,20,200);
+select * from t1;
+
+SET SESSION debug_dbug="+d,eloq;delay_release_write_lock_on_pk;node_id=-1";
+--send update t1 set sk=40 where pk=2;
+--sleep 2 # make sure sk write lock has been released
+--exec echo "log: finish send"
+
+
+--connection serv_2
+set session transaction isolation level read committed;
+select @@tx_isolation;
+
+--exec echo "log: send select and begin to sleep, should not read anything in 10 seconds"
+--send select * from t1 where sk=40;
+--sleep 5 # make sure the read cc_request for pk has been queued before clearing debug fault injection
+--exec echo "log: finish sleep and about to erase debug point, should not read anything during sleep period"
+
+
+--connection serv_3
+SET SESSION debug_dbug="-d,eloq;delay_release_write_lock_on_pk";
+
+
+--connection serv_1
+--reap
+--sleep 5 # make sure pk write lock has been released by now
+select * from t1;
+--exec echo "log: update successfully"
+
+
+--connection serv_2
+--exec echo "log: expect to return (2,40,200) from previous read"
+--reap
+
+drop table t1;

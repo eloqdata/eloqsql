@@ -1,0 +1,177 @@
+--source include/have_eloq.inc
+--let $mono_server_count= 3
+--source include/mono_init.inc
+--sleep 3 #Here is bug, If not sleep, the mysqld will not return result.
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+
+#### test the change of flushing undo:
+#### changes: fetching base table from kvstore if necessary, instead of always
+#### flushing latest version to archives when do checkpoint.
+
+# Connect to serv_1: Create table t1;
+--connection serv_1
+
+create table t1(i int primary key, j int) engine= eloq;
+
+SET SESSION debug_dbug="+d,eloq;stop_safely_clean_archives;node_id=-1";
+
+insert into t1 values(1,1);
+insert into t1 values(2,1);
+insert into t1 values(3,1);
+insert into t1 values(4,1);
+insert into t1 values(5,1);
+insert into t1 values(6,1);
+insert into t1 values(7,1);
+insert into t1 values(8,1);
+
+select * from t1;
+update t1 set j=2;
+update t1 set j=3;
+
+SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
+--sleep 2
+
+--replace_column 9 #
+explain select * from t1;
+
+begin;
+--echo ## RESTULT MUST BE:  1,3 | 2,3 | ...
+select * from t1;    # 1,3 | 2,3 | ...
+
+--echo ##restart to clean ccmap
+--connection serv_2
+--source include/restart_mysqld.inc
+--connection serv_3
+--source include/restart_mysqld.inc
+
+--connection serv_1
+SET SESSION debug_dbug="+d,eloq;stop_safely_clean_archives;node_id=-1";
+
+--echo ## RESTULT MUST BE:  1,3 | 2,3 | ...
+select * from t1;    # 1,3 | 2,3 | ...
+
+SET SESSION debug_dbug="+d,eloq;checkpointer_skip_ckpt;node_id=-1";
+--sleep 1
+
+--connection serv_2
+update t1 set j=4;
+update t1 set j=5;
+--echo ## RESTULT MUST BE:  1,5 | 2,5 | ...
+select * from t1;
+
+--connection serv_1
+--echo ## RESTULT MUST BE:  1,3 | 2,3 | ...
+select * from t1;    # 1,3 | 2,3 | ...
+
+--echo ##restart to triger RedoLogReplay
+--connection serv_2
+--source include/restart_mysqld.inc
+--echo ## RESTULT MUST BE:  1,5 | 2,5 | ...
+select * from t1;
+
+
+--connection serv_3
+--source include/restart_mysqld.inc
+--echo ## RESTULT MUST BE:  1,5 | 2,5 | ...
+select * from t1;
+
+--connection serv_1
+SET SESSION debug_dbug="-d,eloq;checkpointer_skip_ckpt;node_id=-1";
+SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
+
+--echo ## RESTULT MUST BE:  1,3 | 2,3 | ...
+select * from t1;    # 1,3 | 2,3 | ...
+select * from t1 where i=2;
+select * from t1 where i=6;
+commit;
+
+--echo ## RESTULT MUST BE:  1,5 | 2,5 | ...
+select * from t1;
+
+drop table t1;
+
+--disable_warnings
+DROP TABLE IF EXISTS t2;
+--enable_warnings
+create table t2(i int primary key, j int, index(j)) engine= eloq;
+
+SET SESSION debug_dbug="+d,eloq;stop_safely_clean_archives;node_id=-1";
+
+insert into t2 values(1,1);
+insert into t2 values(2,1);
+insert into t2 values(3,1);
+insert into t2 values(4,1);
+insert into t2 values(5,1);
+insert into t2 values(6,1);
+insert into t2 values(7,1);
+insert into t2 values(8,1);
+
+select * from t2;
+update t2 set j=2;
+update t2 set j=3;
+
+SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
+--sleep 2
+
+--replace_column 9 #
+explain select * from t2;
+
+begin;
+--echo ## RESTULT MUST BE:  1,3 | 2,3 | ...
+select * from t2;    # 1,3 | 2,3 | ...
+
+--echo ##restart to clean ccmap
+--connection serv_2
+--source include/restart_mysqld.inc
+--connection serv_3
+--source include/restart_mysqld.inc
+
+--connection serv_1
+SET SESSION debug_dbug="+d,eloq;stop_safely_clean_archives;node_id=-1";
+
+--echo ## RESTULT MUST BE:  1,3 | 2,3 | ...
+select * from t2;    # 1,3 | 2,3 | ...
+
+SET SESSION debug_dbug="+d,eloq;checkpointer_skip_ckpt;node_id=-1";
+--sleep 1
+
+--connection serv_2
+update t2 set j=4;
+update t2 set j=5;
+--echo ## RESTULT MUST BE:  1,5 | 2,5 | ...
+select * from t2;
+
+--connection serv_1
+--echo ## RESTULT MUST BE:  1,3 | 2,3 | ...
+select * from t2;    # 1,3 | 2,3 | ...
+
+--echo ##restart to triger RedoLogReplay
+--connection serv_2
+--source include/restart_mysqld.inc
+--echo ## RESTULT MUST BE:  1,5 | 2,5 | ...
+select * from t2;
+
+
+--connection serv_3
+--source include/restart_mysqld.inc
+--echo ## RESTULT MUST BE:  1,5 | 2,5 | ...
+select * from t2;
+
+--connection serv_1
+SET SESSION debug_dbug="-d,eloq;checkpointer_skip_ckpt;node_id=-1";
+SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
+
+--echo ## RESTULT MUST BE:  1,3 | 2,3 | ...
+select * from t2;    # 1,3 | 2,3 | ...
+select * from t2 where i=2;
+select * from t2 where i=6;
+commit;
+
+--echo ## RESTULT MUST BE:  1,5 | 2,5 | ...
+select * from t2;
+
+drop table t2;

@@ -1,0 +1,29 @@
+
+# Use default setting for mysqld processes
+!include include/default_mysqld.cnf
+!include include/default_client.cnf
+!include include/eloq_kv_keyspace.cnf
+
+[mysqld]
+plugin-maturity=experimental
+default-storage-engine=eloq
+plugin_load_add=ha_eloq
+eloq
+skip-log-bin
+eloq_core_num=1
+eloq_cass_user=cassandra
+eloq_cass_password=cassandra
+eloq_cc_protocol=OccRead
+eloq_enable_mvcc=off
+eloq_rocksdb_cloud_bucket_name = eloqdb-mysql-test
+eloq_rocksdb_cloud_bucket_prefix = rocksdb-cloud-
+eloq_rocksdb_cloud_region = ap-northeast-1
+eloq_hm_bin_path = @ENV.MYSQLTEST_VARDIR/../../storage/eloq/host_manager
+
+[mysqld.1]
+eloq_local_ip=127.0.0.1:8000
+eloq_ip_list=127.0.0.1:8000
+
+[ENV]
+MONO1_PORT=              @mysqld.1.port
+MONO1_SOCK=              @mysqld.1.socket

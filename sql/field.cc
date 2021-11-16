@@ -98,7 +98,11 @@ const int FIELDTYPE_LAST=      254;
 const int FIELDTYPE_NUM=       FIELDTYPE_TEAR_FROM + (FIELDTYPE_LAST -
                                                       FIELDTYPE_TEAR_TO);
 
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+int merge_type2index(enum_field_types merge_type)
+#else
 static inline int merge_type2index(enum_field_types merge_type)
+#endif
 {
   DBUG_ASSERT(merge_type < FIELDTYPE_TEAR_FROM ||
               merge_type > FIELDTYPE_TEAR_TO);
@@ -120,7 +124,11 @@ static inline int merge_type2index(enum_field_types merge_type)
   COALESCE(A, B) by querying:
     field_types_merge_rules[field_type_to_index(a)][field_type_to_index(b)].
 */
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+enum_field_types field_types_merge_rules [FIELDTYPE_NUM][FIELDTYPE_NUM]=
+#else
 static enum_field_types field_types_merge_rules [FIELDTYPE_NUM][FIELDTYPE_NUM]=
+#endif
 {
   /* MYSQL_TYPE_DECIMAL -> */
   {

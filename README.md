@@ -1,78 +1,203 @@
-Code status:
-------------
+# EloqSQL  
+A MySQL-compatible, high performance, elastic, distributed SQL database.
 
-* [![Appveyor CI status](https://ci.appveyor.com/api/projects/status/4u6pexmtpuf8jq66?svg=true)](https://ci.appveyor.com/project/rasmushoj/server) ci.appveyor.com
+[![GitHub Stars](https://img.shields.io/github/stars/eloqdata/eloqsql?style=social)](https://github.com/eloqdata/eloqsql/stargazers)
+---
 
-## MariaDB: The open source relational database 
+## Overview
+EloqSQL is a distributed SQL database designed to combine MySQL compatibility with the scalability and performance of modern distributed systems. Built on top of [Data Substrate](https://www.eloqdata.com/blog/2024/08/11/data-substrate), it replaces traditional storage engines like InnoDB with a flexible, distributed and high-performance eloq engine: [Transaction Service](https://github.com/eloqdata/tx_service). It has distributed buffer pool and support Cassandra, ScyllaDB and DynamoDB as the underlying data store.
 
-MariaDB was designed as a drop-in replacement of MySQL(R) with more
-features, new storage engines, fewer bugs, and better performance.
+EloqSQL delivers full ACID transactions, elastic scaling, and efficient resource utilization, making it ideal for demanding workloads.
 
-MariaDB is brought to you by the MariaDB Foundation and the MariaDB Corporation.
-Please read the CREDITS file for details about the MariaDB Foundation,
-and who is developing MariaDB.
+EloqSQL is forked from MariaDB, and inherit the parser, optimizer and executor from MariaDB to provide a MySQL compatibility. For the difference between MySQL and MariaDB, please refer to [MySQL vs MariaDB](https://www.eloqdata.com/docs/mysql-vs-mariadb).
 
-MariaDB is developed by many of the original developers of MySQL who
-now work for the MariaDB Corporation, the MariaDB Foundation and by
-many people in the community.
+Explore [EloqSQL](https://www.eloqdata.com/product/eloqsql) website for more details.
 
-MySQL, which is the base of MariaDB, is a product and trademark of Oracle
-Corporation, Inc. For a list of developers and other contributors,
-see the Credits appendix.  You can also run 'SHOW authors' to get a
-list of active contributors.
+👉 **Use Cases**: Scalable web applications, e-commerce platforms, real-time data processing — anywhere you need MySQL compatibility **but** demand distributed performance and elasticity.
 
-A description of the MariaDB project and a manual can be found at:
+---
 
-https://mariadb.org
+## Key Features
 
-https://mariadb.com/kb/en/
+### ⚙️ MySQL Compatibility
+Seamlessly integrates with MySQL clients and tools, allowing you to leverage existing SQL workflows while benefiting from a distributed backend.
 
-https://mariadb.com/kb/en/mariadb-vs-mysql-features/
 
-https://mariadb.com/kb/en/mariadb-versus-mysql-compatibility/
+### 🌐 Distributed Architecture
+Supports **multiple writers** and **distributed transactions**, enabling high concurrency and fault tolerance across a cluster.
 
-https://mariadb.com/kb/en/new-and-old-releases/
+### 🔄 Elastic Scalability
+Independently scales CPU, memory, log, and storage resources. Scales out effortlessly without requiring data sharding, adapting to your workload dynamically.
 
-Help
------
+### 🗃️ Flexible Storage Options
+Stores data in high-performance key-value engines like **Cassandra**, **ScyllaDB**, and **DynamoDB**, offering better disk compression ratios than InnoDB. *Save up to 80% on disk storage costs compared to MySQL.*  
 
-More help is available from the Maria Discuss mailing list
-https://launchpad.net/~maria-discuss, MariaDB's Zulip
-instance, https://mariadb.zulipchat.com/ 
+Supports **object storage** as tiered storage to reduce costs for cold data.
 
-Live QA for beginner contributors
-----
-MariaDB has a dedicated time each week when we answer new contributor questions live on Zulip.
-From 8:00 to 10:00 UTC on Mondays, and 10:00 to 12:00 UTC on Thursdays,
-anyone can ask any questions they’d like, and a live developer will be available to assist.
+### 🔥 High-Performance Hot Data
+Leverages the scalable [Transaction Service](https://github.com/eloqdata/tx_service) to keep hot data in memory, ensuring low-latency access. Scales the buffer pool dynamically as hot data grows—without moving data on disk.
 
-New contributors can ask questions any time, but we will provide immediate feedback during that interval.
+### 🔒 Full ACID Transactions
+Provides robust transaction support with **Read Committed** and **Repeatable Read** isolation levels, ensuring data consistency and reliability.
 
-Licensing
----------
+---
 
-***************************************************************************
+## Architecture Highlights
 
-NOTE: 
+- **Hot Data Management**: Hot data resides in the in-memory `Transaction Service`, which scales independently to handle growing datasets efficiently.
+- **Storage Tiering**: Combines key-value stores for active data with cost-effective object storage, optimizing both performance and cost.
+- **No Sharding Required**: Unlike traditional distributed databases, EloqSQL scales out naturally without the complexity of sharding.
 
-MariaDB is specifically available only under version 2 of the GNU
-General Public License (GPLv2). (I.e. Without the "any later version"
-clause.) This is inherited from MySQL. Please see the README file in
-the MySQL distribution for more information.
+---
 
-License information can be found in the COPYING file. Third party
-license information can be found in the THIRDPARTY file.
+## Run with EloqCtl
+EloqCtl is the cluster management tool for EloqSQL.
 
-***************************************************************************
+To deploy an EloqKV cluster in production, download [EloqCtl](https://www.eloqdata.com/downloadeloqctl) and follow the [deployment guide](https://www.eloqdata.com/eloqsql/quick-start-ha).
 
-Bug Reports
-------------
+---
 
-Bug and/or error reports regarding MariaDB should be submitted at:
-https://jira.mariadb.org
+## Run with Tarball
+Download the EloqKV tarball from the [EloqData website](https://www.eloqdata.com/download/eloqsql).
 
-For reporting security vulnerabilities see:
-https://mariadb.org/about/security-policy/
+Follow the [instruction guide](https://www.eloqdata.com/eloqsql/install-from-binary) to set up and run EloqSQL on your local machine.
 
-The code for MariaDB, including all revision history, can be found at:
-https://github.com/MariaDB/server
+---
+
+## Build from Source
+
+Follow these steps to build and run EloqSQL from source.
+
+### 1. Install Dependencies
+We recommend using our Docker image with pre-installed dependencies for a quick build and run of EloqKV.
+
+```bash
+docker pull eloqdata/eloq-build-ubuntu2404:latest
+```
+
+Or, you can manually run the following script to install dependencies on your local machine (Ubuntu 24.04 example).
+
+```bash
+bash scripts/install_dependency_ubuntu2404.sh
+```
+
+### 2. Initialize Submodules
+Fetch the Transaction Service and its dependencies:
+
+```
+git submodule update --init --recursive
+```
+
+
+### 3. Build EloqSQL
+Configure and compile with optimized settings:
+
+```bash
+mkdir build
+cd build
+cmake -DCMAKE_INSTALL_PREFIX=${HOME}/install \
+      -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+      -DWITH_READLINE=1 \
+      -DPLUGIN_HANDLERSOCKET=NO \
+      -DPLUGIN_ROCKSDB=NO \
+      -DPLUGIN_ARIA=NO \
+      -DPLUGIN_ARCHIVE=NO \
+      -DPLUGIN_CVS=NO \
+      -DPLUGIN_FEDERATEDX=NO \
+      -DPLUGIN_TOKUDB=NO \
+      -DPLUGIN_MROONGA=NO \
+      -DPLUGIN_OQGRAPH=NO \
+      -DPLUGIN_CONNECT=NO \
+      -DPLUGIN_SPIDER=NO \
+      -DPLUGIN_SPHINX=NO \
+      -DPLUGIN_HEAP=NO \
+      -DPLUGIN_MYISAMMRG=NO \
+      -DPLUGIN_SEQUENCE=NO \
+      -DINSTALL_MYSQLTESTDIR= \
+      -DMYSQL_MAINTAINER_MODE=OFF \
+      -DWITH_SSL=system \
+      -DUSE_ONE_CASS_SHARD_ENABLED=off \
+      -DCOROUTINE_ENABLED=ON \
+      -DBRPC_WITH_GLOG=ON \
+      -DMARIA_WITH_GLOG=ON \
+      -DWITH_ASAN=OFF \
+      -DCMAKE_C_FLAGS_RELWITHDEBINFO="-O2 -g -DNDEBUG -DDBUG_OFF -fno-omit-frame-pointer -fno-strict-aliasing" \
+      -DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-O2 -g -DNDEBUG -DDBUG_OFF -fno-omit-frame-pointer -fno-strict-aliasing -felide-constructors -Wno-error" \
+      -DWITH_KV_STORAGE=CASSANDRA \
+      -DFORK_HM_PROCESS=OFF \
+      -DWITH_LOG_SERVICE=ON \
+      ../
+cmake --build . --config RelWithDebInfo -j
+cmake --install . --config RelWithDebInfo
+```
+
+### 4. Set Up Cassandra Cluster 
+Download and start a local Cassandra instance:
+
+```bash
+wget https://archive.apache.org/dist/cassandra/4.1.8/apache-cassandra-4.1.8-bin.tar.gz
+tar -zxvf apache-cassandra-4.1.8-bin.tar.gz
+./apache-cassandra-4.1.8/bin/cassandra -f
+# Wait for Cassandra to start, then verify with:
+./apache-cassandra-4.1.8/bin/cqlsh localhost -u cassandra -p cassandra
+```
+
+### 5. Configure EloqSQL
+Edit my-config.cnf with the following example settings:
+
+```
+[mariadb]
+plugin_maturity=experimental
+max_connections=500
+skip-log-bin
+thread_stack=16M
+port=3316
+socket=/tmp/mysqld3316.sock
+plugin_load_add=ha_eloq
+eloq
+eloq_kv_storage=cass
+eloq_cass_hosts=127.0.0.1
+eloq_cass_user=cassandra
+eloq_cass_password=cassandra
+eloq_local_ip=127.0.0.1:8000
+eloq_ip_list=127.0.0.1:8000
+```
+
+### 6. Bootstrap EloqSQL Node
+Initialize the database:
+
+```bash
+export INSTALL_DIR=${HOME}/install
+export DATA_DIR=${HOME}/eloqdata
+${INSTALL_DIR}/scripts/mysql_install_db --defaults-file=${HOME}/my-config.cnf \
+                                       --basedir=${INSTALL_DIR} \
+                                       --datadir=${DATA_DIR} \
+                                       --plugin-dir=${INSTALL_DIR}/lib/plugin
+```
+
+### 7. Start EloqSQL Node
+Launch the server:
+
+```bash
+cd install
+${INSTALL_DIR}/bin/mysqld --defaults-file=${HOME}/my-config.cnf --datadir=${DATA_DIR}
+```
+
+### 8. Connect to EloqSQL
+Use a MySQL client to log in:
+
+```bash
+sudo ${INSTALL_DIR}/bin/mysql -u root -S /tmp/mysqld3316.sock
+```
+
+---
+
+## Deploy with EloqCtl
+To deploy EloqSQL cluster, Please refer to [EloqCtl](https://www.eloqdata.com/eloqsql/cluster-deployment).
+
+
+---
+
+**Star This Repo ⭐** to Support Our Journey — Every Star Helps Us Reach More Developers!  
+
+

@@ -817,6 +817,7 @@ int Mrr_ordered_rndpos_reader::init(handler *h_arg,
   index_reader_needs_refill= TRUE;
   rowid_filter= filter;
 
+  batch_rowid= (h_arg->ha_table_flags() & HA_BATCH_ROWID);
   return 0;
 }
 
@@ -939,9 +940,64 @@ int Mrr_ordered_rndpos_reader::refill_from_index_reader()
 
   rowid_buffer->setup_reading(file->ref_length,
                               is_mrr_assoc ? sizeof(range_id_t) : 0);
+
+  if (batch_rowid && !rowid_buffer->is_empty())
+  {
+    std::vector<uchar*> vct_rid;
+    fetch_all_rowids(vct_rid);
+    int res= file->batch_load_records(vct_rid);
+    if(res != 0)
+    {
+      DBUG_RETURN(res);
+    }
+
+    DBUG_RETURN(0);
+  }
+  
   DBUG_RETURN(rowid_buffer->is_empty()? HA_ERR_END_OF_FILE : 0);
 }
 
+void Mrr_ordered_rndpos_reader::fetch_all_rowids(std::vector<uchar*> &vct_rid)
+{
+  range_id_t range_info;
+  vct_rid.clear();
+  last_identical_rowid= nullptr;
+  rowid_buffer->stop_write();
+
+  while(true)
+  {
+    while (last_identical_rowid)
+    {
+      (void)rowid_buffer->read();
+
+      if (rowid_buffer->read_ptr1 == last_identical_rowid)
+        last_identical_rowid= nullptr;
+    }
+  
+    if (rowid_buffer->read())
+      break;
+
+    if (is_mrr_assoc)
+    {
+      memcpy(&range_info, rowid_buffer->read_ptr2, sizeof(range_id_t));
+      if (index_reader->skip_record(range_info, rowid_buffer->read_ptr1))
+        continue;
+    }
+
+    vct_rid.push_back(rowid_buffer->read_ptr1);
+
+    Lifo_buffer_iterator it;
+    it.init(rowid_buffer);
+    while (!it.read())
+    {
+      if (file->cmp_ref(it.read_ptr1, rowid_buffer->read_ptr1))
+        break;
+      last_identical_rowid= it.read_ptr1;
+    }
+  }
+  last_identical_rowid= nullptr;
+  rowid_buffer->read_reset();
+}
 
 /*
   Get the next {record, range_id} using ordered array of rowid+range_id pairs
@@ -996,7 +1052,13 @@ int Mrr_ordered_rndpos_reader::get_next(range_id_t *range_info)
         continue;
     }
 
-    res= file->ha_rnd_pos(file->get_table()->record[0], 
+    if (batch_rowid)
+    {
+      res= file->batch_get_record(file->get_table()->record[0]);
+      assert(res == 0);
+    }
+    else
+      res= file->ha_rnd_pos(file->get_table()->record[0], 
                           rowid_buffer->read_ptr1);
 
     if (res)

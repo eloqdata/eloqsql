@@ -1,0 +1,41 @@
+#This case test what will happen if the node 1 crash before it write log
+#Here have 2 cases, node 1 is log group leader or not
+
+--source include/have_eloq.inc
+
+--let $mono_server_count= 3
+--source include/mono_init.inc
+
+--sleep 2 #Here is bug, If not sleep, the mysqld will not return result.
+#Below statement will transfer the leader of a log group to node 1
+#'at_once': NOT add this into map in FaultInject and run it at once.
+#'LOG_TRANSFER' new add action, will transfer the leader of log group.
+# The first number follow # is the log group ID
+# The second number after - is the sequence number start from 0 in log group, NOT cc group id
+--sleep 1
+
+--disable_warnings
+DROP TABLE IF EXISTS t3;
+--enable_warnings
+
+--connection serv_2
+create table t3(i int primary key, j int) engine= eloq;
+
+insert into t3 values(2,2);
+select * from t3;
+# log leader is at node_id:1, new entry(1,1) is at node_id:0.
+# before_raft_log_apply fault will cause the writelog request to re-execute on
+# new log leader, and it will succeed since node_id0's term is not changed.
+SET SESSION debug_dbug="+d,eloq;before_raft_log_apply;node_id=0;action=panic";
+
+# Write file to make mysql-test-run.pl expect crash
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+
+--sleep 3
+# trigger fault, but after retry the insert statement succeeds
+--sleep 5
+insert into t3 values(1,1);
+select * from t3;
+
+SET SESSION debug_dbug="-d,eloq;before_raft_log_apply";
+DROP TABLE IF EXISTS t3;

@@ -1,0 +1,270 @@
+set @@default_storage_engine= eloq;
+select @@default_storage_engine;
+@@default_storage_engine
+ELOQ
+DROP TABLE IF EXISTS t1;
+create table t1(i int primary key, j int) engine= eloq;
+insert into t1 values(1,1);
+insert into t1 values(2,1);
+connect  conn-tx1,localhost,root,,test,$MONO1_PORT;
+select * from t1;
+i	j
+1	1
+2	1
+connect  conn-tx2,localhost,root,,test,$MONO1_PORT;
+select * from t1;
+i	j
+1	1
+2	1
+connection conn-tx1;
+set session transaction isolation level repeatable read;
+select @@tx_isolation;
+@@tx_isolation
+REPEATABLE-READ
+connection conn-tx2;
+set session transaction isolation level repeatable read;
+select @@tx_isolation;
+@@tx_isolation
+REPEATABLE-READ
+connection conn-tx1;
+update t1 set j=2 where i=1;
+select * from t1 where i=1;
+i	j
+1	2
+update t1 set j=2 where i=2;
+select * from t1 where i=2;
+i	j
+2	2
+update t1 set j=3 where i=1;
+select * from t1 where i=1;
+i	j
+1	3
+update t1 set j=3 where i=2;
+select * from t1 where i=2;
+i	j
+2	3
+select * from t1;
+i	j
+1	3
+2	3
+connection conn-tx1;
+begin;
+select * from t1 where i=1;
+i	j
+1	3
+connection conn-tx2;
+update t1 set j=11 where i=1;
+select * from t1 where i=1;
+i	j
+1	11
+connection conn-tx1;
+select * from t1 where i=1;
+ERROR HY000: Eloq: failed due to record was updated by other trancations, try restarting transaction.
+commit;
+select * from t1;
+i	j
+1	11
+2	3
+connection conn-tx1;
+begin;
+select * from t1 where i=1;
+i	j
+1	11
+connection conn-tx2;
+update t1 set j=12 where i=1;
+select * from t1 where i=1;
+i	j
+1	12
+connection conn-tx1;
+update t1 set j=13 where i=1;
+ERROR HY000: Eloq: failed due to record was updated by other trancations, try restarting transaction.
+commit;
+select * from t1;
+i	j
+1	12
+2	3
+connection conn-tx1;
+begin;
+select * from t1 where i=1;
+i	j
+1	12
+connection conn-tx2;
+update t1 set j=14 where i=1;
+select * from t1 where i=1;
+i	j
+1	14
+connection conn-tx1;
+update t1 set j=10 where i=2;
+select * from t1 where i=1;
+ERROR HY000: Eloq: failed due to record was updated by other trancations, try restarting transaction.
+commit;
+select * from t1;
+i	j
+1	14
+2	3
+connection conn-tx1;
+begin;
+select * from t1 where i=1;
+i	j
+1	14
+connection conn-tx2;
+update t1 set j=15 where i=1;
+select * from t1 where i=1;
+i	j
+1	15
+connection conn-tx1;
+update t1 set j=15 where i=2;
+commit;
+ERROR HY000: Eloq: failed to commit transaction. try restarting transaction. OCC break repeatable read isolation level.
+select * from t1;
+i	j
+1	15
+2	3
+connection conn-tx1;
+insert into t1 values(3,1);
+begin;
+select * from t1 where i=1;
+i	j
+1	15
+connection conn-tx2;
+begin;
+update t1 set j=16 where i=1;
+update t1 set j=16 where i=2;
+commit;
+select * from t1;
+i	j
+1	16
+2	16
+3	1
+connection conn-tx1;
+update t1 set j=2 where i=3;
+select * from t1 where i=1;
+ERROR HY000: Eloq: failed due to record was updated by other trancations, try restarting transaction.
+commit;
+select * from t1;
+i	j
+1	16
+2	16
+3	1
+connection conn-tx1;
+begin;
+update t1 set j=18 where i=1;
+connection conn-tx2;
+update t1 set j=19 where i=1;
+ERROR HY000: Eloq: failed due to write/write conflict. try restarting transaction.
+select * from t1 where i=1;
+i	j
+1	16
+connection conn-tx1;
+commit;
+select * from t1 where i=1;
+i	j
+1	18
+connection conn-tx1;
+set session transaction isolation level read committed;
+select @@tx_isolation;
+@@tx_isolation
+READ-COMMITTED
+connection conn-tx2;
+set session transaction isolation level read committed;
+select @@tx_isolation;
+@@tx_isolation
+READ-COMMITTED
+connection conn-tx1;
+insert into t1 values(11,1);
+select * from t1 where i=11;
+i	j
+11	1
+Begin;
+select * from t1 where i=11;
+i	j
+11	1
+connection conn-tx2;
+update t1 set j=2 where i=11;
+select * from t1 where i=11;
+i	j
+11	2
+connection conn-tx1;
+"# result must be: 11,2"
+select * from t1 where i=11;
+i	j
+11	2
+commit;
+select * from t1;
+i	j
+1	18
+2	16
+3	1
+11	2
+connection conn-tx1;
+begin;
+select * from t1 where i=11;
+i	j
+11	2
+connection conn-tx2;
+begin;
+update t1 set j=3 where i=11;
+select * from t1 where i=11;
+i	j
+11	3
+connection conn-tx1;
+select * from t1 where i=11;
+i	j
+11	2
+connection conn-tx2;
+commit;
+connection conn-tx1;
+"# result must be: 11,3"
+select * from t1 where i=11;
+i	j
+11	3
+commit;
+select * from t1;
+i	j
+1	18
+2	16
+3	1
+11	3
+connection conn-tx1;
+insert into t1 values(12,1);
+begin;
+select * from t1 where i=11;
+i	j
+11	3
+select * from t1 where i=12;
+i	j
+12	1
+connection conn-tx2;
+begin;
+update t1 set j=4 where i=11;
+update t1 set j=4 where i=12;
+commit;
+select * from t1 where i=11;
+i	j
+11	4
+select * from t1 where i=12;
+i	j
+12	4
+connection conn-tx1;
+select * from t1 where i=11;
+i	j
+11	4
+select * from t1 where i=12;
+i	j
+12	4
+commit;
+select * from t1;
+i	j
+1	18
+2	16
+3	1
+11	4
+12	4
+set session transaction isolation level read uncommitted;
+select @@tx_isolation;
+@@tx_isolation
+READ-UNCOMMITTED
+select * from t1;
+ERROR HY000: Eloq: does not support 'read uncommitted' isolation level.
+set session transaction isolation level read committed;
+drop table t1;

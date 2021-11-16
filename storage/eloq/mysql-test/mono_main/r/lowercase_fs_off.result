@@ -1,0 +1,272 @@
+set GLOBAL sql_mode="";
+set LOCAL sql_mode="";
+connect  master,localhost,root,,;
+connection master;
+create database d1;
+grant all on d1.* to 'sample'@'localhost' identified by 'password';
+flush privileges;
+connect  sample,localhost,sample,password,d1;
+connection sample;
+select database();
+database()
+d1
+create database d2;
+ERROR 42000: Access denied for user 'sample'@'localhost' to database 'd2'
+create database D1;
+ERROR 42000: Access denied for user 'sample'@'localhost' to database 'D1'
+disconnect sample;
+connection master;
+drop user 'sample'@'localhost';
+drop database if exists d1;
+disconnect master;
+connection default;
+CREATE DATABASE d1;
+USE d1;
+CREATE TABLE T1(f1 INT);
+CREATE TABLE t1(f1 INT);
+GRANT SELECT ON T1 to user_1@localhost;
+connect  con1,localhost,user_1,,d1;
+select * from t1;
+ERROR 42000: SELECT command denied to user 'user_1'@'localhost' for table 't1'
+select * from T1;
+f1
+connection default;
+GRANT SELECT ON t1 to user_1@localhost;
+connection con1;
+select * from information_schema.table_privileges;
+GRANTEE	TABLE_CATALOG	TABLE_SCHEMA	TABLE_NAME	PRIVILEGE_TYPE	IS_GRANTABLE
+'user_1'@'localhost'	def	d1	T1	SELECT	NO
+'user_1'@'localhost'	def	d1	t1	SELECT	NO
+connection default;
+disconnect con1;
+REVOKE ALL PRIVILEGES, GRANT OPTION FROM user_1@localhost;
+DROP USER user_1@localhost;
+DROP DATABASE d1;
+USE test;
+CREATE DATABASE db1;
+USE db1;
+CREATE PROCEDURE p1() BEGIN END;
+CREATE FUNCTION f1(i INT) RETURNS INT RETURN i+1;
+GRANT USAGE ON db1.* to user_1@localhost;
+GRANT EXECUTE ON PROCEDURE db1.P1 to user_1@localhost;
+GRANT EXECUTE ON FUNCTION db1.f1 to user_1@localhost;
+GRANT UPDATE ON db1.* to USER_1@localhost;
+connect  con1,localhost,user_1,,db1;
+call p1();
+call P1();
+select f1(1);
+f1(1)
+2
+connect  con2,localhost,USER_1,,db1;
+call p1();
+ERROR 42000: execute command denied to user 'USER_1'@'localhost' for routine 'db1.p1'
+call P1();
+ERROR 42000: execute command denied to user 'USER_1'@'localhost' for routine 'db1.p1'
+select f1(1);
+ERROR 42000: execute command denied to user 'USER_1'@'localhost' for routine 'db1.f1'
+connection default;
+disconnect con1;
+disconnect con2;
+REVOKE ALL PRIVILEGES, GRANT OPTION FROM user_1@localhost;
+REVOKE ALL PRIVILEGES, GRANT OPTION FROM USER_1@localhost;
+DROP FUNCTION f1;
+DROP PROCEDURE p1;
+DROP USER user_1@localhost;
+DROP USER USER_1@localhost;
+DROP DATABASE db1;
+use test;
+#
+# Extra test coverage for Bug#56595 RENAME TABLE causes assert on OS X
+#
+CREATE TABLE t1(a INT);
+CREATE TRIGGER t1_bi BEFORE INSERT ON t1 FOR EACH ROW SET new.a= 1;
+RENAME TABLE t1 TO T1;
+ALTER TABLE T1 RENAME t1;
+DROP TABLE t1;
+create database TEST;
+create procedure TEST.pr() begin end;
+create procedure test.pr() begin end;
+Phase 1/7: Checking and upgrading mysql database
+Processing databases
+mysql
+mysql.column_stats                                 OK
+mysql.columns_priv                                 OK
+mysql.db                                           OK
+mysql.event                                        OK
+mysql.func                                         OK
+mysql.global_priv                                  OK
+mysql.gtid_slave_pos                               OK
+mysql.help_category                                OK
+mysql.help_keyword                                 OK
+mysql.help_relation                                OK
+mysql.help_topic                                   OK
+mysql.index_stats                                  OK
+mysql.innodb_index_stats
+Error    : Unknown storage engine 'InnoDB'
+error    : Corrupt
+mysql.innodb_table_stats
+Error    : Unknown storage engine 'InnoDB'
+error    : Corrupt
+mysql.plugin                                       OK
+mysql.proc                                         OK
+mysql.procs_priv                                   OK
+mysql.proxies_priv                                 OK
+mysql.roles_mapping                                OK
+mysql.servers                                      OK
+mysql.table_stats                                  OK
+mysql.tables_priv                                  OK
+mysql.time_zone                                    OK
+mysql.time_zone_leap_second                        OK
+mysql.time_zone_name                               OK
+mysql.time_zone_transition                         OK
+mysql.time_zone_transition_type                    OK
+mysql.transaction_registry
+Error    : Unknown storage engine 'InnoDB'
+error    : Corrupt
+
+Repairing tables
+mysql.innodb_index_stats
+Error    : Unknown storage engine 'InnoDB'
+error    : Corrupt
+mysql.innodb_table_stats
+Error    : Unknown storage engine 'InnoDB'
+error    : Corrupt
+mysql.transaction_registry
+Error    : Unknown storage engine 'InnoDB'
+error    : Corrupt
+Phase 2/7: Installing used storage engines... Skipped
+Phase 3/7: Fixing views
+mysql.user                                         OK
+sys.host_summary                                   OK
+sys.host_summary_by_file_io                        OK
+sys.host_summary_by_file_io_type                   OK
+sys.host_summary_by_stages                         OK
+sys.host_summary_by_statement_latency              OK
+sys.host_summary_by_statement_type                 OK
+sys.innodb_buffer_stats_by_schema                  OK
+sys.innodb_buffer_stats_by_table                   OK
+sys.innodb_lock_waits                              OK
+sys.io_by_thread_by_latency                        OK
+sys.io_global_by_file_by_bytes                     OK
+sys.io_global_by_file_by_latency                   OK
+sys.io_global_by_wait_by_bytes                     OK
+sys.io_global_by_wait_by_latency                   OK
+sys.latest_file_io                                 OK
+sys.memory_by_host_by_current_bytes                OK
+sys.memory_by_thread_by_current_bytes              OK
+sys.memory_by_user_by_current_bytes                OK
+sys.memory_global_by_current_bytes                 OK
+sys.memory_global_total                            OK
+sys.metrics                                        OK
+sys.processlist                                    OK
+sys.ps_check_lost_instrumentation                  OK
+sys.schema_auto_increment_columns                  OK
+sys.schema_index_statistics                        OK
+sys.schema_object_overview                         OK
+sys.schema_redundant_indexes                       OK
+sys.schema_table_lock_waits                        OK
+sys.schema_table_statistics                        OK
+sys.schema_table_statistics_with_buffer            OK
+sys.schema_tables_with_full_table_scans            OK
+sys.schema_unused_indexes                          OK
+sys.session                                        OK
+sys.session_ssl_status                             OK
+sys.statement_analysis                             OK
+sys.statements_with_errors_or_warnings             OK
+sys.statements_with_full_table_scans               OK
+sys.statements_with_runtimes_in_95th_percentile    OK
+sys.statements_with_sorting                        OK
+sys.statements_with_temp_tables                    OK
+sys.user_summary                                   OK
+sys.user_summary_by_file_io                        OK
+sys.user_summary_by_file_io_type                   OK
+sys.user_summary_by_stages                         OK
+sys.user_summary_by_statement_latency              OK
+sys.user_summary_by_statement_type                 OK
+sys.version                                        OK
+sys.wait_classes_global_by_avg_latency             OK
+sys.wait_classes_global_by_latency                 OK
+sys.waits_by_host_by_latency                       OK
+sys.waits_by_user_by_latency                       OK
+sys.waits_global_by_latency                        OK
+sys.x$host_summary                                 OK
+sys.x$host_summary_by_file_io                      OK
+sys.x$host_summary_by_file_io_type                 OK
+sys.x$host_summary_by_stages                       OK
+sys.x$host_summary_by_statement_latency            OK
+sys.x$host_summary_by_statement_type               OK
+sys.x$innodb_buffer_stats_by_schema                OK
+sys.x$innodb_buffer_stats_by_table                 OK
+sys.x$innodb_lock_waits                            OK
+sys.x$io_by_thread_by_latency                      OK
+sys.x$io_global_by_file_by_bytes                   OK
+sys.x$io_global_by_file_by_latency                 OK
+sys.x$io_global_by_wait_by_bytes                   OK
+sys.x$io_global_by_wait_by_latency                 OK
+sys.x$latest_file_io                               OK
+sys.x$memory_by_host_by_current_bytes              OK
+sys.x$memory_by_thread_by_current_bytes            OK
+sys.x$memory_by_user_by_current_bytes              OK
+sys.x$memory_global_by_current_bytes               OK
+sys.x$memory_global_total                          OK
+sys.x$processlist                                  OK
+sys.x$ps_digest_95th_percentile_by_avg_us          OK
+sys.x$ps_digest_avg_latency_distribution           OK
+sys.x$ps_schema_table_statistics_io                OK
+sys.x$schema_flattened_keys                        OK
+sys.x$schema_index_statistics                      OK
+sys.x$schema_table_lock_waits                      OK
+sys.x$schema_table_statistics                      OK
+sys.x$schema_table_statistics_with_buffer          OK
+sys.x$schema_tables_with_full_table_scans          OK
+sys.x$session                                      OK
+sys.x$statement_analysis                           OK
+sys.x$statements_with_errors_or_warnings           OK
+sys.x$statements_with_full_table_scans             OK
+sys.x$statements_with_runtimes_in_95th_percentile  OK
+sys.x$statements_with_sorting                      OK
+sys.x$statements_with_temp_tables                  OK
+sys.x$user_summary                                 OK
+sys.x$user_summary_by_file_io                      OK
+sys.x$user_summary_by_file_io_type                 OK
+sys.x$user_summary_by_stages                       OK
+sys.x$user_summary_by_statement_latency            OK
+sys.x$user_summary_by_statement_type               OK
+sys.x$wait_classes_global_by_avg_latency           OK
+sys.x$wait_classes_global_by_latency               OK
+sys.x$waits_by_host_by_latency                     OK
+sys.x$waits_by_user_by_latency                     OK
+sys.x$waits_global_by_latency                      OK
+Phase 4/7: Running 'mysql_fix_privilege_tables'
+Phase 5/7: Fixing table and database names
+Phase 6/7: Checking and upgrading tables
+Processing databases
+TEST
+information_schema
+mtr
+mtr.global_suppressions                            OK
+mtr.test_suppressions                              OK
+performance_schema
+sys
+sys.sys_config                                     OK
+test
+Phase 7/7: Running 'FLUSH PRIVILEGES'
+OK
+drop procedure test.pr;
+drop database TEST;
+create table t1 (a int);
+create trigger t1_bi before insert on t1 for each row set new.a= 1;
+show triggers like '%T1%';
+Trigger	Event	Table	Statement	Timing	Created	sql_mode	Definer	character_set_client	collation_connection	Database Collation
+drop table t1;
+set GLOBAL sql_mode=default;
+#
+# MDEV-19632 Replication aborts with ER_SLAVE_CONVERSION_FAILED upon CREATE ... SELECT in ORACLE mode
+#
+# Compatibility schema names respect the filesystem case sensitivity
+CREATE TABLE t1 (a MARIADB_SCHEMA.date);
+ERROR HY000: Unknown data type: 'MARIADB_SCHEMA.date'
+CREATE TABLE t1 (a Mariadb_schema.date);
+ERROR HY000: Unknown data type: 'Mariadb_schema.date'
+CREATE TABLE t1 (a mariadb_schema.date);
+DROP TABLE t1;

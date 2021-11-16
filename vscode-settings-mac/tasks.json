@@ -1,0 +1,79 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build_all",
+            "type": "shell",
+            "command": "/usr/local/bin/cmake --build ${command:cmake.buildDirectory} --config ${command:cmake.buildType} --target all -j 8",
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "presentation": {
+                "echo": true,
+                "showReuseMessage": false,
+                "clear": true
+            }
+        },
+        {
+            "label": "remove_old_folder",
+            "type": "shell",
+            "command": "rm -rf /Users/jojo/mono/data_*/tx_log ; echo 'finish remove old data. \n\nbegin build_install...'",
+            "group": "build",
+            "presentation": {
+                "echo": false,
+                "showReuseMessage": false
+            }
+        },
+        {
+            "label": "build_install",
+            "type": "shell",
+            "command": "/usr/local/bin/cmake --build ${command:cmake.buildDirectory} --config ${command:cmake.buildType} --target install -j 8",
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "silent",
+                "panel": "dedicated",
+                "showReuseMessage": false,
+                "clear": true
+            }
+        },
+        {
+            // this step can be skipped after installing once
+            "label": "mysql_install_db",
+            "type": "shell",
+            // single-node
+            "command": "$mono_install_dir/${command:cmake.buildKit}/${command:cmake.buildType}/scripts/mysql_install_db --basedir=$mono_install_dir/${command:cmake.buildKit}/${command:cmake.buildType} --datadir=/Users/jojo/mono/data_tpcc",
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "silent",
+                "panel": "dedicated",
+                "showReuseMessage": false,
+                "clear": true
+            }
+        },
+        {
+            // Typed Build: main task to run (shift+cmd+b)
+            "label": "typed_build",
+            "type": "shell",
+            "command": "echo 'Build&Install Done.\n\n/Users/jojo/mono/installer/${command:cmake.buildKit}/${command:cmake.buildType}/bin/mysqld --defaults-file=/Users/jojo/mono/mycnf-'",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "echo": false,
+                "showReuseMessage": true,
+                "clear": true
+            },
+            "dependsOn": [
+                "build_all",
+                "remove_old_folder",
+                "build_install",
+                "mysql_install_db"
+            ],
+            "dependsOrder": "sequence"
+        }
+    ]
+}

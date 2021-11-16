@@ -231,7 +231,11 @@ void sp_cache_invalidate()
 
 void sp_cache_flush_obsolete(sp_cache **cp, sp_head **sp)
 {
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+  if (!(*sp)->is_invoked())
+#else
   if ((*sp)->sp_cache_version() < Cversion && !(*sp)->is_invoked())
+#endif
   {
     (*cp)->remove(*sp);
     *sp= NULL;

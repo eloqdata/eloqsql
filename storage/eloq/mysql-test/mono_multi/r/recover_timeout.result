@@ -1,0 +1,39 @@
+include/mono_init.inc
+DROP TABLE IF EXISTS t3;
+connection serv_1;
+create table t3(i int primary key, j int) engine=eloq;
+insert into t3 values(1,1);
+insert into t3 values(2,2);
+insert into t3 values(3,3);
+insert into t3 values(4,4);
+insert into t3 values(5,5);
+select * from t3;
+i	j
+1	1
+2	2
+3	3
+4	4
+5	5
+SET SESSION debug_dbug="+d,eloq;log_during_log_shipping;node_id=0;action=sleep#5";
+connection serv_2;
+connection serv_3;
+select * from t3;
+ERROR HY000: Eloq: error. try restarting transaction. 'Transaction failed due to internal cc request is directed to a follower.'
+SET SESSION debug_dbug="-d,eloq;log_during_log_shipping";
+select * from t3;
+i	j
+1	1
+2	2
+3	3
+4	4
+5	5
+connection serv_2;
+# restart
+select * from t3;
+i	j
+1	1
+2	2
+3	3
+4	4
+5	5
+drop table t3;

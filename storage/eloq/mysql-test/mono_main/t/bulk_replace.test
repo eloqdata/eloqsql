@@ -1,0 +1,16 @@
+#
+# this is a test of bulk-insert code
+#
+
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+CREATE TABLE t1 (a int, key (a), b int not null, key (b), c int not null, index(c));
+replace into t1 values (1,1,1),(2,2,2),(3,1,3);
+--sorted_result
+select * from t1;
+#FIXME:no support check table
+#check table t1;
+drop table t1;
+
+# End of 4.1 tests

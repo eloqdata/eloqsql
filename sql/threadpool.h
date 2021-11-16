@@ -77,6 +77,10 @@ enum TP_STATE
   TP_STATE_IDLE,
   TP_STATE_RUNNING,
   TP_STATE_PENDING
+#ifdef COROUTINE_ENABLED
+  ,
+  TP_STATE_CLOSING
+#endif
 };
 
 /*
@@ -95,6 +99,13 @@ struct TP_connection
   CONNECT*    connect;
   TP_STATE    state;
   TP_PRIORITY priority;
+  /**
+   * @brief The variable is set to true, when the connection is being processed 
+   * in a coroutine. It is set to false, when the coroutine finishes or yields.
+   * 
+   */
+  std::atomic<bool> being_processed_{false};
+
   TP_connection(CONNECT *c) :
     thd(0),
     connect(c),

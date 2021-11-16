@@ -1,0 +1,53 @@
+#This case is to simulate the situation of recovering uncommitted txn's orphan lock.
+--source include/have_eloq.inc
+
+--let $mono_server_count=3
+--source include/mono_init.inc
+--sleep 8
+
+SET SESSION debug_dbug="+d,eloq;at_once;node_id=0;action=LOG_TRANSFER#0-1";
+--sleep 6
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+--connection serv_1
+create table t1(i int primary key, j int) engine=eloq;
+
+insert into t1 values(1,1);
+insert into t1 values(2,2);
+insert into t1 values(3,3);
+insert into t1 values(4,4);
+insert into t1 values(5,5);
+select * from t1;
+
+SET SESSION debug_dbug="+d,eloq;checkpointer_skip_ckpt;node_id=-1";
+SET SESSION debug_dbug="+d,eloq;before_write_log;node_id=0;action=panic";
+
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+
+# Run the crashing query
+--error 2013
+update t1 set j = 0 where i > 0;
+
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+
+--connection serv_2
+
+# first txn detecting write lock when read will try recover the write lock tx.
+select * from t1;
+
+# the above txn triggers CheckRecoverTx, wait for the result from log service
+--sleep 2
+select * from t1;
+
+update t1 set j = 1 where i > 0;
+
+select * from t1;
+
+SET SESSION debug_dbug="-d,eloq;before_write_log";
+SET SESSION debug_dbug="-d,eloq;checkpointer_skip_ckpt;node_id=-1";
+
+drop table t1;

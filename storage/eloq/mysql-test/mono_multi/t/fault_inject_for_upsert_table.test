@@ -1,0 +1,69 @@
+--source include/have_eloq.inc
+--sleep 2 #Here is bug, If not sleep, the mysqld will not return result.
+
+--let $mono_server_count= 3
+--source include/mono_init.inc
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+--connection serv_2
+SET SESSION debug_dbug="+d,eloq;kv_upsert_table;node_id=1;action=panic";
+# Write file to make mysql-test-run.pl expect crash
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.2.expect
+
+# Create table should crash after prepare log is flushed but  before commit log is written
+--error 2013
+create table t1(i int primary key, j int) engine= eloq;
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+
+# Wait for the create to finish replay
+let $counter= 600;
+let $mysql_errno= 9999;
+--disable_result_log
+--disable_query_log
+while ($mysql_errno)
+{
+  --error 0,ER_NO_SUCH_TABLE 
+  insert into t1 values(1,1);
+
+  dec $counter;
+  if (!$counter)
+  {
+    --die replay failed
+  }
+  if ($mysql_errno > 0)
+  {
+    --sleep 0.1
+  }
+}
+--enable_query_log
+--enable_result_log
+select * from t1;
+
+SET SESSION debug_dbug="+d,eloq;kv_upsert_table;node_id=1;action=panic";
+# Write file to make mysql-test-run.pl expect crash
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.2.expect
+--error 2013
+drop table t1;
+
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+--error ER_NO_SUCH_TABLE
+select * from t1;
+SET SESSION debug_dbug="-d,eloq;kv_upsert_table;node_id=1";
+create table t1(i int primary key, j int) engine= eloq;
+select * from t1;
+drop table t1;
+
+# Write prepare log fail, create table should fail.
+--connection serv_1
+SET SESSION debug_dbug="+d,eloq;upsert_table_prepare_log_fail;node_id=0";
+--error 200
+create table t1 (c1 int);
+SET SESSION debug_dbug="-d,eloq;upsert_table_prepare_log_fail;node_id=0";
+
+--error ER_NO_SUCH_TABLE
+select * from t1;

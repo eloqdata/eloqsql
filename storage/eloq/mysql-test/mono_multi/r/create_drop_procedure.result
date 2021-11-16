@@ -1,0 +1,21 @@
+set @@default_storage_engine=eloq;
+include/mono_init.inc
+connection serv_1;
+CREATE TABLE t1 (id INT);
+CREATE PROCEDURE proc1 (OUT cnt INT) COMMENT 'comment1' BEGIN SELECT COUNT(*) INTO cnt FROM t1; END$$
+SELECT routine_name FROM information_schema.routines WHERE routine_type='PROCEDURE' AND routine_name='proc1';
+routine_name
+proc1
+INSERT INTO t1 VALUES (1), (2), (3);
+CALL proc1(@cnt);
+SELECT @cnt;
+@cnt
+3
+connection serv_2;
+DROP PROCEDURE proc1;
+connection serv_1;
+SELECT routine_name FROM information_schema.routines WHERE routine_type='PROCEDURE' AND routine_name='proc1';
+routine_name
+CALL proc1(@cnt);
+ERROR 42000: PROCEDURE test.proc1 does not exist
+DROP TABLE t1;

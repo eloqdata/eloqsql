@@ -1,0 +1,35 @@
+set @@default_storage_engine=eloq;
+include/mono_init.inc
+connection serv_1;
+CREATE TABLE t1 (
+id INT PRIMARY KEY, create_time DATETIME(3) NOT NULL
+) ENGINE=eloq;
+CREATE VIEW v1 AS
+SELECT * FROM t1 WHERE create_time > "2022-5-24" ORDER BY create_time DESC;
+INSERT INTO t1 values
+(100000, "2022-05-20 08:01:02.123"),
+(100001, "2022-05-21 08:01:02.123"),
+(100002, "2022-05-22 08:01:02.123"),
+(100003, "2022-05-23 08:01:02.123"),
+(100004, "2022-05-24 08:01:02.123"),
+(100005, "2022-05-25 08:01:02.123"),
+(100006, "2022-05-26 08:01:02.123");
+SELECT * FROM v1;
+id	create_time
+100006	2022-05-26 08:01:02.123
+100005	2022-05-25 08:01:02.123
+100004	2022-05-24 08:01:02.123
+SHOW FULL TABLES IN test WHERE table_type LIKE 'VIEW';
+Tables_in_test	Table_type
+v1	VIEW
+connection serv_2;
+DROP VIEW v1;
+connection serv_1;
+SELECT * FROM v1;
+ERROR 42S02: Unknown VIEW: './test/v1'
+SHOW FULL TABLES IN test WHERE table_type LIKE 'VIEW';
+Tables_in_test	Table_type
+DROP VIEW IF EXISTS v1;
+Warnings:
+Note	4092	Unknown VIEW: 'test.v1'
+DROP TABLE IF EXISTS t1;

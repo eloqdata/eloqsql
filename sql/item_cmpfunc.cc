@@ -1624,7 +1624,7 @@ longlong Item_in_optimizer::val_int()
       }
 
       if (!item_subs->is_correlated && 
-          all_left_cols_null && result_for_null_param != UNKNOWN)
+          all_left_cols_null && result_for_null_param != MYSQL_UNKNOWN)
       {
         /* 
            This is a non-correlated subquery, all values in the outer
@@ -4131,7 +4131,7 @@ int cmp_item_row::cmp(Item *arg)
     const int rc= comparators[i]->cmp(arg->element_index(i));
     switch (rc)
     {
-    case UNKNOWN:
+    case MYSQL_UNKNOWN:
       was_null= true;
       break;
     case TRUE:
@@ -4141,7 +4141,7 @@ int cmp_item_row::cmp(Item *arg)
     }
     arg->null_value|= arg->element_index(i)->null_value;
   }
-  return was_null ? UNKNOWN : FALSE;
+  return was_null ? MYSQL_UNKNOWN : FALSE;
 }
 
 
@@ -4179,7 +4179,7 @@ int cmp_item_decimal::cmp_not_null(const Value *val)
 int cmp_item_decimal::cmp(Item *arg)
 {
   VDec tmp(arg);
-  return m_null_value || tmp.is_null() ? UNKNOWN : (tmp.cmp(&value) != 0);
+  return m_null_value || tmp.is_null() ? MYSQL_UNKNOWN : (tmp.cmp(&value) != 0);
 }
 
 
@@ -4207,7 +4207,7 @@ int cmp_item_datetime::cmp_not_null(const Value *val)
 int cmp_item_datetime::cmp(Item *arg)
 {
   const bool rc= value != arg->val_datetime_packed(current_thd);
-  return (m_null_value || arg->null_value) ? UNKNOWN : rc;
+  return (m_null_value || arg->null_value) ? MYSQL_UNKNOWN : rc;
 }
 
 
@@ -4222,7 +4222,7 @@ int cmp_item_time::cmp_not_null(const Value *val)
 int cmp_item_time::cmp(Item *arg)
 {
   const bool rc= value != arg->val_time_packed(current_thd);
-  return (m_null_value || arg->null_value) ? UNKNOWN : rc;
+  return (m_null_value || arg->null_value) ? MYSQL_UNKNOWN : rc;
 }
 
 
@@ -4269,7 +4269,7 @@ int cmp_item_timestamp::cmp(Item *arg)
 {
   THD *thd= current_thd;
   Timestamp_or_zero_datetime_native_null tmp(thd, arg, true);
-  return m_null_value || tmp.is_null() ? UNKNOWN :
+  return m_null_value || tmp.is_null() ? MYSQL_UNKNOWN :
          type_handler_timestamp2.cmp_native(m_native, tmp) != 0;
 }
 
@@ -7200,7 +7200,7 @@ longlong Item_equal::val_int()
     if (!field->table->status || (field->table->status & STATUS_NULL_ROW))
     {
       const int rc= eval_item->cmp(item);
-      if ((rc == TRUE) || (null_value= (rc == UNKNOWN)))
+      if ((rc == TRUE) || (null_value= (rc == MYSQL_UNKNOWN)))
         return 0;
     }
   }

@@ -14,6 +14,7 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1335  USA */
 
+// #include "mysql_com.h"
 #define MYSQL_LEX 1
 #include "mariadb.h"
 #include "sql_priv.h"
@@ -98,7 +99,11 @@
 
 #include "my_json_writer.h" 
 
+#include "mysql_metrics.h"
+
 #define FLAGSTR(V,F) ((V)&(F)?#F" ":"")
+
+#include "eloq_db_dl.h"
 
 #ifdef WITH_ARIA_STORAGE_ENGINE
 #include "../storage/maria/ha_maria.h"
@@ -2088,8 +2093,12 @@ dispatch_command_return dispatch_command(enum enum_server_command command, THD *
 
     mysqld_list_fields(thd,&table_list,fields);
     thd->lex->unit.cleanup();
-    /* No need to rollback statement transaction, it's not started. */
-    DBUG_ASSERT(thd->transaction->stmt.is_empty());
+    /* eloq will start tx when open tables, hence need to commit tx.
+       After this command, no trans_commit_stmt is called anywhere,
+       so we should commit tx here.
+    */
+    if (!thd->in_sub_stmt)
+      trans_commit_stmt(thd);
     close_thread_tables(thd);
     thd->mdl_context.rollback_to_savepoint(mdl_savepoint);
 
@@ -2462,6 +2471,11 @@ resume:
       MYSQL_QUERY_DONE(res);
     }
     MYSQL_COMMAND_DONE(res);
+  }
+  if (metrics::enable_metrics &&
+      (command == COM_QUERY || command == COM_STMT_EXECUTE ))
+  {
+    metrics::mysql_meter->Collect(metrics::NAME_MYSQL_PROCESSED_QUERY_TOTAL, 1);
   }
   DEBUG_SYNC(thd,"dispatch_command_end");
 
@@ -3477,7 +3491,6 @@ mysql_execute_command(THD *thd, bool is_called_from_prepared_stmt)
     DBUG_RETURN(1);
   }
 
-  DBUG_ASSERT(thd->transaction->stmt.is_empty() || thd->in_sub_stmt);
   /*
     Each statement or replication event which might produce deadlock
     should handle transaction rollback on its own. So by the start of
@@ -3741,8 +3754,6 @@ mysql_execute_command(THD *thd, bool is_called_from_prepared_stmt)
       or triggers as all such statements prohibited there.
     */
     DBUG_ASSERT(! thd->in_sub_stmt);
-    /* Statement transaction still should not be started. */
-    DBUG_ASSERT(thd->transaction->stmt.is_empty());
     if (!(thd->variables.option_bits & OPTION_GTID_BEGIN))
     {
       /* Commit the normal transaction if one is active. */
@@ -4404,6 +4415,10 @@ mysql_execute_command(THD *thd, bool is_called_from_prepared_stmt)
 
     DBUG_ASSERT(select_lex->limit_params.offset_limit == 0);
     unit->set_limit(select_lex);
+
+    metrics::TimePoint dml_start;
+    TRACK_DML_METRICS(lex->sql_command, dml_start);
+
     MYSQL_UPDATE_START(thd->query());
     res= up_result= mysql_update(thd, all_tables,
                                   select_lex->item_list,
@@ -4414,6 +4429,9 @@ mysql_execute_command(THD *thd, bool is_called_from_prepared_stmt)
                                   unit->lim.get_select_limit(),
                                   lex->ignore, &found, &updated);
     MYSQL_UPDATE_DONE(res, found, updated);
+
+    TRACK_DML_METRICS_DONE(lex->sql_command, dml_start);
+
     /* mysql_update return 2 if we need to switch to multi-update */
     if (up_result != 2)
       break;
@@ -4485,6 +4503,10 @@ mysql_execute_command(THD *thd, bool is_called_from_prepared_stmt)
 #endif
     {
       multi_update *result_obj;
+
+      metrics::TimePoint dml_start;
+      TRACK_DML_METRICS(lex->sql_command, dml_start);
+
       MYSQL_MULTI_UPDATE_START(thd->query());
       res= mysql_multi_update(thd, all_tables,
                               &select_lex->item_list,
@@ -4500,6 +4522,8 @@ mysql_execute_command(THD *thd, bool is_called_from_prepared_stmt)
       {
         MYSQL_MULTI_UPDATE_DONE(res, result_obj->num_found(),
                                 result_obj->num_updated());
+        TRACK_DML_METRICS_DONE(lex->sql_command, dml_start);
+
         res= FALSE; /* Ignore errors here */
         delete result_obj;
       }
@@ -4536,6 +4560,9 @@ mysql_execute_command(THD *thd, bool is_called_from_prepared_stmt)
 
     if ((res= insert_precheck(thd, all_tables)))
       break;
+
+    metrics::TimePoint dml_start;
+    TRACK_DML_METRICS(lex->sql_command, dml_start);
 
     MYSQL_INSERT_START(thd->query());
     Protocol* save_protocol=NULL;
@@ -4574,6 +4601,9 @@ mysql_execute_command(THD *thd, bool is_called_from_prepared_stmt)
       res= thd->lex->explain->send_explain(thd);
     delete sel_result;
     MYSQL_INSERT_DONE(res, (ulong) thd->get_row_count_func());
+
+    TRACK_DML_METRICS_DONE(lex->sql_command, dml_start);
+
     /*
       If we have inserted into a VIEW, and the base table has
       AUTO_INCREMENT column, but this column is not accessible through
@@ -4648,6 +4678,9 @@ mysql_execute_command(THD *thd, bool is_called_from_prepared_stmt)
 
     if (!(res=open_and_lock_tables(thd, all_tables, TRUE, 0)))
     {
+      metrics::TimePoint dml_start;
+      TRACK_DML_METRICS(lex->sql_command, dml_start);
+
       MYSQL_INSERT_SELECT_START(thd->query());
       /*
         Only the INSERT table should be merged. Other will be handled by
@@ -4755,6 +4788,9 @@ mysql_execute_command(THD *thd, bool is_called_from_prepared_stmt)
 
       /* revert changes for SP */
       MYSQL_INSERT_SELECT_DONE(res, (ulong) thd->get_row_count_func());
+
+      TRACK_DML_METRICS_DONE(lex->sql_command, dml_start);
+
       select_lex->table_list.first= first_table;
     }
     /*
@@ -4780,6 +4816,9 @@ mysql_execute_command(THD *thd, bool is_called_from_prepared_stmt)
       break;
     DBUG_ASSERT(select_lex->limit_params.offset_limit == 0);
     unit->set_limit(select_lex);
+
+    metrics::TimePoint dml_start;
+    TRACK_DML_METRICS(lex->sql_command, dml_start);
 
     MYSQL_DELETE_START(thd->query());
     Protocol *save_protocol= NULL;
@@ -4823,6 +4862,9 @@ mysql_execute_command(THD *thd, bool is_called_from_prepared_stmt)
 
     delete sel_result;
     MYSQL_DELETE_DONE(res, (ulong) thd->get_row_count_func());
+
+    TRACK_DML_METRICS_DONE(lex->sql_command, dml_start);
+
     break;
   }
   case SQLCOM_DELETE_MULTI:
@@ -4845,6 +4887,9 @@ mysql_execute_command(THD *thd, bool is_called_from_prepared_stmt)
     THD_STAGE_INFO(thd, stage_init);
     if ((res= open_and_lock_tables(thd, all_tables, TRUE, 0)))
       break;
+
+    metrics::TimePoint dml_start;
+    TRACK_DML_METRICS(lex->sql_command, dml_start);
 
     MYSQL_MULTI_DELETE_START(thd->query());
     if (unlikely(res= mysql_multi_delete_prepare(thd)))
@@ -4874,6 +4919,9 @@ mysql_execute_command(THD *thd, bool is_called_from_prepared_stmt)
         res|= (int)(thd->is_error());
 
         MYSQL_MULTI_DELETE_DONE(res, result->num_deleted());
+
+        TRACK_DML_METRICS_DONE(lex->sql_command, dml_start);
+
         if (res)
           result->abort_result_set(); /* for both DELETE and EXPLAIN DELETE */
         else
@@ -5020,9 +5068,15 @@ mysql_execute_command(THD *thd, bool is_called_from_prepared_stmt)
     if (check_one_table_access(thd, privilege, all_tables))
       goto error;
 
+    metrics::TimePoint dml_start;
+    TRACK_DML_METRICS(lex->sql_command, dml_start);
+
     res= mysql_load(thd, lex->exchange, first_table, lex->field_list,
                     lex->update_list, lex->value_list, lex->duplicates,
                     lex->ignore, (bool) lex->local_file);
+
+    TRACK_DML_METRICS_DONE(lex->sql_command, dml_start);
+
     break;
   }
 
@@ -5048,6 +5102,12 @@ mysql_execute_command(THD *thd, bool is_called_from_prepared_stmt)
       if (!thd->is_error())
         my_error(ER_WRONG_ARGUMENTS,MYF(0),"SET");
       goto error;
+    }
+
+    if (metrics::enable_metrics)
+    {
+      metrics::mysql_meter->Collect(metrics::NAME_MAX_CONNECTIONS,
+                           static_cast<double>(max_connections));
     }
 
     break;
@@ -5496,6 +5556,17 @@ mysql_execute_command(THD *thd, bool is_called_from_prepared_stmt)
          */
         res= 1;
       }
+
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+      if (!res)
+      {
+        res = notify_reload_acl_and_cache(thd);
+        if (res)
+        {
+          my_error(ER_ELOQ_NOTIFY_RELOAD_CACHE_ERROR, MYF(0));
+        }
+      }
+#endif
 
       if (!res)
         my_ok(thd);

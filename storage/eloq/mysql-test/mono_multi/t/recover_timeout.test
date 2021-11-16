@@ -1,0 +1,44 @@
+#This case is to simulate the situation that log replay timeouts during cc node leader transfer.
+--source include/have_eloq.inc
+
+--let $mono_server_count=3
+--source include/mono_init.inc
+--sleep 2
+
+--disable_warnings
+DROP TABLE IF EXISTS t3;
+--enable_warnings
+
+--connection serv_1
+create table t3(i int primary key, j int) engine=eloq;
+
+insert into t3 values(1,1);
+insert into t3 values(2,2);
+insert into t3 values(3,3);
+insert into t3 values(4,4);
+insert into t3 values(5,5);
+select * from t3;
+
+# inject fault for log shipping
+SET SESSION debug_dbug="+d,eloq;log_during_log_shipping;node_id=0;action=sleep#5";
+
+# shutdown mysqld.2
+--connection serv_2
+--let $shutdown_server_timeout= 10
+--source include/shutdown_mysqld.inc
+
+--connection serv_3
+# cc node group 1 won't recover as log shipping will always timeout
+--error 216
+select * from t3;
+
+SET SESSION debug_dbug="-d,eloq;log_during_log_shipping";
+
+--sleep 2
+select * from t3;
+
+--connection serv_2
+--source include/start_mysqld.inc
+select * from t3;
+
+drop table t3;

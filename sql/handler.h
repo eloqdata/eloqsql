@@ -45,6 +45,7 @@
 #include "sql_sequence.h"
 #include "mem_root_array.h"
 #include <utility>     // pair
+#include <vector>
 
 class Alter_info;
 class Virtual_column_info;
@@ -366,7 +367,13 @@ enum chf_create_flags {
 /* Implements SELECT ... FOR UPDATE SKIP LOCKED */
 #define HA_CAN_SKIP_LOCKED  (1ULL << 61)
 
-#define HA_LAST_TABLE_FLAG HA_CAN_SKIP_LOCKED
+/*
+The engine support to load a batch of rows by rowids and save them in local
+cache, then get the rows one by one by get_next.
+*/
+#define HA_BATCH_ROWID (1ULL << 62)
+
+#define HA_LAST_TABLE_FLAG HA_BATCH_ROWID
 
 
 /* bits in index_flags(index_number) for what you can do with index */
@@ -1326,6 +1333,10 @@ struct handlerton
      Tell handler that query has been killed.
    */
    void (*kill_query)(handlerton *hton, THD *thd, enum thd_kill_levels level);
+   /*
+     Dbug Set Interface to inject fault in plugin.
+   */
+   void (*dbug_set)(handlerton *hton, THD *thd, LEX_CSTRING *val);
    /*
      sv points to an uninitialized storage area of requested size
      (see savepoint_offset description)
@@ -4026,6 +4037,19 @@ public:
   virtual int multi_range_read_explain_info(uint mrr_mode, char *str, 
                                             size_t size)
   { return 0; }
+  /**
+   * In this function, it will inputs a batch of keys and load all the related
+   * records and saved then in storage engine's cache. This records will be get
+   * from batch_get_record.
+   */
+  virtual int batch_load_records(std::vector<uchar*> &vct_key)
+  { return HA_ERR_END_OF_FILE; }
+  /**
+   * After call batch_load_records to load a batch of records, this function will
+   * get the records one by one from storage engine's cache.
+  */
+  virtual int batch_get_record(uchar *buf)
+  { return HA_ERR_END_OF_FILE; }
 
   virtual int read_range_first(const key_range *start_key,
                                const key_range *end_key,
@@ -5276,6 +5300,7 @@ TYPELIB *ha_known_exts(void);
 int ha_panic(enum ha_panic_function flag);
 void ha_close_connection(THD* thd);
 void ha_kill_query(THD* thd, enum thd_kill_levels level);
+void ha_dbug_set(THD *thd, LEX_CSTRING *val);
 void ha_signal_ddl_recovery_done();
 bool ha_flush_logs();
 void ha_drop_database(const char* path);

@@ -1,0 +1,1142 @@
+##############################################################################
+#
+#  List the test cases that are to be disabled temporarily.
+#
+#  Separate the test case name and the comment with ':'.
+#
+#    <testcasename> : BUG#<xxxx> <date disabled> <disabler> <comment>
+#
+#  Do not use any TAB characters for whitespace.
+#
+##############################################################################
+tablespace               : disabled in MariaDB (no TABLESPACE table attribute)
+events_time_zone         : Test is not predictable as it depends on precise timing.
+read_many_rows_innodb    : Bug#11748886 2010-11-15 mattiasj report already exists
+mysql_embedded           : Bug#12561297 2011-05-14 Anitha Dependent on PB2 changes - eventum#41836
+file_contents            : MDEV-6526 these files are not installed anymore
+max_statement_time       : cannot possibly work, depends on timing
+partition_open_files_limit : open_files_limit check broken by MDEV-18360
+partition_innodb         : Waiting for fix MDEV-20169
+alter_events              : CREATE EVENT e_t1 may cause crash.
+alter_table               : Bug #54 MysqlD crash, Do not support string field like.
+comment_column            : Do not support to modify column now.
+delete                    : There has problem to support multiple databases.
+flush                     : Always wait in line 220 create temporary table t2 (j int primary key);
+delete_returning          : temporarily disable this case, otherwise will fail
+#1st                                  : 0 pass
+#aborted_clients                      : 0 pass
+#adddate_454                          : 0 pass
+#alias                                : 0 pass collate _bin
+almost_full                          : no support
+alter_table-big                      : no support
+alter_table_autoinc-5574             : no support
+alter_table_debug                    : no support
+alter_table_errors                   : no support
+alter_table_mdev539_maria            : no support
+alter_table_mdev539_myisam           : no support
+alter_table_online                   : no support
+alter_table_trans                    : no support
+#alter_user                           : 1 pass
+analyze                              : no support. generates table statistics and the table is locked with a read lock
+analyze_debug                        : no support
+analyze_format_json                  : no support
+analyze_stmt                         : no support. is similar to the EXPLAIN statement
+analyze_stmt_orderby                 : no support
+analyze_stmt_privileges              : no support
+analyze_stmt_privileges2             : no support
+analyze_stmt_slow_query_log          : no support
+#ansi                                 : 0 pass
+aria_icp_debug                       : deleted
+assign_key_cache                     : deleted cache index only apply to myisam
+assign_key_cache_debug               : deleted
+auth_named_pipe                      : deleted windows
+auth_rpl                             : deleted no support binlog master-slave
+#auto_increment                       : 0 pass | depend on auto_increment implemention | alter table | truncate | unique #205 | check
+auto_increment_ranges_innodb         : deleted
+auto_increment_ranges_myisam         : deleted
+backup_aria                          : deleted
+backup_interaction                   : no support
+backup_lock                          : no support
+backup_lock_binlog                   : no support
+backup_lock_debug                    : no support
+backup_locks                         : no support
+backup_log                           : no support
+backup_priv                          : no support
+backup_stages                        : no support
+backup_syntax                        : no support
+bad_frm_crash_5029                   : deleted
+#bench_count_distinct                 : 1 pass
+#bigint                               : 0 pass | result same with innodb | alter table
+#binary                               : 1 pass | alter table
+#binary_to_hex                        : 1 pass
+#bind_address_resolution              : pass
+blackhole                            : deleted BLACKHOLE storage engine
+blackhole_plugin                     : no support
+#bool                                 : 0 pass
+#bootstrap                            : 0 pass
+bootstrap_innodb                     : deleted
+#brackets                             : 1 pass
+#bug12427262                          : 1 skipped Need performance schema compiled in
+bug13633383                          : no support GEOMETRY
+bug39022                             : wait for support SELECT ... FOR SHARE #321
+#bug46760                             : 1 pass
+#bug47671                             : 1 pass
+#bug58669                             : 1 pass
+#bulk_replace                         : pass
+cache_innodb                         : deleted
+#cache_temporal_4265                  : pass
+#case                                 : 0 pass
+cast                                 : uses unsupported charset cp1251
+#change_user                          : 1 pass
+#change_user_notembedded              : 1 pass
+charset_client_win                   : deleted
+check                                : no support | check | lock | alter table
+#check_constraint                     : 1 pass
+check_constraint_innodb              : deleted
+#check_constraint_show                : 1 pass
+#cli_options_force_protocol_not_win   : 1 pass
+cli_options_force_protocol_win       : deleted
+#client_xml                           : 1 pass
+column_compression                   : no support
+column_compression_parts             : no support
+column_compression_rpl               : no support
+column_compression_utf16             : no support
+comment_column2                      : wait for support alter table
+#comment_database                     : 1 pass
+#comment_index                        : 1 pass | alter table
+#comment_table                        : 1 pass
+#comments                             : 1 pass
+#commit                               : 0 pass | truncate | lock tables
+commit_1innodb                       : deleted
+#compare                              : 1 pass
+compound                             : deleted binlog
+#compress                             : 1 pass | result depending on auto increment implementation | xxx_bin collation is case-sensitive
+concurrent_innodb_safelog            : deleted
+concurrent_innodb_unsafelog          : deleted
+#connect-abstract                     : 1 pass
+#connect                              : 1 pass | rename
+#connect2                             : 1 pass
+#connect_debug                        : 1 pass
+#consistent_snapshot                  : wait for support Snapshot isolation level
+#constraints                          : 1 pass
+#contributors                         : pass
+#count_distinct                       : 0 pass | alter table
+#count_distinct2                      : 0 pass
+#count_distinct3                      : 0 pass
+#crash_commit_before                  : 0 pass
+create-big                           : deleted no support binlog
+create-uca                           : no support utf8mb3_unicode_ci
+#create                               : 0 pass | result same with innodb | alter table | lock | truncate | unique | timeout with eloq_ddl_skip_kv=off
+create_delayed                       : 1 skipped Test needs --big-test
+create_drop_binlog                   : no support
+#create_drop_db                       : 0 pass
+#create_drop_event                    : 1 pass
+#create_drop_function                 : 1 pass
+create_drop_index                    : 0 crash due to keyparts non-consistent.
+#create_drop_procedure                : 1 pass
+#create_drop_role                     : 1 pass
+#create_drop_server                   : 2 pass
+create_drop_trigger                  : no support. create xxx.TRN file in database folder.
+#create_drop_udf                      : 1 pass
+#create_drop_user                     : 1 pass
+#create_drop_view                     : 1 pass
+create_not_windows                   : no support
+create_or_replace                    : 1 no support TRUNCATE and lock
+create_or_replace2                   : deleted no support binlog and master-slave
+#create_or_replace_permission         : 1 pass
+#create_replace_tmp                   : 1 pass
+#create_select_tmp                    : 1 pass
+#create_user                          : 1 pass
+#create_utf8                          : 0 pass
+create_w_max_indexes_128             : need built with --with-max-indexes=128
+create_w_max_indexes_64              : wait for alter table
+#cte_cycle                            : 0 pass
+#cte_grant                            : 0 pass
+#cte_nonrecursive                     : 0 pass
+#cte_nonrecursive_not_embedded        : 0 pass
+#cte_recursive                        : 0 pass | alter
+#cte_recursive_not_embedded           : 0 pass
+ctype_ascii                          : deleted no support ascii
+ctype_big5                           : no support pass
+ctype_binary                         : no support pass
+ctype_collate                        : no support pass
+ctype_cp1250_ch                      : no support pass
+ctype_cp1251                         : no support pass
+ctype_cp850                          : no support pass
+ctype_cp932                          : no support pass
+ctype_cp932_binlog_row               : no support
+ctype_cp932_binlog_stm               : no support
+ctype_create                         : no support pass
+ctype_dec8                           : no support pass
+ctype_errors                         : no support pass
+ctype_eucjpms                        : no support pass
+ctype_euckr                          : no support pass
+ctype_filename                       : no support pass
+ctype_filesystem                     : no support pass
+ctype_gb2312                         : no support pass
+ctype_gbk                            : no support pass
+ctype_gbk_binlog                     : no support
+ctype_gbk_export_import              : no support skipped Need POSIX locale zh_CN.gbk
+ctype_hebrew                         : no support cannot convert character set
+ctype_latin1                         : no support pass #282
+ctype_latin1_de                      : no support crash
+ctype_latin2                         : no support pass
+ctype_latin2_ch                      : no support pass
+ctype_ldml                           : no support pass
+ctype_like_range                     : no support pass
+ctype_many                           : no support pass
+ctype_mb                             : no support pass
+ctype_nopad_8bit                     : no support pass
+ctype_partitions                     : no support
+ctype_recoding                       : no support
+ctype_sjis                           : no support pass
+ctype_swe7                           : no support pass
+ctype_tis620                         : no support pass
+ctype_uca                            : no support pass
+ctype_uca_innodb                     : no support pass
+ctype_uca_partitions                 : no support
+ctype_ucs                            : no support crash
+ctype_ucs2_def                       : no support pass
+ctype_ucs2_query_cache               : no support pass
+ctype_ucs2_uca                       : no support crash
+ctype_ujis                           : no support crash
+ctype_ujis_ucs2                      : no support result mismatch
+ctype_upgrade                        : no support skipped Need performance schema compiled in
+ctype_utf16                          : no support crash
+ctype_utf16_def                      : no support pass
+ctype_utf16_uca                      : no support crash
+ctype_utf16le                        : no support crash
+ctype_utf32                          : no support crash
+ctype_utf32_def                      : no support pass
+ctype_utf32_uca                      : no support crash
+#ctype_utf8                           : 0 pass | alter table | unique
+ctype_utf8_def_upgrade               : no support delete  frm no support
+ctype_utf8_uca                       : no support crash
+#ctype_utf8mb4                        : no support faild #226 #227
+ctype_utf8mb4_heap                   : no support delete
+ctype_utf8mb4_innodb                 : no support delete
+ctype_utf8mb4_myisam                 : no support delete
+ctype_utf8mb4_uca                    : no support crash
+#custom_aggregate_functions           : 0 pass | unique
+#custom_aggregates_i_s                : 0 pass
+#date_formats                         : pass
+#datetime_456                         : 1 pass
+ddl_i18n_koi8r                       : no support
+ddl_i18n_utf8                        : no support utf8mb3_unicode_ci
+deadlock_ftwrl                       : wait for support lock tables
+deadlock_innodb                      : deleted
+#debug_sync                           : 0 pass
+#default                              : pass | unique #205 #185 | GEOMETRY no support | alter table
+#default_debug                        : 0 pass
+#default_session                      : pass
+default_storage_engine               : no support
+delayed                              : deleted no support delayed
+delayed_blob                         : deleted no support delayed
+delete_innodb                        : deleted
+#delete_returning_grant               : 1 pass
+#delete_use_source                    : 0 pass | analyze | explain
+#delimiter_command_case_sensitivity   : 1 pass
+deprecated_features                  : deleted
+#derived                              : 0 pass | unique
+#derived_cond_pushdown                : 2 pass
+#derived_opt                          : 2 pass
+derived_split_innodb                 : deleted
+#derived_view                         : 2 pass
+#dirty_close                          : 0 pass
+#distinct                             : 0 pass | unique
+drop                                 : 0 no support .MAI/LOCK table
+#drop_bad_db_type                     : 1 skipped Needs Archive plugin
+drop_combinations                    : wait for CREATE SEQUENCE statament
+#drop_table_force                     : 1 skipped Need archive engine
+#dyncol                               : pass result changed because of collation.
+#empty_server_name-8224               : 1 pass
+#empty_string_literal                 : 1 pass
+#empty_table                          : 0 pass
+empty_user_table                     : wait for truncate
+#endspace                             : 1 pass
+#enforce_storage_engine               : 2 pass
+#enforce_storage_engine_opt           : 2 pass
+engine_error_in_alter-8453           : no support alter table
+#errors                               : 0 pass
+#error_simulation                     : 1 pass
+events_1                             : 0 no support with non-`test` database | #338
+events_2                             : 0 no support with non-`test` database | #338
+events_bugs                          : 0 no support with non-`test` database | #338
+#events_embedded                      : 0 skipped Test requires: embedded server
+events_grant                         : 0 no support with non-`test` database | #338
+events_logs_tests                    : 0 no support with non-`test` database | #338
+#events_microsec                      : 0 pass
+events_restart                       : 0 no support with non-`test` database | #338
+events_scheduling                    : 0 no support with non-`test` database | #338
+#events_slowlog                       : 0 pass
+events_stress                        : 0 no support with non-`test` database | #338
+events_trans                         : 0 no support with non-`test` database | #338
+#events_trans_notembedded             : 0 pass
+#except                               : 0 pass | explain
+#except_all                           : 0 pass | explain
+execution_constants                  : disabled since asan is enabled in pipeline
+explain                              : no support. need statistics
+explain_json                         : no support
+explain_json_format_partitions       : no support. partition table
+explain_json_innodb                  : deleted
+explain_non_select                   : no support
+explain_slowquerylog                 : no support
+#ext_key_noPK_6794                    : pass
+#failed_auth_3909                     : 1 pass
+#failed_auth_unixsocket               : 1 pass
+fast_prefix_index_fetch_innodb       : deleted
+features                             : wait for correct statistics | GEOMETRY no support | check | delay_key_write | fulltext
+#fetch_first                          : 0 pass
+#filesort_bad_i_s-7585                : pass
+#filesort_debug                       : pass
+fix_priv_tables                      : wait for alter table. related with mysql_system_tables_fix.sql
+flush-innodb-notembedded             : deleted
+flush-innodb                         : deleted
+flush2                               : deleted no support binlog
+flush_and_binlog                     : deleted no support binlog
+flush_block_commit                   : no support LOCK TABLE
+flush_block_commit_notembedded       : no support LOCK TABLE
+#flush_logs_not_windows               : pass
+#flush_notembedded                    : skipped  Need performance schema compiled in
+flush_read_lock                      : no support
+flush_read_lock_kill                 : no support
+#flush_ssl                            : pass
+flush_table                          : no support LOCK TABLE
+foreign_key                          : no support error ER_ROW_IS_REFERENCED_2 #197
+frm-debug                            : deleted
+frm_bad_row_type-7333                : deleted
+fulltext                             : no support
+fulltext2                            : no support
+fulltext3                            : no support
+fulltext_cache                       : no support
+fulltext_charsets                    : no support
+fulltext_derived_4257                : no support
+fulltext_derived_4316                : no support
+fulltext_distinct                    : no support
+fulltext_left_join                   : no support
+fulltext_multi                       : no support
+fulltext_order_by                    : no support
+fulltext_update                      : no support
+fulltext_var                         : no support
+func_analyse                         : no support
+#func_bit                             : 0 pass
+#func_compress                        : 0 pass | unique
+#func_concat                          : 0 pass | explain
+#func_crypt                           : 0 pass | unique
+#func_date_add                        : 0 pass
+#func_debug                           : 0 pass | explain
+#func_default                         : 0 pass | explain
+#func_des_encrypt                     : 0 pass
+#func_digest                          : 0 pass | unique
+#func_encrypt                         : 0 pass
+#func_encrypt_nossl                   : 0 skipped  only without SSL
+func_encrypt_ucs2                    : no support pass
+#func_equal                           : 0 pass
+#func_extract                         : 0 pass
+#func_gconcat                         : 0 pass | unique
+#func_group                           : 0 pass | unique
+func_group_innodb                    : deleted
+#func_hybrid_type                     : 0 pass | #282
+#func_if                              : 0 pass | explain
+#func_in                              : 0 pass
+#func_int                             : 0 pass
+#func_isnull                          : 0 pass | explain
+#func_json                            : 0 pass | explain
+#func_like                            : 0 pass | unique
+#func_math                            : 0 pass
+#func_misc                            : 0 pass | lock tables
+#func_op                              : 0 pass
+#func_regexp                          : 0 pass | explain
+#func_regexp_pcre                     : 0 pass
+#func_regexp_pcre_debug               : 0 pass
+#func_rollback                        : 0 pass | foreign key no support
+#func_sapdb                           : 0 pass
+#func_set                             : 0 pass | unique
+#func_str                             : 0 pass | #282 | unique | result changed because of collation
+#func_system                          : 0 pass
+#func_test                            : 0 pass | unique
+#func_time                            : 0 pass
+#func_time_hires                      : 0 pass | alter
+func_time_round                      : wait for support unique key
+#func_timestamp                       : 0 pass
+#func_weight_string                   : 0 pass | alter | explain
+#function_defaults                    : 0 pass | ON DUPLICATE KEY UPDATE #185 | alter table | check
+function_defaults_innodb             : deleted
+#function_defaults_notembedded        : 0 pass | DELAYED no support
+#gcc296                               : pass
+#get_diagnostics                      : pass
+gis-alter_table_online               : no support
+gis-debug                            : no support
+gis-json                             : no support
+gis-loaddata                         : no support
+gis-precise                          : no support
+gis-rt-precise                       : no support
+gis-rtree                            : no support
+gis                                  : no support
+gis_notembedded                      : no support
+#grant                                : 0 pass | truncate | rename | alter table | sys table field length limitation PR#55
+grant2                               : no support rename
+#grant3                               : 1 pass
+#grant4                               : 1 pass
+#grant5                               : 1 pass | lock table
+grant_4332                           : no support alter table
+grant_binlog_replay                  : deleted pass
+#grant_cache_no_prot                  : 1 pass
+#grant_cache_ps_prot                  : 1 skipped Need ps-protocol
+#grant_explain_non_select             : 1 pass
+#grant_kill                           : 1 pass
+grant_lowercase                      : 1 alter system table
+#grant_lowercase_fs                   : 1 skipped Test requires: 'case_insensitive_fs'
+#grant_master_admin                   : 1 pass
+#grant_not_windows                    : 1 pass
+#grant_read_only                      : 1 pass
+grant_repair                         : deleted no support xxx.mai file
+#grant_server                         : 1 pass
+#grant_slave_admin                    : 1 pass
+#grant_slave_monitor                  : 1 pass
+#greedy_optimizer                     : 0 pass | explain
+#group_by                             : 0 pass | lock tables | unique | analyze
+group_by_innodb                      : deleted
+#group_by_null                        : 0 pass
+group_min_max                        : 0 pass | analyze | optimize table | unique | timeout with eloq_ddl_skip_kv=off 
+group_min_max_innodb                 : deleted
+#handler_read_last                    : 1 pass
+#handlersocket                        : 1 skipped handlersocket plugin is not built
+#having                               : 0 pass | unique
+#having_cond_pushdown                 : 0 pass | explain
+#help                                 : 1 pass | lock tables | alter table
+#host_cache_size_functionality        : pass
+huge_frm-6224                        : no support | partiton
+ignored_index                        : 1 no support alter table
+ignored_index_innodb                 : deleted
+#implicit_char_to_num_conversion      : 1 pass
+implicit_commit                      : 1 disable savepoint | rename | query cache | handler | slave | binlog | checksum
+#in_datetime_241                      : 1 pass
+#in_subq_cond_pushdown                : 1 pass
+index_intersect                      : no support
+index_intersect_innodb               : no support
+index_merge_innodb                   : no support
+index_merge_myisam                   : no support
+#information_schema-big               : 2 pass | ELOQ_TEMP_TABLE_INFO
+information_schema                   : 2 skipped Need performance schema compiled in
+#information_schema2                  : 2 pass
+#information_schema_all_engines       : 2 skipped Need performance schema compiled in
+information_schema_chmod             : deleted
+#information_schema_db                : 2 pass | unique
+information_schema_inno              : deleted
+information_schema_linux             : 2 pass | disabled because it does not apply to the thread pool mode.
+#information_schema_parameters        : 2 pass
+information_schema_part              : no support partition
+#information_schema_prepare           : 2 pass
+#information_schema_routines          : 2 pass
+information_schema_stats             : no support alter table
+#init_connect                         : 1 pass
+init_connection_query_cache          : deleted no support query cache
+init_file                            : 1 pass --init-file option
+#init_file_longline_3816              : 1 pass
+#init_file_set_password-7656          : 1 pass
+innodb_bug878769                     : deleted
+innodb_ext_key                       : deleted
+innodb_group                         : deleted
+innodb_icp                           : deleted Index Condition Pushdown
+innodb_icp_debug                     : deleted
+innodb_ignore_builtin                : deleted
+innodb_load_xa                       : deleted
+innodb_mrr_cpk                       : deleted
+innodb_mysql_lock                    : deleted
+innodb_mysql_lock2                   : deleted
+innodb_mysql_sync                    : deleted
+innodb_utf8                          : deleted _ci collation
+#insert                               : 0 pass | unique
+insert_debug                         : wait for UNIQUE KEY | unique #205
+insert_innodb                        : deleted
+#insert_notembedded                   : 0 pass | delayed | unique
+#insert_returning                     : 0 pass | #185
+#insert_returning_datatypes           : 0 pass
+#insert_select                        : 0 pass | unique | check
+#insert_update                        : wait for UNIQUE KEY | unique #205 | truncate
+#insert_update_autoinc-7150           : 0 pass | result depending on auto_increment implementation
+#intersect                            : 0 pass | explain
+#intersect_all                        : 0 pass | explain
+invisible_binlog                     : deleted
+#invisible_field                      : 2 pass | alter table | unique
+invisible_field_debug                : no support create/drop index/alter table
+#invisible_field_grant_completely     : 2 pass
+#invisible_field_grant_system         : 2 pass
+invisible_partition                  : no support
+#ipv4_and_ipv6                        : 1 pass
+#ipv4_as_ipv6                         : 1 pass
+#ipv6                                 : 1 pass
+#join                                 : 0 pass | unique
+join_cache                           : 1 create index and analyze no support
+#join_crash                           : 1 pass
+#join_nested                          : 0 pass
+#join_nested_jcl6                     : 0 pass
+#join_optimizer                       : 1 pass
+#join_outer                           : 0 pass | alter table | analyze | unique | #447
+join_outer_innodb                    : deleted
+#join_outer_jcl6                      : 0 pass | same with join_outer.test
+key                                  : 1 UNIQUE and alter table no support
+key_cache                            : deleted | key_cache only support in MyISAM
+#key_diff                             : 1 pass
+#key_primary                          : 1 pass
+#keyread                              : 1 pass
+#keywords                             : 1 pass
+#kill-2                               : 1 pass
+kill                                 : 1 lock | truncate| alter table no support
+#kill_processlist-6619                : 1 pass
+#kill_query-6728                      : 1 pass
+large_pages                          : no support
+#last_value                           : pass
+#limit                                : 0 pass | explain | auto_inc
+#limit_rows_examined                  : 0 pass
+#loaddata                             : 1 pass | unique
+loaddata_autocom_innodb              : deleted
+#loadxml                              : 1 pass | locking table within mysqldump for read
+#locale                               : 1 pass
+lock                                 : no support
+lock_kill                            : no support
+lock_multi                           : no support
+lock_multi_bug38499                  : no support
+lock_multi_bug38691                  : no support
+lock_sync                            : no support
+lock_tables_lost_commit              : no support
+lock_user                            : no support
+lock_view                            : no support
+locked_temporary-5955                : no support
+locking_clause                       : no support
+#log_errchk                           : pass
+#log_slow                             : pass | truncate
+log_slow_debug                       : no support | alter table | create index | rename | truncate | create sequence
+#log_state                            : pass | result same with innodb
+#log_state_bug33693                   : pass
+#log_tables-big                       : pass
+log_tables                           : no support | truncate | lock table | show open table | alter table
+#log_tables_debug                     : pass
+log_tables_upgrade                   : skipped Need performance schema compiled in
+#long_host                            : 1 pass
+long_tmpdir                          : can not run $tinfo->{master_sh}
+long_unique                          : no support. unique | truncate | alter table
+long_unique_bugs                     : no support partition | unique | truncate | alter table | lock table
+long_unique_bugs_replication         : no support
+long_unique_debug                    : no support
+long_unique_delayed                  : no support
+long_unique_innodb                   : deleted
+long_unique_update                   : no support
+long_unique_using_hash               : no support
+lowercase_fs_off                     : skipped Need performance schema compiled in
+lowercase_fs_on                      : 2 skipped Test requires: 'case_insensitive_file_system'
+lowercase_mixed_tmpdir               : can not run $tinfo->{master_sh}
+lowercase_mixed_tmpdir_innodb        : deleted
+lowercase_table                      : known limitation #220 | system variable: lower_case_table_names, set to 1, table names are stored in lowercase on disk and comparisons are not case-sensitive.
+lowercase_table2                     : skipped Test requires: 'lowercase2' | alter table no support
+lowercase_table4                     : skipped Test requires: 'case_insensitive_file_system' | alter table no support
+#lowercase_table5                     : 2 pass
+#lowercase_table_grant                : 2 pass
+lowercase_table_qcache               : known limitation #220
+#lowercase_utf8                       : 2 pass
+lowercase_view                       : known limitation #220
+#max_password_errors                  : 1 pass
+#mdev-21101                           : pass | thread-handlinge
+mdev13607                            : current_record_count | INNER JOIN | NATURAL JOIN
+mdev19198                            : no support LOCK TABLE
+mdev316                              : no support charset collate
+#mdev375                              : pass
+#mdev6830                             : pass
+#mdev_14586                           : pass | alter table
+#mdev_19276                           : pass
+mdev_22370                           : no support LOCK TABLE
+mdl                                  : no support lock table
+mdl_sync                             : no support
+merge-big                            : deleted merge engine
+merge                                : deleted
+merge_debug                          : deleted
+merge_innodb                         : deleted
+merge_mmap                           : deleted
+metadata                             : no support #282
+mix2_myisam                          : deleted
+mix2_myisam_ucs2                     : deleted
+#mrr_derived_crash_4610               : 2 pass
+mrr_icp_extra                        : 1 optimizer_switch: index_condition_pushdown | alter table no support
+#multi_statement                      : 0 pass | status
+#multi_update                         : 0 pass | lock
+multi_update_big                     : currently, can not insert big data because of writeset limitation PR tx_service#326 | alter table
+multi_update_binlog                  : deleted
+multi_update_debug                   : wait for support lock table
+multi_update_innodb                  : deleted
+#multi_update_tiny_hash               : 0 pass
+#my_print_defaults                    : 0 pass
+myisam-big                           : deleted
+myisam-blob                          : deleted
+myisam-optimize                      : deleted
+myisam-system                        : deleted
+myisam                               : deleted
+myisam_crash_before_flush_keys       : deleted
+myisam_debug                         : deleted
+myisam_enable_keys-10506             : deleted
+myisam_explain_non_select_all        : deleted
+myisam_icp                           : deleted
+myisam_icp_debug                     : deleted
+myisam_icp_notembedded               : deleted
+myisam_mrr                           : deleted
+myisam_optimize                      : deleted
+myisam_recover                       : deleted
+myisampack                           : deleted
+#mysql-bug41486                       : pass
+#mysql-bug45236                       : pass
+mysql-metadata                       : JSON type
+#mysql                                : 1 pass | truncate | lock table | alter table | mysqldump skip-add-locks skip-disable-keys
+mysql5613mysql                       : deleted no support xxx.frm
+mysql57_virtual                      : deleted no support xxx.frm
+mysql_binary_mode                    : deleted no support binlog
+mysql_binary_zero_insert             : deleted no support binlog
+mysql_client_test                    : no support ALTER TABLE. need modify mysql_client_test.c
+mysql_client_test_comp               : skipped Needs auth_test_plugin
+mysql_client_test_nonblock           : no support ALTER TABLE. need modify mysql_client_test.c
+#mysql_comments                       : 1 pass
+mysql_cp932                          : no support charset
+mysql_install_db_win                 : no support
+mysql_json_mysql_upgrade             : no support
+mysql_json_mysql_upgrade_with_plugin_loaded   : no support
+mysql_json_table_recreate             : no support
+#mysql_locale_posix                    : skipped Need POSIX locale de_DE.iso88591
+#mysql_not_windows                     : 2 pass
+#mysql_protocols                       : pass
+#mysql_tzinfo_to_sql_symlink           : pass
+mysql_upgrade-20228                   : no support
+mysql_upgrade-6984                    : no support
+mysql_upgrade                         : no support
+mysql_upgrade_mysql_json_datatype     : no support
+mysql_upgrade_no_innodb               : no support
+mysql_upgrade_noengine                : no support
+mysql_upgrade_ssl                     : no support
+mysql_upgrade_to_100502               : no support
+mysql_upgrade_view                    : no support
+#mysqladmin                            : 1 pass
+mysqlbinlog-innodb                    : deleted
+mysqlbinlog                           : deleted
+mysqlbinlog_raw_mode                  : deleted
+mysqlbinlog_row_big                   : deleted
+mysqlbinlog_row_compressed            : deleted
+mysqlbinlog_row_minimal               : deleted
+mysqlbinlog_stmt_compressed           : deleted
+mysqlcheck                            : no support .MYI
+mysqld--defaults-file                 : need different eloq port
+mysqld--help-aria                     : deleted
+mysqld--help                          : result depending on env.
+mysqld_help_crash-9183                : no support rename
+#mysqld_option_err                     : 1 pass
+#mysqldump-compat-102                  : 1 pass
+#mysqldump-compat                      : 1 pass
+#mysqldump-max                         : 1 pass | alter table | savepoint | delayed
+#mysqldump-nl                          : 1 pass | skip-lock-tables
+mysqldump-no-binlog                   : deleted no support binlog
+#mysqldump-system                      : 1 skipped Need auth socket plugin
+mysqldump-utf8mb4                     : no support for Index column with utf8mb4 collate
+mysqldump                             : 1 pass | innodb table | create event #338 | unique #205 | create sequence | do not dump mysql database | skip-lock-tables | #389
+#mysqldump_restore                     : 1 pass | alter table
+mysqlhotcopy_myisam                   : deleted
+#mysqlshow                             : 1 pass
+mysqlslap                             : Concurrent updates will fail randomly | SERIAL is an alias for BIGINT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE
+#mysqltest                             : 1 pass
+#mysqltest_256                         : 1 pass
+#mysqltest_cont_on_error               : 1 pass
+#mysqltest_ps                          : 1 skipped Need ps-protocol
+#mysqltest_tracking_info               : 1 pass
+#named_pipe                            : 1 skipped Need windows
+#negation_elimination                  : 1 pass
+#nested_profiling                      : 1 pass
+#no-threads                            : 0 skipped Test requires: 'one_thread_per_connection'
+no_binlog                             : deleted
+#non_blocking_api                      : 1 pass
+#not_embedded_server                   : 1 pass
+not_partition                         : no support
+#null                                  : 0 pass | alter table
+#null_key                              : 0 pass | unique #205
+#odbc                                  : 1 pass
+#olap                                  : 0 pass | unique #205
+old-mode                              : 1 result mismatch
+#openssl_1                             : 1 pass | isolation level
+#openssl_6975                          : 1 pass
+opt_trace                             : no support analyze #233
+opt_trace_index_merge                 : no support optimizer_trace
+opt_trace_index_merge_innodb          : deleted
+opt_trace_security                    : no support optimizer_trace
+opt_trace_ucs2                        : no support ucs2
+#opt_tvc                               : pass
+#order_by-mdev-10122                   : 0 pass
+#order_by                              : 0 pass | result depending on auto_increment implementation | ER_OUT_OF_SORTMEMORY (1038)
+order_by_innodb                       : deleted
+#order_by_optimizer                    : 1 pass
+order_by_optimizer_innodb             : deleted
+#order_by_pack_big                     : 0 pass | analyze
+#order_by_sortkey                      : 0 pass | result depending on auto_increment implementation
+#order_by_zerolength-4285              : 0 pass
+#order_fill_sortbuf                    : 0 pass
+#outfile                               : 1 pass
+#outfile_loaddata                      : 1 pass
+#overflow                              : 1 pass
+#packet                                : 1 pass
+parser                                : issue #389
+parser_bug21114_innodb                : deleted
+#parser_not_embedded                   : 1 pass
+#parser_stack                          : 1 pass
+partition                             : no support
+partition_alter                       : no support
+partition_binlog                      : no support
+partition_binlog_stmt                 : no support
+partition_blackhole                   : no support
+partition_bug18198                    : no support
+partition_cache                       : no support
+partition_cache_innodb                : no support
+partition_cache_myisam                : no support
+partition_charset                     : no support
+partition_column                      : no support
+partition_column_prune                : no support
+partition_csv                         : no support
+partition_datatype                    : no support
+partition_debug_sync                  : no support
+partition_default                     : no support
+partition_disabled                    : no support
+partition_error                       : no support
+partition_example                     : no support
+partition_exchange                    : no support
+partition_explicit_prune              : no support
+partition_grant                       : no support
+partition_hash                        : no support
+partition_innodb_plugin               : no support
+partition_innodb_semi_consistent      : no support
+partition_innodb_stmt                 : no support
+partition_key_cache                   : no support
+partition_list                        : no support
+partition_mgm                         : no support
+partition_mgm_err                     : no support
+partition_mgm_err2                    : no support
+partition_mrr_aria                    : no support
+partition_mrr_innodb                  : no support
+partition_mrr_myisam                  : no support
+partition_myisam                      : no support
+partition_not_blackhole               : no support
+partition_not_windows                 : no support
+partition_order                       : no support
+partition_pruning                     : no support
+partition_range                       : no support
+partition_rename_longfilename         : no support
+partition_symlink                     : no support
+partition_sync                        : no support
+partition_truncate                    : no support
+partition_ucs2                        : no support
+partition_utf8-debug                  : no support
+partition_utf8                        : no support
+partition_windows                     : deleted
+#password_expiration                   : 1 pass | rename table no support
+#password_expiration_unix_socket       : 1 pass
+percona_nonflushing_analyze_debug     : no support
+perror-win                            : deleted
+#perror                                : 1 pass
+#plugin                                : pass
+plugin_auth                           : Test Authentication using auth_test_plugin.so
+plugin_auth_qa                        : Test Authentication using auth_test_plugin.so
+plugin_auth_qa_1                      : Test Authentication using auth_test_plugin.so
+plugin_auth_qa_2                      : using plugin qa_auth_interface
+plugin_auth_qa_3                      : using plugin qa_auth_server
+plugin_innodb                         : deleted
+#plugin_load                           : 2 pass
+#plugin_load_option                    : 2 pass
+plugin_loaderr                        : deleted test innodb plugin
+plugin_maturity                       : plugin system maturity
+plugin_not_embedded                   : plugin system
+plugin_vars                           : plugin system
+pool_of_threads                       : pass | kill query | Does not apply to coroutine.
+#precedence                            : 1 pass
+#precedence_bugs                       : 1 pass
+preload                               : delete CACHE INDEX applies only to MyISAM tables
+#prepare                               : 0 pass | alter table
+#processlist                           : 1 pass
+#processlist_notembedded               : 1 pass
+#profiling                             : 1 pass
+#progress_976225                       : 1 pass
+#ps                                    : 1 pass | alter table | lock table | analyze | optimize | repair | unique #205 | foreign
+#ps_10nestset                          : 1 pass
+#ps_11bugs                             : 1 pass
+#ps_1general                           : 1 pass | rename
+ps_2myisam                            : deleted
+ps_3innodb                            : deleted
+ps_4heap                              : deleted
+ps_5merge                             : deleted
+ps_change_master                      : deleted no support binlog
+#ps_ddl                                : 1 pass | alter table | unique
+#ps_ddl1                               : 1 pass | alter table | unique
+#ps_error                              : 1 pass
+#ps_grant                              : 1 pass
+ps_innodb                             : deleted
+#ps_max_subselect-5113                 : 1 pass
+ps_missed_cmds                        : no support check/lock/alter table
+#ps_missed_cmds_bin_prot               : 1 skipped Need ps-protocol
+#ps_missed_cmds_bin_prot_not_embedded  : 1 skipped Need ps-protocol
+#ps_missed_cmds_not_embedded           : 1 pass
+ps_not_windows                        : /root/some_plugin.so
+ps_qc_innodb                          : deleted
+ps_show_log                           : deleted binlog
+query_cache                           : deleted
+query_cache_28249                     : deleted
+query_cache_debug                     : deleted
+query_cache_innodb                    : deleted
+query_cache_merge                     : deleted
+query_cache_notembedded               : deleted
+query_cache_ps_no_prot                : deleted
+query_cache_ps_ps_prot                : deleted
+query_cache_with_views                : deleted
+#quick_select_4161                     : 0 pass
+#range                                 : 0 pass | result depending on auto_increment implementation
+#range_debug                           : 1 pass
+range_innodb                          : deleted
+range_interrupted-13751               : query interrupt no support
+#range_mrr_icp                         : 1 pass
+#range_notembedded                     : 1 pass
+range_vs_index_merge                  : no support create index
+range_vs_index_merge_innodb           : deleted
+#read_only                             : 0 pass | lock table | need bin log enable for create temporary table when read only is true
+read_only_innodb                      : deleted
+rename                                : no support
+renamedb                              : no support
+reopen_temp_table                     : 1 no support reopen
+repair                                : deleted repair only for MyISAM, CSV
+repair_symlink-5543                   : deleted
+#replace                               : 1 pass | depending on auto_increment implementation
+#replace_returning                     : 1 pass
+#replace_returning_datatypes           : 1 pass
+#replace_returning_err                 : 1 pass
+#require_secure_transport              : 1 pass
+#reset_connection                      : 1 pass
+#rollback                              : 0 pass | eloq is transactional
+#round                                 : 0 pass
+row-checksum-old                      : no support
+row-checksum                          : no support
+#row                                   : 0 pass | explain
+#rowid_filter                          : 0 pass | alter table | explain
+rowid_filter_innodb                   : deleted
+rowid_filter_innodb_debug             : deleted
+rowid_filter_myisam                   : deleted
+rowid_filter_myisam_debug             : deleted
+rowid_order_innodb                    : deleted
+#rownum                                : 0 pass | show status
+rpl_mysql_upgrade_slave_repo_check    : deleted binlog master-slave mode
+rpl_mysqldump_slave                   : deleted binlog
+schema                                : 0 pass, https://github.com/eloqdb/tx_service/issues/569
+#second_frac-9175                      : 1 pass
+secure_file_priv_win                  : deleted
+#select                                : 0 pass | unique #205 | fulltext #233 | result depending on auto_increment implementation and collation set | analyze
+#select_debug                          : 0 pass | explain
+#select_found                          : 0 pass | unique #205
+#select_jcl6                           : 0 pass 216988ms | result depending on auto_increment implementation and collation set
+#select_pkeycache                      : 0 pass 186946ms | result depending on auto_increment implementation and collation set | analyze
+select_safe                           : wait until we can get correct statistics. #241 | analyze | alter table
+#selectivity                           : 1 pass
+selectivity_innodb                    : deleted
+#selectivity_no_engine                 : 1 pass
+#servers                               : 1 pass
+session_tracker_last_gtid             : deleted binlog no support
+#set_operation                         : 0 pass | explain
+#set_operation_oracle                  : 1 pass
+#set_password                          : 1 pass | rename table global_priv
+#set_statement                         : 1 pass
+#set_statement_debug                   : 1 pass
+#set_statement_notembedded             : 1 pass
+set_statement_notembedded_binlog      : deleted
+#set_statement_profiling               : 1 pass
+#show                                  : 0 pass
+#show_bad_definer-5553                 : 0 pass | status
+#show_check                            : 0 pass | lock | unique #205
+#show_create_user                      : 0 pass
+#show_explain                          : 0 pass | no use INNODB_LOCK_WAITS, INNODB_TRX | character cp125
+#show_explain_non_select               : 0 pass
+#show_explain_ps                       : 0 skipped  Need performance schema compiled in
+#show_function_with_pad_char_to_full_length  : 0 pass
+#show_profile                          : 0 pass
+#show_row_order-9226                   : 0 pass
+#shutdown                              : 1 pass
+#shutdown_not_windows                  : 1 pass
+#sighup-6580                           : 1 pass
+#signal                                : 1 pass
+#signal_code                           : 1 pass
+signal_demo1                          : no support trigger
+#signal_demo2                          : 1 pass
+#signal_demo3                          : 1 pass
+#signal_sqlmode                        : 1 pass
+#simultaneous_assignment               : 0 pass | #233 | #205
+#single_delete_update                  : 0 pass
+single_delete_update_innodb           : deleted
+skip_grants                           : 1 pass
+skip_log_bin                          : deleted
+#skip_name_resolve                     : 1 pass
+#slowlog_enospace-10508                : 1 pass
+#sp-anchor-row-type-cursor             : 1 pass | alter table
+#sp-anchor-row-type-table              : 1 pass
+#sp-anchor-type                        : 1 pass | unique
+#sp-big                                : 1 pass
+#sp-bugs                               : 1 pass | truncate | function name case sensive
+#sp-bugs2                              : 1 pass
+#sp-code                               : 1 pass | CASE SENSIVE
+#sp-condition-handler                  : 1 pass
+#sp-cursor                             : 1 pass
+sp-destruct                           : deleted .frm file no support
+#sp-dynamic                            : 1 pass
+#sp-error                              : 1 pass | lock table | truncate | procedure name is case-sensitive #327 | alter table
+#sp-expr                               : 1 pass
+#sp-fib                                : 1 pass
+#sp-for-loop                           : 1 pass
+#sp-group                              : 1 pass
+sp-innodb                             : deleted
+#sp-lock                               : 1 pass | lock table | SAVEPOINT no support
+#sp-no-code                            : 1 skipped Does not run with debug binaries
+#sp-no-valgrind                        : 1 pass
+#sp-prelocking                         : 1 pass
+#sp-row                                : 1 pass
+#sp-security-anchor-type               : 1 pass
+#sp-security                           : 1 pass
+#sp-threads                            : 1 pass | lock tables
+sp-ucs2                               : no support ucs2 charset
+#sp-vars                               : 1 pass
+#sp                                    : 1 pass | truncate | lock table | unique #205 | analyze | repair | optimizer | FULLTEXT #233 | view #372 | #373 | checksum
+#sp2                                   : 1 pass
+sp_gis                                : no support GIS
+#sp_missing_4665                       : 1 pass
+sp_notembedded                        : 1 no support rename table | check-mysqld_1 mismatch | Unknown events #327
+#sp_stress_case                        : 1 pass
+#sp_sync                               : 1 pass | lock table
+#sp_trans                              : 1 pass | truncate | alter table | SAVEPOINT no support
+sp_trans_log                          : deleted no support binlog
+#sql_mode                              : 0 pass
+#sql_safe_updates                      : 0 pass
+#ssl-big                               : 1 pass
+#ssl                                   : 1 pass | result depending on auto increment implementation | xxx_bin collation is case-sensitive
+#ssl_7937                              : 1 pass
+#ssl_8k_key                            : 1 pass
+ssl_and_innodb                        : deleted
+#ssl_ca                                : 1 pass
+ssl_cipher                            : 1 skipped OpenSSL 1.1.1
+#ssl_compress                          : 1 pass | result depending on auto increment implementation | xxx_bin collation is case-sensitive
+#ssl_connect                           : 1 pass
+#ssl_crl                               : 1 pass
+#ssl_crl_clients                       : 1 pass
+#ssl_system_ca                         : 1 pass
+#ssl_timeout-9836                      : 1 pass
+#ssl_timeout                           : 1 pass
+#ssl_verify_ip                         : 1 pass
+#stack-crash                           : 0 pass
+stat_tables-enospc                    : table statistics, index statistics, column statistics
+stat_tables                           : table statistics
+stat_tables_disabled                  : table statistics
+stat_tables_innodb                    : deleted
+stat_tables_innodb_debug              : deleted
+stat_tables_missing                   : column statistics
+stat_tables_myisam_debug              : deleted
+stat_tables_par                       : information_schema.statistics
+stat_tables_par_innodb                : deleted
+stat_tables_partition                 : no support partition
+stat_tables_rbr                       : table statistics, no support partition
+stat_tables_repl                      : table statistics
+#statement-expr                        : 0 pass
+statistics                            : table statistics, index statistics, column statistics
+statistics_close                      : no support rename table
+statistics_index_crash-7362           : index statistics
+status                                : show status result incorrect
+status2                               : show status
+status_bug17954                       : show status
+#str_to_datetime_457                   : 1 pass
+#strict                                : 1 pass
+strict_autoinc_1myisam                : deleted
+strict_autoinc_2innodb                : deleted
+strict_autoinc_3heap                  : deleted
+#strings                               : 0 pass
+#subselect-crash_15755                 : 0 pass
+#subselect                             : 0 pass 209720ms | fulltext | alter table | truncate | unique #205 | foreign key
+#subselect2                            : 0 pass | alter table | foreign | explain
+#subselect3                            : 0 pass | alter table | explain | unique
+#subselect3_jcl6                       : 0 pass | unique
+#subselect4                            : 0 pass | explain | unique #205
+subselect_cache                       : no support query cache | exlain | alter table| statistics
+#subselect_debug                       : 0 pass
+#subselect_exists2in                   : 0 pass | alter table | explain
+#subselect_exists2in_costmat           : 0 pass | alter | explain
+#subselect_extra                       : 0 pass | explain
+#subselect_extra_no_semijoin           : 0 pass
+subselect_gis                         : no support gis
+subselect_innodb                      : deleted
+#subselect_mat                         : 0 pass | explain
+#subselect_mat_cost                    : 0 pass | explain | result depending on auto_increment implementation | cost too much time
+#subselect_mat_cost_bugs               : 0 pass | explain
+#subselect_no_exists_to_in             : 0 pass 207427ms
+#subselect_no_mat                      : 0 pass 201130ms
+#subselect_no_opts                     : 0 pass 192495ms
+#subselect_no_scache                   : 0 pass 215022ms
+#subselect_no_semijoin                 : 0 pass 214736ms
+#subselect_notembedded                 : 0 pass
+#subselect_nulls                       : 0 pass
+#subselect_partial_match               : 0 pass | explain
+#subselect_sj                          : 0 pass 119734ms | alter | explain
+#subselect_sj2                         : 0 pass | alter | unique #205
+#subselect_sj2_jcl6                    : 0 pass | explain
+#subselect_sj2_mat                     : 0 pass | explain
+subselect_sj_aria                     : deleted
+#subselect_sj_jcl6                     : 0 pass 128296ms | explain
+#subselect_sj_mat                      : 0 pass | alter | index | explain | unique #205
+#subselect_sj_nonmerged                : 0 pass | alter | explain | unique
+sum_distinct-big                      : cannot run this test because of limitation of write_set size. PR#382  | truncate
+#sum_distinct                          : 0 pass
+symlink-aria-11902                    : deleted
+symlink-myisam-11902                  : deleted
+symlink                               : wait for alter table
+synchronization                       : wait for alter table
+#sysdate_is_now                        : 1 pass
+#system_mysql_db                       : 1 pass
+system_mysql_db_507                   : wait for rename table supported
+#system_mysql_db_error_log             : 1 pass
+system_mysql_db_fix40123              : wait for alter table supported
+system_mysql_db_fix50030              : wait for alter table supported
+system_mysql_db_fix50117              : wait for alter table supported
+#system_mysql_db_refs                  : 1 pass
+#system_time_debug                     : 1 pass
+#table_elim                            : 1 pass | unique
+#table_elim_debug                      : 1 pass
+#table_keyinfo-6838                    : 1 pass
+#table_options-5867                    : 1 pass
+#table_options                         : 1 pass | alter table
+#table_value_constr                    : 1 pass
+tablelock                             : no support
+tc_heuristic_recover                  : no support
+#temp_table                            : 0 pass | alter | truncate | lock | check analyze repair renamne optimize
+#temp_table_frm                        : 1 pass
+temp_table_symlink                    : no support xxx.MYI
+#temporal_literal                      : 1 pass
+#temporal_scale_4283                   : 1 pass
+#thread_id_overflow                    : 1 pass
+thread_pool_info                      : 1 pass | result mismatch if build with COROUTINE_ENABLED=ON
+timeout                               : most syntax no support
+#timezone                              : 0 pass | same with innodb
+#timezone2                             : 0 pass | truncate | same with innodb | lock tables
+#timezone3                             : 0 pass
+#timezone4                             : 0 pass
+#timezone_grant                        : 1 pass
+#tls_version                           : 1 pass
+#tls_version1                          : 1 pass
+tmp_table_count-7586                  : 1 skipped Need performance schema compiled in
+trans_read_only                       : start with option transaction-read-only=true print error msg in mysqld.err: Could not open mysql.plugin table
+#transaction_timeout                   : 1 pass
+trigger-compat                        : no support create trigger in non-`test` database
+#trigger-trans                         : 0 pass | alter | truncate | foreign key | lock | optimize
+#trigger                               : 0 pass | alter | rename | truncate | create trigger in non-test database | lock table
+trigger_no_defaults-11698             : 0 pass
+trigger_notembedded                   : no support create trigger in non-`test` database | truncate | Cannot create/write to file
+#trigger_null-8605                     : 0 pass | alter | delayed | result same with innodb
+trigger_wl3253                        : 0 pass | auto incr
+truncate-stale-6500                   : no support partition
+truncate                              : no support truncate
+truncate_badse                        : no support
+truncate_coverage                     : no support
+truncate_notembedded                  : no support
+#type_binary                           : 0 pass | alter
+#type_bit                              : 0 pass | alter | explain
+type_bit_innodb                       : deleted
+#type_blob                             : 0 pass | alter | unique #205 | explain | lock
+#type_date                             : 0 pass | alter | explain
+#type_date_round                       : 0 pass | alter | explain
+#type_datetime                         : 0 pass | truncate | explain | check | optimize
+#type_datetime_hires                   : 0 pass | partition | alter
+#type_datetime_round                   : 0 pass | alter | explain | unique
+#type_decimal                          : 0 pass | unique #205 | explain
+#type_enum                             : 0 pass | alter | explain
+#type_float                            : 0 pass | alter | explain
+#type_hex_hybrid                       : 0 pass | explain
+#type_int                              : 0 pass | explain | alter | unique
+#type_interval                         : 0 pass
+#type_json                             : 0 pass
+#type_nchar                            : 0 pass
+#type_newdecimal-big                   : 0 pass
+#type_newdecimal                       : 0 pass | alter | explain
+#type_num                              : 0 pass | alter
+type_num_innodb                       : deleted
+#type_ranges                           : 0 pass  | unique | alter | lock | result depend on auto_increment implementation
+#type_row                              : 0 pass
+#type_set                              : 0 pass | unique #205 | alter | explain
+type_temporal_innodb                  : deleted
+type_temporal_mariadb53               : deleted no support xxx.frm
+type_temporal_mysql56                 : deleted no support xxx.frm
+type_temporal_mysql56_debug           : no support alter table ... force
+#type_time                             : 0 pass | alter | explain
+#type_time_6065                        : 0 pass | explain
+#type_time_hires                       : 0 pass
+#type_time_round                       : 0 pass | alter | explain | auto incr | unique
+#type_timestamp                        : 0 pass | truncate | alter
+#type_timestamp_hires                  : 0 pass
+#type_timestamp_round                  : 0 pass | alter | auto incr
+#type_uint                             : 0 pass | alter
+#type_varchar                          : 0 pass | truncate | alter | explain
+type_varchar_mysql41                  : deleted no support xxx.frm
+#type_year                             : 0 pass | explain | alter
+#udf                                   : 0 pass | explain | #327 know_limitation
+#udf_debug_sync                        : 0 pass
+#udf_notembedded                       : 0 pass
+#udf_query_cache                       : 0 pass
+#udf_skip_grants                       : 0 pass
+#union                                 : 0 pass | alter table | fulltext #233 | explain | unique #205
+#union_crash-714                       : 0 pass
+unique                                : no support
+unsafe_binlog_innodb                  : deleted
+#update                                : 0 pass | alter table | truncate | unqiue
+#update_ignore_216                     : 0 pass
+update_innodb                         : deleted
+#update_use_source                     : 0 pass | analyze | alter | fulltext #233 | trigger no support
+upgrade                               : no support
+upgrade_MDEV-19650                    : no support
+upgrade_MDEV-23102-1                  : no support
+upgrade_MDEV-23102-2                  : no support
+upgrade_mdev_24363                    : no support
+#user_limits                           : 1 pass
+user_var-binlog                       : deleted
+#user_var                              : 1 pass | unqiue
+#userstat-badlogin-4824                : 1 pass
+#userstat                              : skipped Need performance schema compiled in
+#varbinary                             : 1 pass | alter table | unique #205 | frm myd myi no support
+#variables-notembedded                 : 1 pass
+#variables                             : 0 pass | alter table | statistic #241 | check | explain
+#variables_community                   : 1 pass
+#view                                  : 0 pass 199695ms | alter | unique #205 | fulltext | rename | replace | #466 | check | lock tables | analyze
+#view_alias                            : 0 pass
+view_debug                            : can not run this test because we invalidate the local cache of SP every time, so cannot enter debug_sync point.
+#view_grant                            : 0 pass | lock tables
+#wait_timeout                          : pass
+#warnings                              : 1 pass | alter table | unique #205
+#warnings_debug                        : 1 pass
+warnings_engine_disabled              : deleted
+#win                                   : 0 pass | unique #205 | explain
+#win_as_arg_to_aggregate_func          : 1 pass
+#win_avg                               : 1 pass
+#win_big-mdev-10092                    : 1 pass
+#win_big-mdev-11697                    : 1 pass
+#win_big                               : 1 pass
+#win_bit                               : 1 pass
+#win_empty_over                        : 1 pass
+#win_first_last_value                  : 1 pass
+#win_i_s                               : 1 pass
+#win_insert_select                     : 1 pass
+#win_lead_lag                          : 1 pass
+#win_min_max                           : 1 pass
+#win_nth_value                         : 1 pass
+#win_ntile                             : 1 pass
+#win_orderby                           : 1 pass
+#win_percent_cume                      : 1 pass
+#win_percentile                        : 1 pass
+#win_rank                              : 1 pass
+#win_std                               : 1 pass
+#win_sum                               : 0 pass
+windows                               : deleted
+windows_debug                         : deleted
+#wolfssl                               : 2 pass
+xa                                    : no support
+xa_binlog                             : deleted
+xa_prepared_binlog_off                : deleted
+xa_sync                               : no support
+#xml                                   : 1 pass
+#xtradb_mrr                            : 1 pass | unique

@@ -34,6 +34,16 @@
 #include "threadpool_winsockets.h"
 #endif
 
+#ifdef COROUTINE_ENABLED
+#include <boost/context/continuation.hpp>
+#include <boost/context/stack_context.hpp>
+#include <boost/context/preallocated.hpp>
+#include "threadpool_generic.h"
+#include <chrono>
+#include <condition_variable>
+#include <mutex>
+#endif
+
 /* Threadpool parameters */
 
 uint threadpool_min_threads;
@@ -55,6 +65,8 @@ TP_STATISTICS tp_stats;
 static void  threadpool_remove_connection(THD *thd);
 static dispatch_command_return threadpool_process_request(THD *thd);
 static THD*  threadpool_add_connection(CONNECT *connect, TP_connection *c);
+static void tp_wait_begin(THD *thd, int type);
+static void tp_wait_end(THD *thd);
 
 extern bool do_command(THD*);
 
@@ -173,6 +185,121 @@ static TP_PRIORITY get_priority(TP_connection *c)
   return prio;
 }
 
+#ifdef COROUTINE_ENABLED
+boost::context::continuation
+CloseConnCoroutine(boost::context::continuation &&caller, THD *thd)
+{
+  // The address of stack_thd marks the beginning of the coroutine's stack.
+  THD *stack_thd= thd;
+  thread_attach(stack_thd);
+  TP_connection *c= get_TP_connection(thd);
+  TP_connection_generic *connection=(TP_connection_generic *)c;
+  thread_group_t *thread_group= connection->thread_group;
+  
+  thd->yield_func_= [&main= caller, conn = connection]() {
+    LIST *node = conn->acquired_mutexes;
+    while(node)
+    {
+      // Release all mutexes acquired by this coroutine. 
+      // These mutexes will be reacquired when this coroutine resumes,
+      // and until then, all mutex lock on this mutex will be blocked as well.
+      // This makes sure that the same mutex is always locked and unlocked by the
+      // same pthread. Otherwise if a coroutine yields when holding a mutex, then
+      // resumed on a different pthread in the thread group, the mutex lock will fail.
+#ifdef SAFE_MUTEX
+      inline_mysql_mutex_unlock((mysql_mutex_t *) node->data, __FILE__, __LINE__);
+#else
+      inline_mysql_mutex_unlock((mysql_mutex_t *) node->data);
+#endif
+      node= node->next;
+    }
+    main= main.resume();
+  };
+
+  thd->resume_func_= [thd_group= thread_group, conn= connection]() {
+
+    CoroutineInfo &coro_info = *thd_group->coroutine_info_;
+    coro_info.resume_queue_.Enqueue(conn);
+
+    // By the time the first load() returns 0 and the mutex is locked,
+    // the resumed request must have been put into the resume queue.
+    // If the running thread count is non-zero, no need to wake up the
+    // thread group, because the last running thread will pick it up
+    // before trying to sleep.
+    if (coro_info.running_thds_.load(std::memory_order_relaxed) == 0)
+    {
+      mysql_mutex_lock(&thd_group->mutex);
+
+      if (coro_info.running_thds_.load(std::memory_order_relaxed) == 0)
+      {
+        int err = thd_group->WakeOrCreateThread();
+        if (err != 0)
+        {
+          sql_print_warning(
+            "Resumed command fails to wake up the thread group %d, err: %d",
+            coro_info.group_id_, err);
+        }
+      }
+
+      mysql_mutex_unlock(&thd_group->mutex);
+    }
+  };
+
+  thd->long_resume_func_= [thd_group= thread_group, conn= connection]() {
+    thd_group->coroutine_info_->req_queue_.Enqueue(conn);
+  };
+
+  // The following code is copied from threadpool_remove_connection().
+  // thread_attach(thd);
+  thd->net.reading_or_writing = 0;
+  end_connection(thd);
+  close_connection(thd, 0);
+  unlink_thd(thd);
+  // PSI_CALL_delete_current_thread(); // before THD is destroyed
+  // delete thd;
+  /*
+    Free resources associated with this connection:
+    mysys thread_var and PSI thread.
+  */
+  // my_thread_end();
+
+  thd->coro_status_= THD::CoroStatus::Finished;
+  return std::move(caller);
+}
+
+void ResumeCoroutine(THD *thd, bool bind_socket = true)
+{
+  // The following code is copied from thread_attach() to restore session
+  // context in the physical thread before resuming the command coroutine.
+  // Different from thread_attach(), the 2nd line is intentionally commented.
+  // thread_atack marks the begin of the coroutine stack and is set when the
+  // coroutine starts. It is used by MySQL to track a query's execution stack
+  // overflow.
+  set_mysys_var(thd->mysys_var);
+  // thd->thread_stack= (char *) &thd;
+  thd->store_globals();
+  PSI_CALL_set_thread(thd->get_psi());
+  if (bind_socket)
+  {
+    mysql_socket_set_thread_owner(thd->net.vio->mysql_socket);
+  }
+  /* restore all mutexes of this thd that was released on yield.*/
+  TP_connection_generic *connection= (TP_connection_generic *) get_TP_connection(thd);
+  LIST *node= connection->acquired_mutexes;
+  // Reacquire all mutex locks that we released on yield.
+  while(node)
+  {
+#if defined(SAFE_MUTEX) || defined (HAVE_PSI_MUTEX_INTERFACE)
+  inline_mysql_mutex_lock((mysql_mutex_t *)node->data, __FILE__, __LINE__);
+#else
+  inline_mysql_mutex_lock((mysql_mutex_t *)node->data);
+#endif
+    node= node->next;
+  }
+
+  thd->cmd_coroutine_= thd->cmd_coroutine_.resume();
+}
+#endif
 
 void tp_callback(TP_connection *c)
 {
@@ -182,6 +309,13 @@ void tp_callback(TP_connection *c)
   worker_context.save();
 
   THD *thd= c->thd;
+
+#ifdef COROUTINE_ENABLED
+  if (c->state == TP_STATE_CLOSING)
+  {
+    goto error;
+  }
+#endif
 
   c->state = TP_STATE_RUNNING;
 
@@ -219,6 +353,10 @@ retry:
         goto error;
       case DISPATCH_COMMAND_SUCCESS:
         break;
+      case DISPATCH_COMMAND_YIELD:
+        worker_context.restore();
+        c->being_processed_.store(false, std::memory_order_relaxed);
+        return;
     }
     thd->async_state.m_state= thd_async_state::enum_async_state::NONE;
   }
@@ -236,6 +374,64 @@ retry:
   return;
 
 error:
+#ifdef COROUTINE_ENABLED
+  if (thd)
+  {
+    c->state = TP_STATE_CLOSING;
+    c->being_processed_.store(true, std::memory_order_relaxed);
+    if (thd->coro_status_ == THD::CoroStatus::Empty)
+    {
+      TP_connection_generic *connection=(TP_connection_generic *)c;
+      thread_group_t *thd_group= connection->thread_group;
+
+      thd->SetThdGroupId(thd_group->coroutine_info_->group_id_);
+      thd_group->coroutine_info_->coro_cnt_.fetch_add(
+        1, std::memory_order_relaxed);
+
+      boost::context::stack_context scx= thd->CoroStackContext();
+      boost::context::preallocated prealloc(scx.sp, THD::sql_coro_stack_size,
+                                            scx);
+      thd->coro_status_= THD::CoroStatus::Ongoing;
+      thd->cmd_coroutine_= boost::context::callcc(
+        std::allocator_arg, prealloc, THD::NoopAllocator(),
+        std::bind(CloseConnCoroutine, std::placeholders::_1, thd));
+    }
+    else if (thd->coro_status_ == THD::CoroStatus::Ongoing)
+    {
+      ResumeCoroutine(thd, false);
+    }
+
+    if (thd->coro_status_ == THD::CoroStatus::Finished)
+    {
+      thd->coro_status_= THD::CoroStatus::Empty;
+
+      TP_connection_generic *connection=(TP_connection_generic *)c;
+      thread_group_t *thd_group= connection->thread_group;
+      thd_group->coroutine_info_->coro_cnt_.fetch_sub(1, std::memory_order_relaxed);
+
+      PSI_CALL_delete_current_thread(); // before THD is destroyed
+      delete thd;
+      /*
+        Free resources associated with this connection:
+        mysys thread_var and PSI thread.
+      */
+      my_thread_end();
+
+      delete c;
+      worker_context.restore();
+    }
+    else
+    {
+      worker_context.restore();
+      c->being_processed_.store(false, std::memory_order_relaxed);
+    }
+  }
+  else
+  {
+    delete c;
+    worker_context.restore();
+  }
+#else
   c->thd= 0;
   if (thd)
   {
@@ -243,8 +439,17 @@ error:
   }
   delete c;
   worker_context.restore();
+#endif
 }
 
+#ifdef COROUTINE_ENABLED
+struct SyncTuple
+{
+  std::mutex mux_;
+  std::condition_variable cv_;
+  bool finished_{false};
+};
+#endif
 
 static THD *threadpool_add_connection(CONNECT *connect, TP_connection *c)
 {
@@ -283,8 +488,49 @@ static THD *threadpool_add_connection(CONNECT *connect, TP_connection *c)
 
   setup_connection_thread_globals(thd);
 
+#ifdef COROUTINE_ENABLED
+  SyncTuple sync_tuple;
+
+  thd->yield_func_ = [&sync_t = sync_tuple, thd = thd]()
+  {
+    tp_wait_begin(thd, THD_WAIT_SYNC);
+    std::unique_lock<std::mutex> lk(sync_t.mux_);
+    sync_t.cv_.wait(lk, [&]{ return sync_t.finished_; });
+    sync_t.finished_ = false;
+    tp_wait_end(thd);
+  };
+
+  thd->resume_func_ = [&sync_t = sync_tuple]()
+  {
+    std::unique_lock<std::mutex> lk(sync_t.mux_);
+    sync_t.finished_ = true;
+    sync_t.cv_.notify_one();
+  };
+  thd->long_resume_func_= nullptr;
+#endif
+
+#ifdef EXT_TX_PROC_ENABLED
+  TP_connection_generic *conn = (TP_connection_generic *)c;
+  thread_group_t *thd_group = conn->thread_group;
+  thd_group->coroutine_info_->coro_cnt_.fetch_add(1,
+                                                  std::memory_order_acq_rel);
+  thd->SetThdGroupId(thd_group->coroutine_info_->group_id_);
+  thd->coro_status_ = THD::CoroStatus::Ongoing;
+
+  int rc = thd_prepare_connection(thd);
+
+  conn->thread_group->coroutine_info_->coro_cnt_.fetch_sub(
+    1, std::memory_order_acq_rel);
+  thd->coro_status_ = THD::CoroStatus::Empty;
+
+  if (rc)
+  {
+    goto end;
+  }
+#else
   if (thd_prepare_connection(thd))
     goto end;
+#endif
 
   c->init_vio(thd->net.vio);
 
@@ -332,6 +578,9 @@ static void threadpool_remove_connection(THD *thd)
 */
 static void handle_wait_timeout(THD *thd)
 {
+#ifdef COROUTINE_ENABLED
+  set_current_thd(thd);
+#endif
   thd->get_stmt_da()->reset_diagnostics_area();
   thd->reset_killed();
   my_error(ER_NET_READ_INTERRUPTED, MYF(0));
@@ -349,6 +598,126 @@ static bool has_unread_data(THD* thd)
   return vio->has_data(vio);
 }
 
+#ifdef COROUTINE_ENABLED
+boost::context::continuation
+SqlCmdCoroutine(boost::context::continuation &&caller, THD *thd)
+{
+  // The address of stack_thd marks the beginning of the coroutine's stack.
+  THD *stack_thd= thd;
+  thread_attach(stack_thd);
+
+  TP_connection *c= get_TP_connection(thd);
+  TP_connection_generic *connection=(TP_connection_generic *)c;
+  thread_group_t *thread_group= connection->thread_group;
+  thd->yield_func_= [&main= caller, conn = connection]() {
+    LIST *node = conn->acquired_mutexes;
+    while(node)
+    {
+      // Release all mutexes acquired by this coroutine. 
+      // These mutexes will be reacquired when this coroutine resumes,
+      // and until then, all mutex lock on this mutex will be blocked as well.
+      // This makes sure that the same mutex is always locked and unlocked by the
+      // same pthread. Otherwise if a coroutine yields when holding a mutex, then
+      // resumed on a different pthread in the thread group, the mutex lock will fail.
+#if defined(SAFE_MUTEX)
+      inline_mysql_mutex_unlock((mysql_mutex_t *) node->data, __FILE__, __LINE__);
+#else
+      inline_mysql_mutex_unlock((mysql_mutex_t *) node->data);
+#endif
+      node= node->next;
+    }
+    main= main.resume(); 
+  };
+
+  thd->resume_func_= [thd_group= thread_group, conn= connection]() {
+
+    CoroutineInfo &coro_info = *thd_group->coroutine_info_;
+    coro_info.resume_queue_.Enqueue(conn);
+
+    // By the time the first load() returns 0 and the mutex is locked,
+    // the resumed request must have been put into the resume queue.
+    // If the running thread count is non-zero, no need to wake up the
+    // thread group, because the last running thread will pick it up
+    // before trying to sleep.
+    if (coro_info.running_thds_.load(std::memory_order_relaxed) == 0)
+    {
+      mysql_mutex_lock(&thd_group->mutex);
+
+      if (coro_info.running_thds_.load(std::memory_order_relaxed) == 0)
+      {
+        int err = thd_group->WakeOrCreateThread();
+        if (err != 0)
+        {
+          sql_print_warning(
+            "Resumed command fails to wake up the thread group %d, err: %d",
+            coro_info.group_id_, err);
+        }
+      }
+
+      mysql_mutex_unlock(&thd_group->mutex);
+    }
+  };
+
+  thd->long_resume_func_= [thd_group= thread_group, conn= connection]() {
+    thd_group->coroutine_info_->req_queue_.Enqueue(conn);
+  };
+
+  dispatch_command_return cmd_ret= DISPATCH_COMMAND_SUCCESS;
+
+  for (;;)
+  {
+    thd->net.reading_or_writing= 0;
+    if (mysql_audit_release_required(thd))
+      mysql_audit_release(thd);
+
+    cmd_ret= do_command(thd, false);
+    switch (cmd_ret)
+    {
+    case DISPATCH_COMMAND_WOULDBLOCK: {
+      thd->coro_ret_= 2; // DISPATCH_COMMAND_WOULDBLOCK
+      thd->coro_status_= THD::CoroStatus::Finished;
+      return std::move(caller);
+    }
+    case DISPATCH_COMMAND_CLOSE_CONNECTION: {
+      thd->coro_ret_= 1; // DISPATCH_COMMAND_CLOSE_CONNECTION;
+      thd->coro_status_= THD::CoroStatus::Finished;
+      return std::move(caller);
+    }
+    case DISPATCH_COMMAND_SUCCESS:
+      break;
+    case DISPATCH_COMMAND_YIELD:
+      assert("do_command() cannot return DISPATCH_COMMAND_YIELD");
+      break;
+    }
+
+    if (!thd_is_connection_alive(thd))
+    {
+      thd->coro_status_= THD::CoroStatus::Finished;
+      thd->coro_ret_= 1; // DISPATCH_COMMAND_CLOSE_CONNECTION;
+      return std::move(caller);
+    }
+
+    set_thd_idle(thd);
+
+    if (!has_unread_data(thd))
+    {
+      /* More info on this debug sync is in sql_parse.cc*/
+      DEBUG_SYNC(thd, "before_do_command_net_read");
+      thd->coro_status_= THD::CoroStatus::Finished;
+      thd->coro_ret_= (uint8_t) cmd_ret;
+      return std::move(caller);
+    }
+  }
+
+  return std::move(caller);
+}
+#endif
+
+static TP_pool *pool;
+
+#if defined(COROUTINE_ENABLED) && defined(IOURING_ENABLED)
+extern thread_local IoUringWrapper iouring_wrap;
+#endif
 
 /**
  Process a single client request or a single batch.
@@ -357,11 +726,17 @@ static dispatch_command_return threadpool_process_request(THD *thd)
 {
   dispatch_command_return retval= DISPATCH_COMMAND_SUCCESS;
 
+#ifndef COROUTINE_ENABLED
   thread_attach(thd);
+#else
+  TP_connection *c= get_TP_connection(thd);
+#endif
+
   if(thd->async_state.m_state == thd_async_state::enum_async_state::RESUMED)
     goto resume;
 
-  if (thd->killed >= KILL_CONNECTION)
+  if (thd->killed >= KILL_CONNECTION && 
+      thd->coro_status_ == THD::CoroStatus::Empty)
   {
     /*
       killed flag was set by timeout handler
@@ -373,6 +748,74 @@ static dispatch_command_return threadpool_process_request(THD *thd)
     goto end;
   }
 
+#ifdef COROUTINE_ENABLED
+  c->being_processed_.store(true, std::memory_order_relaxed);
+  if (thd->coro_status_ == THD::CoroStatus::Empty)
+  {
+    TP_connection_generic *connection=(TP_connection_generic *)c;
+    thread_group_t *thd_group= connection->thread_group;
+    thd->SetThdGroupId(thd_group->coroutine_info_->group_id_);
+    
+    thd_group->coroutine_info_->coro_cnt_.fetch_add(1, std::memory_order_relaxed);
+
+    boost::context::stack_context scx= thd->CoroStackContext();
+    boost::context::preallocated prealloc(scx.sp, THD::sql_coro_stack_size,
+                                          scx);
+
+    thd->coro_status_= THD::CoroStatus::Ongoing;
+#ifdef IOURING_ENABLED
+    if (iouring_wrap.init_success_)
+    {
+      thd->iouring_= &iouring_wrap;
+    }
+    else
+    {
+      thd->iouring_= nullptr;
+    }
+#endif
+    thd->cmd_coroutine_= boost::context::callcc(
+        std::allocator_arg, prealloc, THD::NoopAllocator(),
+        std::bind(SqlCmdCoroutine, std::placeholders::_1, thd));
+  }
+  else if (thd->coro_status_ == THD::CoroStatus::Ongoing)
+  {
+#ifdef IOURING_ENABLED
+    if (iouring_wrap.init_success_)
+    {
+      thd->iouring_= &iouring_wrap;
+    }
+    else
+    {
+      thd->iouring_= nullptr;
+    }
+#endif
+    ResumeCoroutine(thd);
+  }
+
+  if (thd->coro_status_ == THD::CoroStatus::Finished)
+  {
+    thd->coro_status_= THD::CoroStatus::Empty;
+    c->being_processed_.store(false, std::memory_order_relaxed);
+
+    TP_connection_generic *connection=(TP_connection_generic *)c;
+    thread_group_t *thd_group= connection->thread_group;
+    thd_group->coroutine_info_->coro_cnt_.fetch_sub(1, std::memory_order_relaxed);
+
+    switch (thd->coro_ret_)
+    {
+    case 0:
+      return DISPATCH_COMMAND_SUCCESS;
+    case 1:
+      return DISPATCH_COMMAND_CLOSE_CONNECTION;
+    default:
+      return DISPATCH_COMMAND_WOULDBLOCK;
+    }
+  }
+  else
+  {
+    return DISPATCH_COMMAND_YIELD;
+  }
+#endif
 
   /*
     In the loop below, the flow is essentially the copy of
@@ -396,6 +839,7 @@ resume:
     {
       case DISPATCH_COMMAND_WOULDBLOCK:
       case DISPATCH_COMMAND_CLOSE_CONNECTION:
+      case DISPATCH_COMMAND_YIELD:
         goto end;
       case DISPATCH_COMMAND_SUCCESS:
         break;
@@ -421,8 +865,6 @@ end:
   return retval;
 }
 
-
-static TP_pool *pool;
 
 static bool tp_init()
 {

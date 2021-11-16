@@ -22,6 +22,7 @@
 #define _mysql_com_h
 
 #include "my_decimal_limits.h"
+#include "my_global.h"
 
 #define HOSTNAME_LENGTH 255
 #define HOSTNAME_LENGTH_STR STRINGIFY_ARG(HOSTNAME_LENGTH)

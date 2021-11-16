@@ -1,0 +1,23 @@
+--source include/have_eloq.inc
+set @@default_storage_engine=eloq;
+
+--let $mono_server_count=3
+--source include/mono_init.inc
+
+# Connect to serv1: Create and call function f1
+--connection serv_1
+CREATE FUNCTION f1(str char(20))
+RETURNS CHAR(100)
+RETURN CONCAT('Hello, ', str, '!');
+SELECT routine_name FROM information_schema.routines WHERE routine_type='FUNCTION' AND routine_name='f1';
+SELECT f1('world');
+
+# Connect to serv2: Drop function f1
+--connection serv_2
+DROP FUNCTION f1;
+
+# Connect to serv1: Call function f1
+--connection serv_1
+SELECT routine_name FROM information_schema.routines WHERE routine_type='FUNCTION' AND routine_name='f1';
+--error ER_SP_DOES_NOT_EXIST
+SELECT f1('world');

@@ -1,0 +1,289 @@
+include/mono_init.inc
+DROP DATABASE IF EXISTS mono_test;
+set @@default_storage_engine= eloq;
+connection serv_1;
+CREATE DATABASE IF NOT EXISTS mono_test;
+USE mono_test;
+#***************************************************************
+#             Test CREATE INDEX
+#***************************************************************
+#
+# Test 1 add index operation.
+#
+create table t3 (c0 int primary key, c1 char(200), c2 varchar(200), c3 text, c4 int);
+Insert data...
+select count(*) from t3;
+count(*)
+10000
+create index idx_c1 on t3 (c1);
+create index idx_c2 on t3 (c2);
+create index idx_c3 on t3 (c3(10));
+show create table t3;
+Table	Create Table
+t3	CREATE TABLE `t3` (
+  `c0` int(11) NOT NULL,
+  `c1` char(200) DEFAULT NULL,
+  `c2` varchar(200) DEFAULT NULL,
+  `c3` text DEFAULT NULL,
+  `c4` int(11) DEFAULT NULL,
+  PRIMARY KEY (`c0`),
+  KEY `idx_c1` (`c1`),
+  KEY `idx_c2` (`c2`),
+  KEY `idx_c3` (`c3`(10))
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+select c0, c1, c2, c3, c4 from t3 where c4 < 10;
+c0	c1	c2	c3	c4
+1	charvalue_0	varcharvalue_0	0_textvalues	0
+2	charvalue_1	varcharvalue_1	1_textvalues	1
+3	charvalue_2	varcharvalue_2	2_textvalues	2
+4	charvalue_3	varcharvalue_3	3_textvalues	3
+5	charvalue_4	varcharvalue_4	4_textvalues	4
+6	charvalue_5	varcharvalue_5	5_textvalues	5
+7	charvalue_6	varcharvalue_6	6_textvalues	6
+8	charvalue_7	varcharvalue_7	7_textvalues	7
+9	charvalue_8	varcharvalue_8	8_textvalues	8
+10	charvalue_9	varcharvalue_9	9_textvalues	9
+select c0, c1, c2, c3, c4 from t3 use index (idx_c1) where c4 >=100 and c4 < 105;
+c0	c1	c2	c3	c4
+101	charvalue_100	varcharvalue_100	100_textvalues	100
+102	charvalue_101	varcharvalue_101	101_textvalues	101
+103	charvalue_102	varcharvalue_102	102_textvalues	102
+104	charvalue_103	varcharvalue_103	103_textvalues	103
+105	charvalue_104	varcharvalue_104	104_textvalues	104
+select c0, c1, c2, c3, c4 from t3 use index (idx_c2) where c4 >=200 and c4 < 210;
+c0	c1	c2	c3	c4
+201	charvalue_200	varcharvalue_200	200_textvalues	200
+202	charvalue_201	varcharvalue_201	201_textvalues	201
+203	charvalue_202	varcharvalue_202	202_textvalues	202
+204	charvalue_203	varcharvalue_203	203_textvalues	203
+205	charvalue_204	varcharvalue_204	204_textvalues	204
+206	charvalue_205	varcharvalue_205	205_textvalues	205
+207	charvalue_206	varcharvalue_206	206_textvalues	206
+208	charvalue_207	varcharvalue_207	207_textvalues	207
+209	charvalue_208	varcharvalue_208	208_textvalues	208
+210	charvalue_209	varcharvalue_209	209_textvalues	209
+select c0, c1, c2, c3, c4 from t3 use index (idx_c3) where c4 >=800 and c4 <= 805;
+c0	c1	c2	c3	c4
+801	charvalue_800	varcharvalue_800	800_textvalues	800
+802	charvalue_801	varcharvalue_801	801_textvalues	801
+803	charvalue_802	varcharvalue_802	802_textvalues	802
+804	charvalue_803	varcharvalue_803	803_textvalues	803
+805	charvalue_804	varcharvalue_804	804_textvalues	804
+806	charvalue_805	varcharvalue_805	805_textvalues	805
+#
+# Test 2 during add index, for concurrent dml operation, double write.
+#
+SET SESSION debug_dbug="+d,eloq;term_AlterTableIndex_GeneratePackedSkOp_Continue;node_id=-1";
+create index idx_c4c1 on t3 (c4, c1);;
+connection serv_2;
+USE mono_test;
+show create table t3;
+Table	Create Table
+t3	CREATE TABLE `t3` (
+  `c0` int(11) NOT NULL,
+  `c1` char(200) DEFAULT NULL,
+  `c2` varchar(200) DEFAULT NULL,
+  `c3` text DEFAULT NULL,
+  `c4` int(11) DEFAULT NULL,
+  PRIMARY KEY (`c0`),
+  KEY `idx_c1` (`c1`),
+  KEY `idx_c2` (`c2`),
+  KEY `idx_c3` (`c3`(10))
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+select count(*) from t3;
+count(*)
+10000
+select c0, c1, c2, c3, c4 from t3 use index (idx_c2) where c4 >=200 and c4 < 210;
+c0	c1	c2	c3	c4
+201	charvalue_200	varcharvalue_200	200_textvalues	200
+202	charvalue_201	varcharvalue_201	201_textvalues	201
+203	charvalue_202	varcharvalue_202	202_textvalues	202
+204	charvalue_203	varcharvalue_203	203_textvalues	203
+205	charvalue_204	varcharvalue_204	204_textvalues	204
+206	charvalue_205	varcharvalue_205	205_textvalues	205
+207	charvalue_206	varcharvalue_206	206_textvalues	206
+208	charvalue_207	varcharvalue_207	207_textvalues	207
+209	charvalue_208	varcharvalue_208	208_textvalues	208
+210	charvalue_209	varcharvalue_209	209_textvalues	209
+select c0, c1, c2, c3, c4 from t3 use index (idx_c1) where c4 >=100 and c4 < 110;
+c0	c1	c2	c3	c4
+101	charvalue_100	varcharvalue_100	100_textvalues	100
+102	charvalue_101	varcharvalue_101	101_textvalues	101
+103	charvalue_102	varcharvalue_102	102_textvalues	102
+104	charvalue_103	varcharvalue_103	103_textvalues	103
+105	charvalue_104	varcharvalue_104	104_textvalues	104
+106	charvalue_105	varcharvalue_105	105_textvalues	105
+107	charvalue_106	varcharvalue_106	106_textvalues	106
+108	charvalue_107	varcharvalue_107	107_textvalues	107
+109	charvalue_108	varcharvalue_108	108_textvalues	108
+110	charvalue_109	varcharvalue_109	109_textvalues	109
+select count(*) from t3;
+count(*)
+9996
+select c0, c1, c2, c3, c4 from t3 use index (idx_c2) where c4 >=200 and c4 < 210;
+c0	c1	c2	c3	c4
+201	update char value during double write	update varchar value dring double write	update text value during double write	200
+202	update char value during double write	update varchar value dring double write	update text value during double write	201
+203	update char value during double write	update varchar value dring double write	update text value during double write	202
+204	update char value during double write	update varchar value dring double write	update text value during double write	203
+205	update char value during double write	update varchar value dring double write	update text value during double write	204
+206	update char value during double write	update varchar value dring double write	update text value during double write	205
+207	update char value during double write	update varchar value dring double write	update text value during double write	206
+208	update char value during double write	update varchar value dring double write	update text value during double write	207
+209	update char value during double write	update varchar value dring double write	update text value during double write	208
+210	update char value during double write	update varchar value dring double write	update text value during double write	209
+select c0, c1, c2, c3, c4 from t3 use index (idx_c1) where c4 >=100 and c4 < 110;
+c0	c1	c2	c3	c4
+connection serv_1_1;
+SET SESSION debug_dbug="-d,eloq;term_AlterTableIndex_GeneratePackedSkOp_Continue;node_id=-1";
+disconnect serv_1_1;
+connection serv_1;
+USE mono_test;
+select c0, c1, c2, c3, c4 from t3 use index (idx_c4c1) where c4 >=200 and c4 < 210;
+c0	c1	c2	c3	c4
+201	update char value during double write	update varchar value dring double write	update text value during double write	200
+202	update char value during double write	update varchar value dring double write	update text value during double write	201
+203	update char value during double write	update varchar value dring double write	update text value during double write	202
+204	update char value during double write	update varchar value dring double write	update text value during double write	203
+205	update char value during double write	update varchar value dring double write	update text value during double write	204
+206	update char value during double write	update varchar value dring double write	update text value during double write	205
+207	update char value during double write	update varchar value dring double write	update text value during double write	206
+208	update char value during double write	update varchar value dring double write	update text value during double write	207
+209	update char value during double write	update varchar value dring double write	update text value during double write	208
+210	update char value during double write	update varchar value dring double write	update text value during double write	209
+select c0, c1, c2, c3, c4 from t3 use index (idx_c4c1) where c4 >=100 and c4 < 110;
+c0	c1	c2	c3	c4
+create index idx_c4c2 on t3 (c4, c2);
+create index idx_c4c3 on t3 (c4, c3(8));
+show create table t3;
+Table	Create Table
+t3	CREATE TABLE `t3` (
+  `c0` int(11) NOT NULL,
+  `c1` char(200) DEFAULT NULL,
+  `c2` varchar(200) DEFAULT NULL,
+  `c3` text DEFAULT NULL,
+  `c4` int(11) DEFAULT NULL,
+  PRIMARY KEY (`c0`),
+  KEY `idx_c1` (`c1`),
+  KEY `idx_c2` (`c2`),
+  KEY `idx_c3` (`c3`(10)),
+  KEY `idx_c4c1` (`c4`,`c1`),
+  KEY `idx_c4c2` (`c4`,`c2`),
+  KEY `idx_c4c3` (`c4`,`c3`(8))
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+insert into t3 values (10011, 'char value after add index', 'varchar value after add index', 'text value after add index', 10011);
+insert into t3 values (10012, 'char value after add index', 'varchar value after add index', 'text value after add index', 10012);
+insert into t3 values (10013, 'char value after add index', 'varchar value after add index', 'text value after add index', 10013);
+update t3
+set c1='update char value after add index',
+c2='update varchar value after add index',
+c3='update text value after add index'
+    where c4>=300 and c4 < 310;
+delete from t3 where c4>=120 and c4 < 130;
+select c0, c1, c2, c3, c4 from t3 where c4 < 10;
+c0	c1	c2	c3	c4
+1	charvalue_0	varcharvalue_0	0_textvalues	0
+2	charvalue_1	varcharvalue_1	1_textvalues	1
+3	charvalue_2	varcharvalue_2	2_textvalues	2
+4	charvalue_3	varcharvalue_3	3_textvalues	3
+5	charvalue_4	varcharvalue_4	4_textvalues	4
+6	charvalue_5	varcharvalue_5	5_textvalues	5
+7	charvalue_6	varcharvalue_6	6_textvalues	6
+8	charvalue_7	varcharvalue_7	7_textvalues	7
+9	charvalue_8	varcharvalue_8	8_textvalues	8
+10	charvalue_9	varcharvalue_9	9_textvalues	9
+select c0, c1, c2, c3, c4 from t3 use index (idx_c1) where c4 >=100 and c4 < 130;
+c0	c1	c2	c3	c4
+111	charvalue_110	varcharvalue_110	110_textvalues	110
+112	charvalue_111	varcharvalue_111	111_textvalues	111
+113	charvalue_112	varcharvalue_112	112_textvalues	112
+114	charvalue_113	varcharvalue_113	113_textvalues	113
+115	charvalue_114	varcharvalue_114	114_textvalues	114
+116	charvalue_115	varcharvalue_115	115_textvalues	115
+117	charvalue_116	varcharvalue_116	116_textvalues	116
+118	charvalue_117	varcharvalue_117	117_textvalues	117
+119	charvalue_118	varcharvalue_118	118_textvalues	118
+120	charvalue_119	varcharvalue_119	119_textvalues	119
+select c0, c1, c2, c3, c4 from t3 use index (idx_c2) where c4 >=200 and c4 < 210;
+c0	c1	c2	c3	c4
+201	update char value during double write	update varchar value dring double write	update text value during double write	200
+202	update char value during double write	update varchar value dring double write	update text value during double write	201
+203	update char value during double write	update varchar value dring double write	update text value during double write	202
+204	update char value during double write	update varchar value dring double write	update text value during double write	203
+205	update char value during double write	update varchar value dring double write	update text value during double write	204
+206	update char value during double write	update varchar value dring double write	update text value during double write	205
+207	update char value during double write	update varchar value dring double write	update text value during double write	206
+208	update char value during double write	update varchar value dring double write	update text value during double write	207
+209	update char value during double write	update varchar value dring double write	update text value during double write	208
+210	update char value during double write	update varchar value dring double write	update text value during double write	209
+select c0, c1, c2, c3, c4 from t3 use index (idx_c3) where c3 = 'text value after add index';
+c0	c1	c2	c3	c4
+10011	char value after add index	varchar value after add index	text value after add index	10011
+10012	char value after add index	varchar value after add index	text value after add index	10012
+10013	char value after add index	varchar value after add index	text value after add index	10013
+select c0, c1, c2, c3, c4 from t3 use index (idx_c4c1) where c4 >=400 and c4 < 410;
+c0	c1	c2	c3	c4
+401	charvalue_400	varcharvalue_400	400_textvalues	400
+402	charvalue_401	varcharvalue_401	401_textvalues	401
+403	charvalue_402	varcharvalue_402	402_textvalues	402
+404	charvalue_403	varcharvalue_403	403_textvalues	403
+405	charvalue_404	varcharvalue_404	404_textvalues	404
+406	charvalue_405	varcharvalue_405	405_textvalues	405
+407	charvalue_406	varcharvalue_406	406_textvalues	406
+408	charvalue_407	varcharvalue_407	407_textvalues	407
+409	charvalue_408	varcharvalue_408	408_textvalues	408
+410	charvalue_409	varcharvalue_409	409_textvalues	409
+select c0, c1, c2, c3, c4 from t3 use index (idx_c4c2) where c4 >=300 and c4 < 310;
+c0	c1	c2	c3	c4
+301	update char value after add index	update varchar value after add index	update text value after add index	300
+302	update char value after add index	update varchar value after add index	update text value after add index	301
+303	update char value after add index	update varchar value after add index	update text value after add index	302
+304	update char value after add index	update varchar value after add index	update text value after add index	303
+305	update char value after add index	update varchar value after add index	update text value after add index	304
+306	update char value after add index	update varchar value after add index	update text value after add index	305
+307	update char value after add index	update varchar value after add index	update text value after add index	306
+308	update char value after add index	update varchar value after add index	update text value after add index	307
+309	update char value after add index	update varchar value after add index	update text value after add index	308
+310	update char value after add index	update varchar value after add index	update text value after add index	309
+select c0, c1, c2, c3, c4 from t3 use index (idx_c4c3) where c4 > 10000;
+c0	c1	c2	c3	c4
+10001	insert char value during double write	insert varchar value during double write	insert text value during double write	10001
+10002	insert char value during double write	insert varchar value during double write	insert text value during double write	10002
+10003	insert char value during double write	insert varchar value during double write	insert text value during double write	10003
+10004	insert char value during double write	insert varchar value during double write	insert text value during double write	10004
+10005	insert char value during double write	insert varchar value during double write	insert text value during double write	10005
+10006	insert char value during double write	insert varchar value during double write	insert text value during double write	10006
+10011	char value after add index	varchar value after add index	text value after add index	10011
+10012	char value after add index	varchar value after add index	text value after add index	10012
+10013	char value after add index	varchar value after add index	text value after add index	10013
+select c0, c1, c2, c3, c4 from t3 use index (idx_c4c1) where c4 > 10000;
+c0	c1	c2	c3	c4
+10001	insert char value during double write	insert varchar value during double write	insert text value during double write	10001
+10002	insert char value during double write	insert varchar value during double write	insert text value during double write	10002
+10003	insert char value during double write	insert varchar value during double write	insert text value during double write	10003
+10004	insert char value during double write	insert varchar value during double write	insert text value during double write	10004
+10005	insert char value during double write	insert varchar value during double write	insert text value during double write	10005
+10006	insert char value during double write	insert varchar value during double write	insert text value during double write	10006
+10011	char value after add index	varchar value after add index	text value after add index	10011
+10012	char value after add index	varchar value after add index	text value after add index	10012
+10013	char value after add index	varchar value after add index	text value after add index	10013
+drop index idx_c1 on t3;
+drop index idx_c2 on t3;
+drop index idx_c3 on t3;
+show create table t3;
+Table	Create Table
+t3	CREATE TABLE `t3` (
+  `c0` int(11) NOT NULL,
+  `c1` char(200) DEFAULT NULL,
+  `c2` varchar(200) DEFAULT NULL,
+  `c3` text DEFAULT NULL,
+  `c4` int(11) DEFAULT NULL,
+  PRIMARY KEY (`c0`),
+  KEY `idx_c4c1` (`c4`,`c1`),
+  KEY `idx_c4c2` (`c4`,`c2`),
+  KEY `idx_c4c3` (`c4`,`c3`(8))
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+#
+# Clean up
+DROP TABLE t3;
+DROP DATABASE IF EXISTS mono_test;

@@ -44,6 +44,7 @@
 #endif /* WITH_WSREP */
 #include "proxy_protocol.h"
 #include <ssl_compat.h>
+#include "mysql_metrics.h"
 
 HASH global_user_stats, global_client_stats, global_table_stats;
 HASH global_index_stats;
@@ -1327,6 +1328,13 @@ pthread_handler_t handle_one_connection(void *arg)
 
 bool thd_prepare_connection(THD *thd)
 {
+
+  if (metrics::enable_metrics)
+  {
+    metrics::mysql_meter->Collect(metrics::NAME_CONNECTION_COUNT,
+                         metrics::Value::IncDecValue::Increment);
+  }
+
   bool rc;
   lex_start(thd);
   rc= login_connection(thd);
@@ -1508,6 +1516,115 @@ void CONNECT::close_with_error(uint sql_errno,
   close_and_delete();
 }
 
+#if defined(COROUTINE_ENABLED) && defined(IOURING_ENABLED)
+
+extern ssize_t iouring_socket_send(
+#ifdef HAVE_PSI_SOCKET_INTERFACE
+    const char *src_file, uint src_line,
+#endif
+    MYSQL_SOCKET mysql_socket, const SOCKBUF_T *buf, size_t n, int flags);
+
+#ifndef iouring_mysql_socket_send
+#ifdef HAVE_PSI_SOCKET_INTERFACE
+#define iouring_mysql_socket_send(FD, B, N, FL)                               \
+  iouring_socket_send(__FILE__, __LINE__, FD, B, N, FL)
+#else
+#define iouring_mysql_socket_send(FD, B, N, FL)                               \
+  iouring_socket_send(FD, B, N, FL)
+#endif
+#endif
+
+// The following codes "VIO_DONTWAIT,vio_set_linger,vio_socket_io_wait" are
+// copied from <vio/viosocket.c>. "iouring_vio_write" is changed from function
+// "vio_write".
+
+#if defined(__linux__)
+#define VIO_USE_DONTWAIT 1
+#define VIO_DONTWAIT MSG_DONTWAIT
+#else
+#define VIO_DONTWAIT 0
+#endif
+
+int vio_set_linger(my_socket s, unsigned short timeout_sec)
+{
+  struct linger s_linger;
+  int ret;
+  s_linger.l_onoff= 1;
+  s_linger.l_linger= timeout_sec;
+  ret= setsockopt(s, SOL_SOCKET, SO_LINGER, (const char *) &s_linger,
+                  (int) sizeof(s_linger));
+  return ret;
+}
+
+int vio_socket_io_wait(Vio *vio, enum enum_vio_io_event event)
+{
+  int timeout, ret;
+
+  DBUG_ASSERT(event == VIO_IO_EVENT_READ || event == VIO_IO_EVENT_WRITE);
+
+  /* Choose an appropriate timeout. */
+  if (event == VIO_IO_EVENT_READ)
+    timeout= vio->read_timeout;
+  else
+    timeout= vio->write_timeout;
+
+  /* Wait for input data to become available. */
+  switch (vio_io_wait(vio, event, timeout))
+  {
+  case -1:
+    /* Upon failure, vio_read/write() shall return -1. */
+    ret= -1;
+    break;
+  case 0:
+    /* The wait timed out. */
+    ret= -1;
+    vio_set_linger(vio->mysql_socket.fd, 0);
+    break;
+  default:
+    /* A positive value indicates an I/O event. */
+    ret= 0;
+    break;
+  }
+
+  return ret;
+}
+
+size_t iouring_vio_write(Vio *vio, const uchar *buf, size_t size)
+{
+  ssize_t ret;
+  int flags= 0;
+  DBUG_ENTER("iouring_vio_write");
+  DBUG_PRINT("enter",
+             ("sd: %d  buf: %p  size: %zu",
+              (int) mysql_socket_getfd(vio->mysql_socket), buf, size));
+
+  /* If timeout is enabled, do not block. */
+  if (vio->write_timeout >= 0)
+    flags= VIO_DONTWAIT;
+
+  while ((ret= iouring_mysql_socket_send(vio->mysql_socket, (SOCKBUF_T *) buf,
+                                         size, flags)) == -1)
+  {
+    int error= socket_errno;
+    /* The operation would block? */
+    if (error != SOCKET_EAGAIN && error != SOCKET_EWOULDBLOCK)
+      break;
+
+    /* Wait for the output buffer to become writable.*/
+    if ((ret= vio_socket_io_wait(vio, VIO_IO_EVENT_WRITE)))
+      break;
+  }
+#ifndef DBUG_OFF
+  if (ret == -1)
+  {
+    DBUG_PRINT("iouring_vio_error", ("Got error on write: %d", socket_errno));
+  }
+#endif /* DBUG_OFF */
+  DBUG_PRINT("exit", ("%d", (int) ret));
+  DBUG_RETURN(ret);
+}
+
+#endif
 
 /* Reuse or create a THD based on a CONNECT object */
 
@@ -1546,6 +1663,13 @@ THD *CONNECT::create_thd(THD *thd)
       delete thd;
     DBUG_RETURN(0);
   }
+
+#if defined(COROUTINE_ENABLED) && defined(IOURING_ENABLED)
+  if (vio->write == vio_write)
+  {
+    vio->write= iouring_vio_write;
+  }
+#endif
 
   set_current_thd(thd);
   res= my_net_init(&thd->net, vio, thd, MYF(MY_THREAD_SPECIFIC));

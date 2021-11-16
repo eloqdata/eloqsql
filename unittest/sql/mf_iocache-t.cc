@@ -86,6 +86,9 @@ struct encryption_service_st encryption_handler=
   encryption_encrypted_length_func
 };
 
+
+#ifndef WITH_GLOG
+
 void sql_print_information(const char *format, ...)
 {
 }
@@ -93,6 +96,20 @@ void sql_print_information(const char *format, ...)
 void sql_print_error(const char *format, ...)
 {
 }
+
+#else
+
+void glog_print_information(const char *file, int line,
+                                 const char *format, ...)
+{
+}
+
+void glog_print_error(const char *file, int line,
+                           const char *format, ...)
+{
+}
+
+#endif /* WITH_GLOG */
 
 /*** end of encryption tweaks and stubs ****************************/
 

@@ -1,0 +1,39 @@
+--source include/have_eloq.inc
+--source include/have_range_partition.inc
+--sleep 2 #Here is bug, If not sleep, the mysqld will not return result.
+
+--let $mono_server_count= 3
+--source include/mono_init.inc
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+create table t1 (c0 int auto_increment, c1 char(250), c2 char(250), c3 char(250), c4 int, primary key(c0));
+# Insert enough data to trigger range split. Inject failure point to pause at FlushOp in 
+# range split operation.
+insert into t1 values (0,'empty string', 'empty string', 'empty string', 1);
+SET SESSION debug_dbug="+d,eloq;term_SplitFlushOp_DataSyncOp_Continue;node_id=-1";
+let $counter= 11;
+--disable_result_log
+--disable_query_log
+while($counter)
+{
+    insert into t1 select * from t1;
+    dec $counter;
+}
+--enable_query_log
+--enable_result_log
+SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
+--sleep 2
+# Now that we are between prepare log and commit log during range split, any dml in the splitting
+# range should be double written. Since we are using auto_increment pk, the new inserted record should
+# fall into the new range.
+insert into t1 values (0,'double write string', 'double write string', 'double write string', 2);
+select c1,c2,c3,c4 from t1 where c0> 2000 and c4 = 2;
+SET SESSION debug_dbug="-d,eloq;term_SplitFlushOp_DataSyncOp_Continue;node_id=-1";
+SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
+--sleep 2
+#verify that the double written record is still visible after range split is finished.
+select c1,c2,c3,c4 from t1 where c0 > 2000 and c4 = 2;
+drop table t1;

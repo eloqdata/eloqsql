@@ -86,6 +86,17 @@ parse_escaped_string(const char *ptr, const char *end, MEM_ROOT *mem_root,
 class File_parser;
 File_parser *sql_parse_prepare(const LEX_CSTRING *file_name,
 			       MEM_ROOT *mem_root, bool bad_format_errors);
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+// Override sql_parse_prepare() with taking binary string data as input
+// parameter.
+File_parser *sql_parse_prepare(const LEX_CSTRING *key,
+			       LEX_CSTRING data, MEM_ROOT *mem_root,
+             bool bad_format_errors);
+// Override sql_parse_prepare() with taking thd as input parameter, thd is
+// required to call eloq api.
+File_parser *sql_parse_prepare(THD *thd, LEX_CSTRING db, LEX_CSTRING frm_name,
+			       MEM_ROOT *mem_root, bool bad_format_errors);
+#endif
 
 my_bool
 sql_create_definition_file(const LEX_CSTRING *dir,
@@ -115,8 +126,21 @@ public:
 		struct File_option *parameters, uint required,
                 Unknown_key_hook *hook) const;
 
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+  const char* data() const { return start; }
+  size_t size() const { return end-start; }
+#endif
+
   friend File_parser *sql_parse_prepare(const LEX_CSTRING *file_name,
 					MEM_ROOT *mem_root,
 					bool bad_format_errors);
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+  friend File_parser *sql_parse_prepare(const LEX_CSTRING *key,
+          LEX_CSTRING data, MEM_ROOT *mem_root,
+					bool bad_format_errors);
+  friend File_parser *sql_parse_prepare(THD *thd,
+          LEX_CSTRING db, LEX_CSTRING frm_name, MEM_ROOT *mem_root,
+          bool bad_format_errors);
+#endif
 };
 #endif /* _PARSE_FILE_H_ */

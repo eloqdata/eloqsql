@@ -1,0 +1,54 @@
+--source include/have_eloq.inc
+set @@default_storage_engine= eloq;
+--sleep 3 #Here is bug, If not sleep, the mysqld will not return result.
+
+# The test environment has 3 nodes. Here set mono_server_count to 3
+# to ensure to create 2 connections for every node.
+# serv_1 and serv_1_1 are the names of connections to node 1
+# serv_2 and serv_2_1 are the names of connections to node 2
+# serv_3 and serv_3_1 are the names of connections to node 3
+--let $mono_server_count= 3
+--source include/mono_init.inc
+
+# Use "--" in beginning of a line will indicate this is a single line
+# statement and test system will add ";" in the end of the line automatically.
+--disable_warnings
+DROP TABLE IF EXISTS t2;
+--enable_warnings
+
+create table t2(i int primary key, j int);
+insert into t2 values(1,1);
+
+# Use the first connection of node 2
+--connection serv_2
+select * from t2;
+Begin;
+update t2 set j=2;
+
+--connection serv_1
+select * from t2;
+
+--connection serv_2
+commit;
+
+--connection serv_1
+select * from t2;
+
+# Restart one or two mysqld
+Begin;
+update t2 set j=3;
+
+# The row(1,1) is located on server-3, then restart it to trigger changing node term. 
+# Here will restart server 3. It will decide which node to restart
+# according to the current connection.
+--connection serv_3
+--source include/restart_mysqld.inc
+
+--connection serv_1
+# The record is located on server 3, validation will be failed for node term changed after server being restarted.
+# see codes at cc_stream_receiver.cpp:694
+--error 199
+commit;
+select * from t2;
+
+drop table t2;

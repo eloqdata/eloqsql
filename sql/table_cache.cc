@@ -57,7 +57,7 @@
 ulong tdc_size; /**< Table definition cache threshold for LRU eviction. */
 ulong tc_size; /**< Table cache threshold for LRU eviction. */
 uint32 tc_instances;
-static std::atomic<uint32_t> tc_active_instances(1);
+static std::atomic<uint32_t> tc_active_instances(16);
 static std::atomic<bool> tc_contention_warning_reported;
 
 /** Data collections. */
@@ -244,19 +244,39 @@ uint tc_records(void)
   return total;
 }
 
+#ifdef COROUTINE_ENABLED
+static void CoroutineWait(THD *thd, mysql_cond_t *cv, mysql_mutex_t *mux)
+{
+  if (thd != nullptr && thd->coro_status_ == THD::CoroStatus::Ongoing)
+  {
+    thd->long_resume_func_();
+    mysql_mutex_unlock(mux);
+    thd->yield_func_();
+    mysql_mutex_lock(mux);
+  }
+  else
+  {
+    mysql_cond_wait(cv, mux);
+  }
+}
+#endif
 
 /**
   Remove TABLE object from table cache.
 */
 
-static void tc_remove_table(TABLE *table)
+static void tc_remove_table(TABLE *table, THD *thd)
 {
   TDC_element *element= table->s->tdc;
 
   mysql_mutex_lock(&element->LOCK_table_share);
   /* Wait for MDL deadlock detector to complete traversing tdc.all_tables. */
   while (element->all_tables_refs)
+#ifdef COROUTINE_ENABLED
+    CoroutineWait(thd, &element->COND_release, &element->LOCK_table_share);
+#else
     mysql_cond_wait(&element->COND_release, &element->LOCK_table_share);
+#endif
   element->all_tables.remove(table);
   mysql_mutex_unlock(&element->LOCK_table_share);
 
@@ -336,8 +356,9 @@ void tc_purge()
 
 void tc_add_table(THD *thd, TABLE *table)
 {
-  uint32_t i=
-    thd->thread_id % tc_active_instances.load(std::memory_order_relaxed);
+  uint32_t gid=
+    thd->ThdGroupId() >= 0 ? thd->ThdGroupId() : thd->thread_id;
+  uint32_t i= gid % tc_active_instances.load(std::memory_order_relaxed);
   TABLE *LRU_table= 0;
   TDC_element *element= table->s->tdc;
 
@@ -346,7 +367,11 @@ void tc_add_table(THD *thd, TABLE *table)
   mysql_mutex_lock(&element->LOCK_table_share);
   /* Wait for MDL deadlock detector to complete traversing tdc.all_tables. */
   while (element->all_tables_refs)
+#ifdef COROUTINE_ENABLED
+    CoroutineWait(thd, &element->COND_release, &element->LOCK_table_share);
+#else
     mysql_cond_wait(&element->COND_release, &element->LOCK_table_share);
+#endif
   element->all_tables.push_front(table);
   mysql_mutex_unlock(&element->LOCK_table_share);
 
@@ -360,7 +385,7 @@ void tc_add_table(THD *thd, TABLE *table)
       LRU_table->in_use= thd;
       mysql_mutex_unlock(&tc[i].LOCK_table_cache);
       /* Keep out of locked LOCK_table_cache */
-      tc_remove_table(LRU_table);
+      tc_remove_table(LRU_table, thd);
     }
     else
     {
@@ -391,7 +416,9 @@ void tc_add_table(THD *thd, TABLE *table)
 TABLE *tc_acquire_table(THD *thd, TDC_element *element)
 {
   uint32_t n_instances= tc_active_instances.load(std::memory_order_relaxed);
-  uint32_t i= thd->thread_id % n_instances;
+  uint32_t gid=
+    thd->ThdGroupId() >= 0 ? thd->ThdGroupId() : thd->thread_id;
+  uint32_t i= gid % n_instances;
   TABLE *table;
 
   tc[i].lock_and_check_contention(n_instances, i);
@@ -437,7 +464,7 @@ TABLE *tc_acquire_table(THD *thd, TDC_element *element)
     @retval false object released
 */
 
-void tc_release_table(TABLE *table)
+void tc_release_table(TABLE *table, THD *thd)
 {
   uint32 i= table->instance;
   DBUG_ENTER("tc_release_table");
@@ -451,7 +478,7 @@ void tc_release_table(TABLE *table)
   {
     tc[i].records--;
     mysql_mutex_unlock(&tc[i].LOCK_table_cache);
-    tc_remove_table(table);
+    tc_remove_table(table, thd);
   }
   else
   {
@@ -507,7 +534,11 @@ static void tdc_delete_share_from_hash(TDC_element *element)
 
     do
     {
+#ifdef COROUTINE_ENABLED
+      CoroutineWait(thd, &element->COND_release, &element->LOCK_table_share);
+#else
       mysql_cond_wait(&element->COND_release, &element->LOCK_table_share);
+#endif
     } while (!element->m_flush_tickets.is_empty());
   }
 
@@ -612,6 +643,7 @@ bool tdc_init(void)
   tdc_hash.alloc.constructor= lf_alloc_constructor;
   tdc_hash.alloc.destructor= lf_alloc_destructor;
   tdc_hash.initializer= (lf_hash_initializer) tdc_hash_initializer;
+  tc_active_instances.store(tc_instances, std::memory_order_relaxed);
   DBUG_RETURN(false);
 }
 
@@ -880,8 +912,29 @@ retry:
   mysql_mutex_lock(&element->LOCK_table_share);
   if (!(share= element->share))
   {
+#ifdef COROUTINE_ENABLED
+    if (thd->coro_status_ == THD::CoroStatus::Ongoing)
+    {
+      // The resume functor re-enqueues the SQL command, so that it will be
+      // picked up by a thread in the MySQL thread pool to re-execute the
+      // waiting loop. The yield functor yields busy waiting, so that the
+      // current thread gets a chance to execute the next SQL command in the
+      // queue.
+      thd->long_resume_func_();
+      mysql_mutex_unlock(&element->LOCK_table_share);
+      lf_hash_search_unpin(thd->tdc_hash_pins);
+      thd->yield_func_();
+    }
+    else
+    {
+      mysql_mutex_unlock(&element->LOCK_table_share);
+      lf_hash_search_unpin(thd->tdc_hash_pins);
+    }
+#else
     mysql_mutex_unlock(&element->LOCK_table_share);
     lf_hash_search_unpin(thd->tdc_hash_pins);
+#endif
+
     goto retry;
   }
   lf_hash_search_unpin(thd->tdc_hash_pins);
@@ -1009,7 +1062,7 @@ void tdc_remove_referenced_share(THD *thd, TABLE_SHARE *share)
   share->tdc->flush_unused(true);
   mysql_mutex_lock(&share->tdc->LOCK_table_share);
   DEBUG_SYNC(thd, "before_wait_for_refs");
-  share->tdc->wait_for_refs(1);
+  share->tdc->wait_for_refs(1, thd);
   DBUG_ASSERT(share->tdc->all_tables.is_empty());
   share->tdc->ref_count--;
   tdc_delete_share_from_hash(share->tdc);
@@ -1236,10 +1289,14 @@ int show_tc_active_instances(THD *thd, SHOW_VAR *var, char *buff,
   for those that are not owned by current thread.
 */
 
-void TDC_element::wait_for_refs(uint my_refs)
+void TDC_element::wait_for_refs(uint my_refs, THD *thd)
 {
   while (ref_count > my_refs)
+#ifdef COROUTINE_ENABLED
+    CoroutineWait(thd, &COND_release, &LOCK_table_share);
+#else
     mysql_cond_wait(&COND_release, &LOCK_table_share);
+#endif
 }
 
 
@@ -1270,7 +1327,7 @@ void TDC_element::flush(THD *thd, bool mark_flushed)
     if (table->in_use == thd)
       my_refs++;
   }
-  wait_for_refs(my_refs);
+  wait_for_refs(my_refs, thd);
 #ifndef DBUG_OFF
   it.rewind();
   while (auto table= it++)

@@ -434,7 +434,7 @@ static MY_CHARSET_HANDLER my_charset_handler=
 struct charset_info_st my_charset_latin1=
 {
     8,0,0,				/* number    */
-    MY_CS_COMPILED | MY_CS_PRIMARY,	/* state     */
+    MY_CS_COMPILED,	/* state     */
     { charset_name_latin1, charset_name_latin1_length }, /* cs_name    */
     { STRING_WITH_LEN("latin1_swedish_ci") },            /* name       */
     "",					/* comment   */
@@ -781,7 +781,7 @@ struct charset_info_st my_charset_latin1_german2_ci=
 struct charset_info_st my_charset_latin1_bin=
 {
   47,0,0,				/* number    */
-  MY_CS_COMPILED|MY_CS_BINSORT,		/* state     */
+  MY_CS_COMPILED|MY_CS_BINSORT | MY_CS_PRIMARY,		/* state     */
   { charset_name_latin1, charset_name_latin1_length}, /* cs_name    */
   { STRING_WITH_LEN("latin1_bin") },	              /* name      */
   "",					/* comment   */

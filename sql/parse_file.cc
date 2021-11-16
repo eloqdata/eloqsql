@@ -30,6 +30,11 @@
 #include <m_ctype.h>
 #include <my_dir.h>
 
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+#include "eloq_db_dl.h"
+#include <string>
+#endif
+
 /* from sql_db.cc */
 extern long mysql_rm_arc_files(THD *thd, MY_DIR *dirp, const char *org_path);
 
@@ -536,6 +541,95 @@ frm_error:
   }
   DBUG_RETURN(parser); // upper level have to check parser->ok()
 }
+
+#ifdef WITH_ELOQ_STORAGE_ENGINE
+File_parser * 
+sql_parse_prepare(const LEX_CSTRING *key, LEX_CSTRING data,
+      MEM_ROOT *mem_root, bool bad_format_errors)
+{
+  size_t len;
+  char *buff, *end, *sign;
+  File_parser *parser;
+  DBUG_ENTER("sql_parse_prepare");
+
+  if (data.length > INT_MAX-1)
+  {
+    my_error(ER_FPARSER_TOO_BIG_FILE, MYF(0), key->str);
+    DBUG_RETURN(0);
+  }
+
+  if (!(parser= new(mem_root) File_parser))
+  {
+    DBUG_RETURN(0);
+  }
+
+  if (!(buff= (char*) alloc_root(mem_root, (size_t)(data.length+1))))
+  {
+    DBUG_RETURN(0);
+  }
+
+  memcpy(buff, data.str, data.length);
+  len= data.length;
+
+  end= buff + len;
+  *end= '\0'; // barrier for more simple parsing
+
+  // 7 = 5 (TYPE=) + 1 (letter at least of type name) + 1 ('\n')
+  if (len < 7 ||
+      buff[0] != 'T' ||
+      buff[1] != 'Y' ||
+      buff[2] != 'P' ||
+      buff[3] != 'E' ||
+      buff[4] != '=')
+    goto frm_error;
+
+  // skip signature;
+  parser->file_type.str= sign= buff + 5;
+  while (*sign >= 'A' && *sign <= 'Z' && sign < end)
+    sign++;
+  if (*sign != '\n')
+    goto frm_error;
+  parser->file_type.length= sign - parser->file_type.str;
+  // EOS for file signature just for safety
+  *sign= '\0';
+
+  parser->end= end;
+  parser->start= sign + 1;
+  parser->content_ok= 1;
+
+  DBUG_RETURN(parser);
+
+frm_error:
+  if (bad_format_errors)
+  {
+    my_error(ER_FPARSER_BAD_HEADER, MYF(0), key->str);
+    DBUG_RETURN(0);
+  }
+  DBUG_RETURN(parser); // upper level have to check parser->ok()
+}
+
+File_parser * 
+sql_parse_prepare(THD *thd, LEX_CSTRING db, LEX_CSTRING frm_name,
+      MEM_ROOT *mem_root, bool bad_format_errors)
+{
+  char buffer[FN_REFLEN + 1];
+  LEX_CSTRING key= {
+      buffer,
+      build_table_filename(buffer, FN_REFLEN, db.str, frm_name.str, "", 0)
+  };
+
+  LEX_CSTRING data;
+  int mono_errno= eloq_fetch_frm_p(thd, key, data);
+  if (mono_errno)
+  {
+    my_printf_error(mono_errno, "Eloq fetch frm '%s' failed",
+                    MYF(0), key.str);
+    return 0;
+  }
+
+  return sql_parse_prepare(&key, data, mem_root, bad_format_errors);
+}
+#endif
 
 
 /**

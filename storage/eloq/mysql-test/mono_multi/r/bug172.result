@@ -1,0 +1,713 @@
+include/mono_init.inc
+DROP TABLE IF EXISTS t1;
+
+
+Num: 1
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 2
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 3
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 4
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 5
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 6
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 7
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 8
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 9
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 10
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 11
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 12
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 13
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 14
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 15
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 16
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 17
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 18
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 19
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 20
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 21
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 22
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 23
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 24
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 25
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 26
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 27
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 28
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 29
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 30
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 31
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 32
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 33
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 34
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 35
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 36
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 37
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 38
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 39
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 40
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 41
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 42
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 43
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 44
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 45
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 46
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 47
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 48
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 49
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 50
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 51
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 52
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 53
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 54
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 55
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 56
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 57
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 58
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 59
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 60
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 61
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 62
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 63
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 64
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 65
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 66
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 67
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 68
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 69
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 70
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 71
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 72
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 73
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 74
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 75
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 76
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 77
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 78
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;
+
+
+Num: 79
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+2	2
+drop table t1;

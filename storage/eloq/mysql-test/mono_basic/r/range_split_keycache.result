@@ -1,0 +1,20 @@
+DROP TABLE IF EXISTS t1;
+set @@default_storage_engine= eloq;
+create table t1 (c0 int, c1 char(250), c2 char(250), c3 char(250), c4 int, primary key(c0));
+SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
+select count(*) from t1;
+count(*)
+3000
+SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
+select count(*) from t1;
+count(*)
+6000
+SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
+select count(*) from t1;
+count(*)
+9000
+SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
+select count(*) from t1;
+count(*)
+12000
+drop table t1;

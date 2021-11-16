@@ -1,0 +1,24 @@
+drop table if exists t1;
+create table t1 (n int not null primary key) engine=eloq;
+begin work;
+insert into t1 values (4);
+insert into t1 values (5);
+rollback;
+select @@warning_count;
+@@warning_count
+0
+select @@error_count;
+@@error_count
+0
+show warnings;
+Level	Code	Message
+show errors;
+Level	Code	Message
+select * from t1;
+n
+select @@warning_count;
+@@warning_count
+0
+show warnings;
+Level	Code	Message
+drop table t1;

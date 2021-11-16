@@ -287,6 +287,7 @@ char* wsrep_cluster_capabilities    = NULL;
 
 wsp::Config_state *wsrep_config_state;
 
+#ifndef WITH_GLOG
 void WSREP_LOG(void (*fun)(const char* fmt, ...), const char* fmt, ...)
 {
   /* Allocate short buffer from stack. If the vsnprintf() return value
@@ -325,6 +326,47 @@ void WSREP_LOG(void (*fun)(const char* fmt, ...), const char* fmt, ...)
     }
   }
 }
+#else
+void WSREP_LOG(void (*fun)(const char *file, int line, const char *fmt, ...),
+               const char *file, int line, const char *fmt, ...)
+{
+  /* Allocate short buffer from stack. If the vsnprintf() return value
+     indicates that the message was truncated, a new buffer will be allocated
+     dynamically and the message will be reprinted. */
+  char msg[128] = {'\0'};
+  va_list arglist;
+  va_start(arglist, fmt);
+  int n= vsnprintf(msg, sizeof(msg), fmt, arglist);
+  va_end(arglist);
+  if (n < 0)
+  {
+    sql_print_warning("WSREP: Printing message failed");
+  }
+  else if (n < (int)sizeof(msg))
+  {
+    fun(file, line, "WSREP: %s", msg);
+  }
+  else
+  {
+    size_t dynbuf_size= std::max(n, 4096);
+    char* dynbuf= (char*) my_malloc(PSI_NOT_INSTRUMENTED, dynbuf_size, MYF(0));
+    if (dynbuf)
+    {
+      va_start(arglist, fmt);
+      (void)vsnprintf(&dynbuf[0], dynbuf_size - 1, fmt, arglist);
+      va_end(arglist);
+      dynbuf[dynbuf_size - 1] = '\0';
+      fun(file, line, "WSREP: %s", &dynbuf[0]);
+      my_free(dynbuf);
+    }
+    else
+    {
+      /* Memory allocation for vector failed, print truncated message. */
+      fun(file, line, "WSREP: %s", msg);
+    }
+  }
+}
+#endif /* WITH_GLOG */
 
 
 wsrep_uuid_t               local_uuid       = WSREP_UUID_UNDEFINED;

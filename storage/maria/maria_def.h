@@ -41,6 +41,11 @@
 
 #define MARIA_CANNOT_ROLLBACK
 
+#undef mysql_rwlock_rdlock
+#define mysql_rwlock_rdlock(RW) mysql_c_rwlock_rdlock(RW)
+#undef mysql_rwlock_wrlock
+#define mysql_rwlock_wrlock(RW) mysql_c_rwlock_wrlock(RW)
+
 C_MODE_START
 
 /*

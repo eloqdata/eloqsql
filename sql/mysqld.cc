@@ -53,6 +53,7 @@
 #include "sys_vars_shared.h"
 #include "ddl_log.h"
 
+#include "mysql_metrics.h"
 #include <m_ctype.h>
 #include <my_dir.h>
 #include <my_bit.h>
@@ -2296,11 +2297,19 @@ static void activate_tcp_port(uint port,
 
     if (mysql_socket_getfd(ip_sock) == INVALID_SOCKET)
     {
+#ifndef WITH_GLOG
       sql_print_message_func func= real_bind_addr_str ? sql_print_error
                                                       : sql_print_warning;
       func("Failed to create a socket for %s '%s': errno: %d.",
            (a->ai_family == AF_INET) ? "IPv4" : "IPv6",
            (const char *) ip_addr, (int) socket_errno);
+#else
+      glog_print_message_func func= real_bind_addr_str ? glog_print_error
+                                                       : glog_print_warning;
+      func(__FILE__, __LINE__, "Failed to create a socket for %s '%s': errno: %d.",
+           (a->ai_family == AF_INET) ? "IPv4" : "IPv6",
+           (const char *) ip_addr, (int) socket_errno);
+#endif /* WITH_GLOG */
     }
     else 
     {
@@ -2687,6 +2696,12 @@ void close_connection(THD *thd, uint sql_errno)
   thd->disconnect();
 
   MYSQL_CONNECTION_DONE((int) sql_errno, thd->thread_id);
+
+  if (metrics::enable_metrics)
+  {
+    metrics::mysql_meter->Collect(metrics::NAME_CONNECTION_COUNT,
+                         metrics::Value::IncDecValue::Decrement);
+  }
 
   if (MYSQL_CONNECTION_DONE_ENABLED())
   {
@@ -3267,6 +3282,7 @@ void my_message_sql(uint error, const char *str, myf MyFlags)
   DBUG_ASSERT((MyFlags & ~(ME_BELL | ME_ERROR_LOG | ME_ERROR_LOG_ONLY |
                            ME_NOTE | ME_WARNING | ME_FATAL)) == 0);
 
+#ifndef WITH_GLOG
   if (MyFlags & ME_NOTE)
   {
     level= Sql_condition::WARN_LEVEL_NOTE;
@@ -3282,6 +3298,23 @@ void my_message_sql(uint error, const char *str, myf MyFlags)
     level= Sql_condition::WARN_LEVEL_ERROR;
     func= sql_print_error;
   }
+#else
+  if (MyFlags & ME_NOTE)
+  {
+    level= Sql_condition::WARN_LEVEL_NOTE;
+    func= sql_print_information_;
+  }
+  else if (MyFlags & ME_WARNING)
+  {
+    level= Sql_condition::WARN_LEVEL_WARN;
+    func= sql_print_warning_;
+  }
+  else
+  {
+    level= Sql_condition::WARN_LEVEL_ERROR;
+    func= sql_print_error_;
+  }
+#endif /* WITH_GLOG */
 
   if (likely(thd))
   {
@@ -3948,7 +3981,9 @@ static int init_common_variables()
     (except in the embedded server, where the default continues to
     be MyISAM)
   */
-#if defined(WITH_INNOBASE_STORAGE_ENGINE)
+#if defined(WITH_ELOQ_STORAGE_ENGINE)
+  default_storage_engine= const_cast<char *>("eloq");
+#elif defined(WITH_INNOBASE_STORAGE_ENGINE)
   default_storage_engine= const_cast<char *>("InnoDB");
 #else
   default_storage_engine= const_cast<char *>("MyISAM");
@@ -7703,7 +7738,7 @@ static int mysql_init_variables(void)
   /* Character sets */
   system_charset_info= &my_charset_utf8mb3_general_ci;
   files_charset_info= &my_charset_utf8mb3_general_ci;
-  national_charset_info= &my_charset_utf8mb3_general_ci;
+  national_charset_info= &my_charset_utf8mb3_bin;
   table_alias_charset= &my_charset_bin;
   character_set_filesystem= &my_charset_bin;
 

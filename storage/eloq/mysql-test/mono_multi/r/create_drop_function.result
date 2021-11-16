@@ -1,0 +1,19 @@
+set @@default_storage_engine=eloq;
+include/mono_init.inc
+connection serv_1;
+CREATE FUNCTION f1(str char(20))
+RETURNS CHAR(100)
+RETURN CONCAT('Hello, ', str, '!');
+SELECT routine_name FROM information_schema.routines WHERE routine_type='FUNCTION' AND routine_name='f1';
+routine_name
+f1
+SELECT f1('world');
+f1('world')
+Hello, world!
+connection serv_2;
+DROP FUNCTION f1;
+connection serv_1;
+SELECT routine_name FROM information_schema.routines WHERE routine_type='FUNCTION' AND routine_name='f1';
+routine_name
+SELECT f1('world');
+ERROR 42000: FUNCTION test.f1 does not exist
