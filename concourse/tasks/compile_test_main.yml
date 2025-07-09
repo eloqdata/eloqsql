@@ -3,7 +3,7 @@ image_resource:
   type: registry-image
 inputs:
   - name: logservice_src
-  - name: eloqsql_src
+  - name: mariadb_src
   - name: mono_test_src
 run:
-  path: eloqsql_src/concourse/scripts/compile_test_main.bash
+  path: mariadb_src/concourse/scripts/compile_test_main.bash

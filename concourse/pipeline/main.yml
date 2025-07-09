@@ -1,5 +1,5 @@
 resources:
-- name: eloqsql_src
+- name: mariadb_src
   type: git
   check_every: 3m
   source:
@@ -39,14 +39,14 @@ jobs:
       steps:
       - get: logservice_src
         trigger: true
-      - get: eloqsql_src
+      - get: mariadb_src
         trigger: true
       - get: mono_test_src
         trigger: true
       - get: mono_ubuntu_2204
   - task: compile-test-task
     image: mono_ubuntu_2204
-    file: eloqsql_src/concourse/tasks/compile_test_main.yml
+    file: mariadb_src/concourse/tasks/compile_test_main.yml
     params:
       ELOQ_AWS_ACCESS_KEY_ID: ((minio-access-key))
       ELOQ_AWS_REGION: ((aws-region))

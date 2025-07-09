@@ -20,7 +20,7 @@ echo '/var/crash/core.%t.%e.%p' | sudo tee /proc/sys/kernel/core_pattern
 
 sudo chown -R mono /home/mono/workspace
 cd /home/mono/workspace
-ln -s $WORKSPACE/eloqsql_src mariadb
+ln -s $WORKSPACE/mariadb_src mariadb
 
 cd mariadb
 git submodule sync
@@ -60,7 +60,7 @@ sed -i "s/eloq_txlog_rocksdb_cloud_region.*=.\+/eloq_txlog_rocksdb_cloud_region=
 sed -i "s/eloq_dss_rocksdb_cloud_region.*=.\+/eloq_dss_rocksdb_cloud_region=${ELOQ_AWS_REGION}/g" $WORKSPACE/mariadb_src/mysql-test/include/eloq_kv_dss.cnf
 sed -i "s/eloq_txlog_rocksdb_cloud_bucket_prefix.*=.\+/eloq_txlog_rocksdb_cloud_bucket_prefix=txlog-/g" $WORKSPACE/mariadb_src/mysql-test/include/eloq_kv_dss.cnf
 sed -i "s/eloq_dss_rocksdb_cloud_bucket_prefix.*=.\+/eloq_dss_rocksdb_cloud_bucket_prefix=dss-/g" $WORKSPACE/mariadb_src/mysql-test/include/eloq_kv_dss.cnf
-sed -i "s|eloq_dss_config_file_path.*=.\+|eloq_dss_config_file_path=${WORKSPACE}/mono_src/concourse/scripts/dss_config.example.ini|g" $WORKSPACE/mariadb_src/mysql-test/include/eloq_kv_dss.cnf
+sed -i "s|eloq_dss_config_file_path.*=.\+|eloq_dss_config_file_path=${WORKSPACE}/mariadb_src/concourse/scripts/dss_config.example.ini|g" $WORKSPACE/mariadb_src/mysql-test/include/eloq_kv_dss.cnf
 sed -i "s|eloq_dss_peer_node.*=.\+|eloq_dss_peer_node=|g" $WORKSPACE/mariadb_src/mysql-test/include/eloq_kv_dss.cnf
 
 echo "eloq_kv_dss.cnf"
@@ -68,59 +68,59 @@ cat $WORKSPACE/mariadb_src/mysql-test/include/eloq_kv_dss.cnf
 
 # config mtr_bootstrap.cnf
 # ak/sk
-sed -i "s/eloq_aws_access_key_id.*=.\+/eloq_aws_access_key_id=${ELOQ_AWS_ACCESS_KEY_ID}/g" $WORKSPACE/mono_src/concourse/scripts/mtr_bootstrap.cnf
-sed -i "s/eloq_aws_secret_key.*=.\+/eloq_aws_secret_key=${ELOQ_AWS_SECRET_KEY}/g" $WORKSPACE/mono_src/concourse/scripts/mtr_bootstrap.cnf
+sed -i "s/eloq_aws_access_key_id.*=.\+/eloq_aws_access_key_id=${ELOQ_AWS_ACCESS_KEY_ID}/g" $WORKSPACE/mariadb_src/concourse/scripts/mtr_bootstrap.cnf
+sed -i "s/eloq_aws_secret_key.*=.\+/eloq_aws_secret_key=${ELOQ_AWS_SECRET_KEY}/g" $WORKSPACE/mariadb_src/concourse/scripts/mtr_bootstrap.cnf
 # kv_storage
-sed -i "s/eloq_kv_storage.*=.\+/eloq_kv_storage=eloqds/g" $WORKSPACE/mono_src/concourse/scripts/mtr_bootstrap.cnf
+sed -i "s/eloq_kv_storage.*=.\+/eloq_kv_storage=eloqds/g" $WORKSPACE/mariadb_src/concourse/scripts/mtr_bootstrap.cnf
 # OSS settings
-sed -i "s|eloq_txlog_rocksdb_cloud_endpoint_url.*=.\+|eloq_txlog_rocksdb_cloud_endpoint_url=${MINIO_ENDPOINT_URL}|g" $WORKSPACE/mono_src/concourse/scripts/mtr_bootstrap.cnf
-sed -i "s|eloq_dss_rocksdb_cloud_endpoint_url.*=.\+|eloq_dss_rocksdb_cloud_endpoint_url=${MINIO_ENDPOINT_URL}|g" $WORKSPACE/mono_src/concourse/scripts/mtr_bootstrap.cnf
-sed -i "s/eloq_txlog_rocksdb_cloud_bucket_name.*=.\+/eloq_txlog_rocksdb_cloud_bucket_name=${bucket_name}/g" $WORKSPACE/mono_src/concourse/scripts/mtr_bootstrap.cnf
-sed -i "s/eloq_dss_rocksdb_cloud_bucket_name.*=.\+/eloq_dss_rocksdb_cloud_bucket_name=${bucket_name}/g" $WORKSPACE/mono_src/concourse/scripts/mtr_bootstrap.cnf
-sed -i "s/eloq_txlog_rocksdb_cloud_region.*=.\+/eloq_txlog_rocksdb_cloud_region=${ELOQ_AWS_REGION}/g" $WORKSPACE/mono_src/concourse/scripts/mtr_bootstrap.cnf
-sed -i "s/eloq_dss_rocksdb_cloud_region.*=.\+/eloq_dss_rocksdb_cloud_region=${ELOQ_AWS_REGION}/g" $WORKSPACE/mono_src/concourse/scripts/mtr_bootstrap.cnf
-sed -i "s/eloq_txlog_rocksdb_cloud_bucket_prefix.*=.\+/eloq_txlog_rocksdb_cloud_bucket_prefix=txlog-/g" $WORKSPACE/mono_src/concourse/scripts/mtr_bootstrap.cnf
-sed -i "s/eloq_dss_rocksdb_cloud_bucket_prefix.*=.\+/eloq_dss_rocksdb_cloud_bucket_prefix=dss-/g" $WORKSPACE/mono_src/concourse/scripts/mtr_bootstrap.cnf
-sed -i "s|eloq_dss_config_file_path.*=.\+|eloq_dss_config_file_path=${WORKSPACE}/mono_src/concourse/scripts/dss_config.example.ini|g" $WORKSPACE/mono_src/concourse/scripts/mtr_bootstrap.cnf
-sed -i "s|eloq_dss_peer_node.*=.\+|eloq_dss_peer_node=|g" $WORKSPACE/mono_src/concourse/scripts/mtr_bootstrap.cnf
+sed -i "s|eloq_txlog_rocksdb_cloud_endpoint_url.*=.\+|eloq_txlog_rocksdb_cloud_endpoint_url=${MINIO_ENDPOINT_URL}|g" $WORKSPACE/mariadb_src/concourse/scripts/mtr_bootstrap.cnf
+sed -i "s|eloq_dss_rocksdb_cloud_endpoint_url.*=.\+|eloq_dss_rocksdb_cloud_endpoint_url=${MINIO_ENDPOINT_URL}|g" $WORKSPACE/mariadb_src/concourse/scripts/mtr_bootstrap.cnf
+sed -i "s/eloq_txlog_rocksdb_cloud_bucket_name.*=.\+/eloq_txlog_rocksdb_cloud_bucket_name=${bucket_name}/g" $WORKSPACE/mariadb_src/concourse/scripts/mtr_bootstrap.cnf
+sed -i "s/eloq_dss_rocksdb_cloud_bucket_name.*=.\+/eloq_dss_rocksdb_cloud_bucket_name=${bucket_name}/g" $WORKSPACE/mariadb_src/concourse/scripts/mtr_bootstrap.cnf
+sed -i "s/eloq_txlog_rocksdb_cloud_region.*=.\+/eloq_txlog_rocksdb_cloud_region=${ELOQ_AWS_REGION}/g" $WORKSPACE/mariadb_src/concourse/scripts/mtr_bootstrap.cnf
+sed -i "s/eloq_dss_rocksdb_cloud_region.*=.\+/eloq_dss_rocksdb_cloud_region=${ELOQ_AWS_REGION}/g" $WORKSPACE/mariadb_src/concourse/scripts/mtr_bootstrap.cnf
+sed -i "s/eloq_txlog_rocksdb_cloud_bucket_prefix.*=.\+/eloq_txlog_rocksdb_cloud_bucket_prefix=txlog-/g" $WORKSPACE/mariadb_src/concourse/scripts/mtr_bootstrap.cnf
+sed -i "s/eloq_dss_rocksdb_cloud_bucket_prefix.*=.\+/eloq_dss_rocksdb_cloud_bucket_prefix=dss-/g" $WORKSPACE/mariadb_src/concourse/scripts/mtr_bootstrap.cnf
+sed -i "s|eloq_dss_config_file_path.*=.\+|eloq_dss_config_file_path=${WORKSPACE}/mariadb_src/concourse/scripts/dss_config.example.ini|g" $WORKSPACE/mariadb_src/concourse/scripts/mtr_bootstrap.cnf
+sed -i "s|eloq_dss_peer_node.*=.\+|eloq_dss_peer_node=|g" $WORKSPACE/mariadb_src/concourse/scripts/mtr_bootstrap.cnf
 
 echo "mtr_bootstrap.cnf"
-cat $WORKSPACE/mono_src/concourse/scripts/mtr_bootstrap.cnf
+cat $WORKSPACE/mariadb_src/concourse/scripts/mtr_bootstrap.cnf
 
 #config mtr_multi_bootstrap.cnf
 # ak/sk
-sed -i "s/eloq_aws_access_key_id.*=.\+/eloq_aws_access_key_id=${ELOQ_AWS_ACCESS_KEY_ID}/g" $WORKSPACE/mono_src/concourse/scripts/mtr_multi_bootstrap.cnf
-sed -i "s/eloq_aws_secret_key.*=.\+/eloq_aws_secret_key=${ELOQ_AWS_SECRET_KEY}/g" $WORKSPACE/mono_src/concourse/scripts/mtr_multi_bootstrap.cnf
+sed -i "s/eloq_aws_access_key_id.*=.\+/eloq_aws_access_key_id=${ELOQ_AWS_ACCESS_KEY_ID}/g" $WORKSPACE/mariadb_src/concourse/scripts/mtr_multi_bootstrap.cnf
+sed -i "s/eloq_aws_secret_key.*=.\+/eloq_aws_secret_key=${ELOQ_AWS_SECRET_KEY}/g" $WORKSPACE/mariadb_src/concourse/scripts/mtr_multi_bootstrap.cnf
 # kv_storage
-sed -i "s/eloq_kv_storage.*=.\+/eloq_kv_storage=eloqds/g" $WORKSPACE/mono_src/concourse/scripts/mtr_multi_bootstrap.cnf
+sed -i "s/eloq_kv_storage.*=.\+/eloq_kv_storage=eloqds/g" $WORKSPACE/mariadb_src/concourse/scripts/mtr_multi_bootstrap.cnf
 # OSS settings
-sed -i "s|eloq_txlog_rocksdb_cloud_endpoint_url.*=.\+|eloq_txlog_rocksdb_cloud_endpoint_url=${MINIO_ENDPOINT_URL}|g" $WORKSPACE/mono_src/concourse/scripts/mtr_multi_bootstrap.cnf
-sed -i "s|eloq_dss_rocksdb_cloud_endpoint_url.*=.\+|eloq_dss_rocksdb_cloud_endpoint_url=${MINIO_ENDPOINT_URL}|g" $WORKSPACE/mono_src/concourse/scripts/mtr_multi_bootstrap.cnf
-sed -i "s/eloq_txlog_rocksdb_cloud_bucket_name.*=.\+/eloq_txlog_rocksdb_cloud_bucket_name=${bucket_name}/g" $WORKSPACE/mono_src/concourse/scripts/mtr_multi_bootstrap.cnf
-sed -i "s/eloq_dss_rocksdb_cloud_bucket_name.*=.\+/eloq_dss_rocksdb_cloud_bucket_name=${bucket_name}/g" $WORKSPACE/mono_src/concourse/scripts/mtr_multi_bootstrap.cnf
-sed -i "s/eloq_txlog_rocksdb_cloud_region.*=.\+/eloq_txlog_rocksdb_cloud_region=${ELOQ_AWS_REGION}/g" $WORKSPACE/mono_src/concourse/scripts/mtr_multi_bootstrap.cnf
-sed -i "s/eloq_dss_rocksdb_cloud_region.*=.\+/eloq_dss_rocksdb_cloud_region=${ELOQ_AWS_REGION}/g" $WORKSPACE/mono_src/concourse/scripts/mtr_multi_bootstrap.cnf
-sed -i "s/eloq_txlog_rocksdb_cloud_bucket_prefix.*=.\+/eloq_txlog_rocksdb_cloud_bucket_prefix=txlog-/g" $WORKSPACE/mono_src/concourse/scripts/mtr_multi_bootstrap.cnf
-sed -i "s/eloq_dss_rocksdb_cloud_bucket_prefix.*=.\+/eloq_dss_rocksdb_cloud_bucket_prefix=dss-/g" $WORKSPACE/mono_src/concourse/scripts/mtr_multi_bootstrap.cnf
-sed -i "s|eloq_dss_config_file_path.*=.\+|eloq_dss_config_file_path=|g" $WORKSPACE/mono_src/concourse/scripts/mtr_multi_bootstrap.cnf
-sed -i "s|eloq_dss_peer_node.*=.\+|eloq_dss_peer_node=localhost:9100|g" $WORKSPACE/mono_src/concourse/scripts/mtr_multi_bootstrap.cnf
+sed -i "s|eloq_txlog_rocksdb_cloud_endpoint_url.*=.\+|eloq_txlog_rocksdb_cloud_endpoint_url=${MINIO_ENDPOINT_URL}|g" $WORKSPACE/mariadb_src/concourse/scripts/mtr_multi_bootstrap.cnf
+sed -i "s|eloq_dss_rocksdb_cloud_endpoint_url.*=.\+|eloq_dss_rocksdb_cloud_endpoint_url=${MINIO_ENDPOINT_URL}|g" $WORKSPACE/mariadb_src/concourse/scripts/mtr_multi_bootstrap.cnf
+sed -i "s/eloq_txlog_rocksdb_cloud_bucket_name.*=.\+/eloq_txlog_rocksdb_cloud_bucket_name=${bucket_name}/g" $WORKSPACE/mariadb_src/concourse/scripts/mtr_multi_bootstrap.cnf
+sed -i "s/eloq_dss_rocksdb_cloud_bucket_name.*=.\+/eloq_dss_rocksdb_cloud_bucket_name=${bucket_name}/g" $WORKSPACE/mariadb_src/concourse/scripts/mtr_multi_bootstrap.cnf
+sed -i "s/eloq_txlog_rocksdb_cloud_region.*=.\+/eloq_txlog_rocksdb_cloud_region=${ELOQ_AWS_REGION}/g" $WORKSPACE/mariadb_src/concourse/scripts/mtr_multi_bootstrap.cnf
+sed -i "s/eloq_dss_rocksdb_cloud_region.*=.\+/eloq_dss_rocksdb_cloud_region=${ELOQ_AWS_REGION}/g" $WORKSPACE/mariadb_src/concourse/scripts/mtr_multi_bootstrap.cnf
+sed -i "s/eloq_txlog_rocksdb_cloud_bucket_prefix.*=.\+/eloq_txlog_rocksdb_cloud_bucket_prefix=txlog-/g" $WORKSPACE/mariadb_src/concourse/scripts/mtr_multi_bootstrap.cnf
+sed -i "s/eloq_dss_rocksdb_cloud_bucket_prefix.*=.\+/eloq_dss_rocksdb_cloud_bucket_prefix=dss-/g" $WORKSPACE/mariadb_src/concourse/scripts/mtr_multi_bootstrap.cnf
+sed -i "s|eloq_dss_config_file_path.*=.\+|eloq_dss_config_file_path=|g" $WORKSPACE/mariadb_src/concourse/scripts/mtr_multi_bootstrap.cnf
+sed -i "s|eloq_dss_peer_node.*=.\+|eloq_dss_peer_node=localhost:9100|g" $WORKSPACE/mariadb_src/concourse/scripts/mtr_multi_bootstrap.cnf
 
 echo "mtr_multi_bootstrap.cnf"
-cat $WORKSPACE/mono_src/concourse/scripts/mtr_multi_bootstrap.cnf
+cat $WORKSPACE/mariadb_src/concourse/scripts/mtr_multi_bootstrap.cnf
 
 #config dss_server.ini
 # ak/sk
-sed -i "s/ip.*=.\+/ip=localhost/g" $WORKSPACE/mono_src/concourse/scripts/dss_server.ini
-sed -i "s/port.*=.\+/port=9100/g" $WORKSPACE/mono_src/concourse/scripts/dss_server.ini
-sed -i "s/data_path.*=.\+/data_path=dss_data/g" $WORKSPACE/mono_src/concourse/scripts/dss_server.ini
-sed -i "s/aws_access_key_id.*=.\+/aws_access_key_id=${ELOQ_AWS_ACCESS_KEY_ID}/g" $WORKSPACE/mono_src/concourse/scripts/dss_server.ini
-sed -i "s/aws_secret_key.*=.\+/aws_secret_key=${ELOQ_AWS_SECRET_KEY}/g" $WORKSPACE/mono_src/concourse/scripts/dss_server.ini
-sed -i "s|rocksdb_cloud_s3_endpoint_url.*=.\+|rocksdb_cloud_s3_endpoint_url=${MINIO_ENDPOINT_URL}|g" $WORKSPACE/mono_src/concourse/scripts/dss_server.ini
-sed -i "s/rocksdb_cloud_bucket_name.*=.\+/rocksdb_cloud_bucket_name=${bucket_name}/g" $WORKSPACE/mono_src/concourse/scripts/dss_server.ini
-sed -i "s/rocksdb_cloud_bucket_prefix.*=.\+/rocksdb_cloud_bucket_prefix=dss-/g" $WORKSPACE/mono_src/concourse/scripts/dss_server.ini
+sed -i "s/ip.*=.\+/ip=localhost/g" $WORKSPACE/mariadb_src/concourse/scripts/dss_server.ini
+sed -i "s/port.*=.\+/port=9100/g" $WORKSPACE/mariadb_src/concourse/scripts/dss_server.ini
+sed -i "s/data_path.*=.\+/data_path=dss_data/g" $WORKSPACE/mariadb_src/concourse/scripts/dss_server.ini
+sed -i "s/aws_access_key_id.*=.\+/aws_access_key_id=${ELOQ_AWS_ACCESS_KEY_ID}/g" $WORKSPACE/mariadb_src/concourse/scripts/dss_server.ini
+sed -i "s/aws_secret_key.*=.\+/aws_secret_key=${ELOQ_AWS_SECRET_KEY}/g" $WORKSPACE/mariadb_src/concourse/scripts/dss_server.ini
+sed -i "s|rocksdb_cloud_s3_endpoint_url.*=.\+|rocksdb_cloud_s3_endpoint_url=${MINIO_ENDPOINT_URL}|g" $WORKSPACE/mariadb_src/concourse/scripts/dss_server.ini
+sed -i "s/rocksdb_cloud_bucket_name.*=.\+/rocksdb_cloud_bucket_name=${bucket_name}/g" $WORKSPACE/mariadb_src/concourse/scripts/dss_server.ini
+sed -i "s/rocksdb_cloud_bucket_prefix.*=.\+/rocksdb_cloud_bucket_prefix=dss-/g" $WORKSPACE/mariadb_src/concourse/scripts/dss_server.ini
 
 echo "dss_server.ini"
-cat $WORKSPACE/mono_src/concourse/scripts/dss_server.ini
+cat $WORKSPACE/mariadb_src/concourse/scripts/dss_server.ini
 
 cd /home/mono/workspace/mariadb
 
@@ -145,6 +145,7 @@ if [ ! -f "Makefile" ]; then
           -DSTATISTICS=ON \
           -DWITH_DATA_STORE=ELOQDSS_ROCKSDB_CLOUD_S3 \
           -DUSE_ROCKSDB_LOG_STATE=ON \
+	  -DWITH_ROCKSDB_CLOUD=OFF \
           ../
 fi
 
@@ -210,7 +211,7 @@ mc rb minio_server/txlog-${bucket_name} --force
 set -e
 
 echo "running mono_main,mono_basic"
-./mtr --suite=mono_main,mono_basic --testcase-timeout=30 --bootstrap-defaults-file=$WORKSPACE/mono_src/concourse/scripts/mtr_bootstrap.cnf
+./mtr --suite=mono_main,mono_basic --testcase-timeout=30 --bootstrap-defaults-file=$WORKSPACE/mariadb_src/concourse/scripts/mtr_bootstrap.cnf
 
 # Clean up minio buckets
 echo "cleaning minio buckets"
@@ -230,11 +231,11 @@ cat $WORKSPACE/mariadb_src/mysql-test/include/eloq_kv_dss.cnf
 
 # Start dss_server
 echo "starting dss_server"
-nohup /home/mono/workspace/mariadb/install/bin/dss_server --config=$WORKSPACE/mono_src/concourse/scripts/dss_server.ini > dss_server.log 2>&1 &
+nohup /home/mono/workspace/mariadb/install/bin/dss_server --config=$WORKSPACE/mariadb_src/concourse/scripts/dss_server.ini > dss_server.log 2>&1 &
 sleep 5
 
 echo "running mono_multi"
-./mtr --suite=mono_multi --force --bootstrap-defaults-file=$WORKSPACE/mono_src/concourse/scripts/mtr_multi_bootstrap.cnf
+./mtr --suite=mono_multi --force --bootstrap-defaults-file=$WORKSPACE/mariadb_src/concourse/scripts/mtr_multi_bootstrap.cnf
 
 # Clean up minio bucket
 # If mtr test failed, it would not be run.
