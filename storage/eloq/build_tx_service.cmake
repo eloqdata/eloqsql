@@ -22,7 +22,7 @@ if(ELOQ_MODULE_ENABLED)
     add_definitions(-DELOQ_MODULE_ENABLED)
 endif()
 
-option(FORK_HM_PROCESS "Whether fork host manager process" ON)
+option(FORK_HM_PROCESS "Whether fork host manager process" OFF)
 message(NOTICE "FORK_HM_PROCESS : ${FORK_HM_PROCESS}")
 
 option(STATISTICS "Whether enable table statistics" OFF)
