@@ -35,7 +35,8 @@ using namespace txservice;
 extern my_bool opt_bootstrap; // Defined in Mariadb context.
 
 static std::string mysql_mono_view{"./mysql/mono_view"};
-static TableName VIEW_TABLE_NAME{mysql_mono_view, TableType::Primary};
+static TableName VIEW_TABLE_NAME{mysql_mono_view, TableType::Primary,
+                                 txservice::TableEngine::EloqSql};
 static LEX_CSTRING VIEW_TABLE_NAME_CS{STRING_WITH_LEN("mono_view")};
 
 extern std::pair<const std::function<void()> *, const std::function<void()> *>
@@ -1294,8 +1295,9 @@ int eloq_fetch_frm(THD *thd, LEX_CSTRING db, LEX_CSTRING frm_name,
   bool exists= false;
   std::string data;
   uint64_t commit_ts;
-  bool ok= storage_hd->FetchTable(TableName(key, TableType::Catalog), data,
-                                  exists, commit_ts);
+  bool ok= storage_hd->FetchTable(
+      TableName(key, TableType::Catalog, TableEngine::EloqSql), data, exists,
+      commit_ts);
   if (!ok)
   {
     my_printf_error(HA_ERR_INTERNAL_ERROR, "Eloq fetch frm './%s/%s' failed",
@@ -1305,7 +1307,7 @@ int eloq_fetch_frm(THD *thd, LEX_CSTRING db, LEX_CSTRING frm_name,
   if (exists)
   {
     std::string frm, kv_info, key_schemas_ts;
-    DeserializeSchemaImage(data, frm, kv_info, key_schemas_ts);
+    EloqDS::DeserializeSchemaImage(data, frm, kv_info, key_schemas_ts);
     frm_binary= thd->strmake_lex_cstring(frm.data(), frm.size());
     DBUG_RETURN(0);
   }

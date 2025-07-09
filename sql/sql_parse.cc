@@ -109,6 +109,10 @@
 #include "../storage/maria/ha_maria.h"
 #endif
 
+#ifdef COROUTINE_ENABLED
+#include "threadpool.h"
+#endif
+
 #include "wsrep.h"
 #include "wsrep_mysqld.h"
 #ifdef WITH_WSREP
@@ -1206,6 +1210,9 @@ dispatch_command_return do_command(THD *thd, bool blocking)
   ulong packet_length;
   NET *net= &thd->net;
   enum enum_server_command command;
+#ifdef COROUTINE_ENABLED
+  TP_connection *conn = nullptr;
+#endif
   DBUG_ENTER("do_command");
 
 #ifdef WITH_WSREP
@@ -1268,6 +1275,14 @@ dispatch_command_return do_command(THD *thd, bool blocking)
   DEBUG_SYNC(thd, "before_do_command_net_read");
 
   packet_length= my_net_read_packet(net, 1);
+#ifdef COROUTINE_ENABLED
+  conn= (TP_connection *) thd->event_scheduler.data;
+  if (conn != nullptr)
+  {
+    conn->events_snapshot_=
+        conn->epoll_events_.load(std::memory_order_acquire);
+  }
+#endif
 
   if (unlikely(packet_length == packet_error))
   {

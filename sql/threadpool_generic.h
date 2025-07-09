@@ -29,14 +29,16 @@
 #endif
 
 #ifdef COROUTINE_ENABLED
-#include "../storage/eloq/tx_service/include/circular_queue.h"
-#include <bthread/moodycamelqueue.h>
 #include "../storage/eloq/tx_service/include/concurrent_queue_wsize.h"
-#include <mutex>
 #include <chrono>
 #include <functional>
+#include <mutex>
+#include <condition_variable>
 #ifdef IOURING_ENABLED
 #include <liburing.h>
+#endif
+#ifdef ELOQ_MODULE_ENABLED
+#include "bthread/brpc_module.h"
 #endif
 
 #endif
@@ -92,6 +94,7 @@ struct TP_connection_generic :public TP_connection
   int init() override { return 0; }
   void set_io_timeout(int sec) override;
   int  start_io() override;
+  int end_io() override;
   void wait_begin(int type) override;
   void wait_end() override;
 
@@ -104,6 +107,7 @@ struct TP_connection_generic :public TP_connection
   bool bound_to_poll_descriptor;
   int waiting;
   bool fix_group;
+  bool wait_from_sql_thd_{true};
   LIST *acquired_mutexes{0};
 #ifdef _WIN32
   win_aiosocket win_sock{};
@@ -150,17 +154,30 @@ extern std::function<
 struct CoroutineInfo
 {
   txservice::ConcurrentQueueWSize<TP_connection_generic *> resume_queue_;
-  std::atomic<int16_t> running_thds_{0};
-  std::atomic<uint16_t> thd_cnt_{0};
   txservice::ConcurrentQueueWSize<TP_connection_generic *> req_queue_;
+#ifdef ELOQ_MODULE_ENABLED
+  // A collection of coroutines that must be processed by SQL native threads. A
+  // coroutine must be processed by a SQL native thread when the coroutine
+  // enters wait_begin() and is about to be blocked.
+  txservice::ConcurrentQueueWSize<TP_connection_generic *> sql_native_queue_;
+#endif
   std::atomic<uint16_t> coro_cnt_{0};
   size_t empty_run_cnt_{0};
   std::chrono::time_point<std::chrono::system_clock> empty_begin_tp_;
   int16_t group_id_{-1};
-#ifdef EXT_TX_PROC_ENABLED
+#if defined (EXT_TX_PROC_ENABLED) && !defined (ELOQ_MODULE_ENABLED)
   std::function<void()> tx_processor_exec_{nullptr};
   std::function<void(int16_t)> update_ext_proc_{nullptr};
 #endif
+
+  bool IsEmpty() const
+  {
+    return req_queue_.IsEmpty() && resume_queue_.IsEmpty()
+#ifdef ELOQ_MODULE_ENABLED
+           && sql_native_queue_.IsEmpty()
+#endif
+        ;
+  }
 };
 #endif
 
@@ -202,14 +219,39 @@ struct thread_group_t
 #else
   bool stalled;
 #endif
+  std::atomic<bool> ext_worker_active_{false};
   thread_group_counters_t counters;
 #ifdef COROUTINE_ENABLED
   std::unique_ptr<CoroutineInfo> coroutine_info_;
+  std::mutex listener_mux_;
+  std::condition_variable listener_cv_;
 #endif
   char pad[CPU_LEVEL1_DCACHE_LINESIZE];
 
+#ifdef COROUTINE_ENABLED
   int WakeOrCreateThread();
+  bool HasActiveWorker() const;
+#endif
 };
+
+#ifdef ELOQ_MODULE_ENABLED
+class MariaModule : public eloq::EloqModule
+{
+public:
+  MariaModule() = default;
+
+  void ExtThdStart(int thd_id) override;
+  void ExtThdEnd(int thd_id) override;
+  void Process(int thd_id) override;
+  bool HasTask(int thd_id) const override;
+
+  void ResizeGroups(size_t size) { groups_.resize(size, nullptr); }
+  void SetGroup(size_t gid, thread_group_t *group) { groups_[gid]= group; }
+
+private:
+  std::vector<thread_group_t *> groups_;
+};
+#endif
 
 #define TP_INCREMENT_GROUP_COUNTER(group,var) do {group->counters.var++;}while(0)
 

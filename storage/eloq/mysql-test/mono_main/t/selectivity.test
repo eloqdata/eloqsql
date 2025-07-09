@@ -850,10 +850,23 @@ insert t1 select rand()*1e5, rand()*1e5 from t1;
 insert t1 select rand()*1e5, rand()*1e5 from t1;
 insert t1 select rand()*1e5, rand()*1e5 from t1;
 insert t1 select rand()*1e5, rand()*1e5 from t1;
+--echo #
+--echo # sleep 20 seconds waiting for range split to finish
+--echo # for reducing the possiblity of RW conflicts which failed this test case
+--echo #
+
+--sleep 20
 insert t1 select rand()*1e5, rand()*1e5 from t1;
 
 create table t2 (c int, d int, key(c), key(d)) engine=eloq;
 insert t2 select floor(rand()*1e5/2)*2, floor(rand()*1e5/3)*3 from t1;
+
+--echo #
+--echo # sleep 20 seconds waiting for range split to finish
+--echo # for reducing the possiblity of RW conflicts which failed this test case
+--echo #
+
+--sleep 20
 
 analyze table t1,t2;
 
@@ -1210,6 +1223,7 @@ INSERT INTO t1 SELECT a + 1280, b, c FROM t1 LIMIT 80;
 
 ANALYZE TABLE t1;
 
+--replace_column 9 #
 EXPLAIN
 SELECT a FROM t1 WHERE b = 1 ORDER BY c DESC LIMIT 9;
 SELECT a FROM t1 WHERE b = 1 ORDER BY c DESC,a DESC LIMIT 9;

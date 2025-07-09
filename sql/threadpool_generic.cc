@@ -40,6 +40,10 @@
 #if defined(COROUTINE_ENABLED) && defined(IOURING_ENABLED)
 #include <liburing.h>
 #endif
+#include "is_sql_thd.h"
+#ifdef ELOQ_MODULE_ENABLED
+#include <bthread/bthread.h>
+#endif
 
 static void io_poll_close(TP_file_handle fd)
 {
@@ -98,6 +102,9 @@ static PSI_thread_info	thread_list[] =
 thread_group_t *all_groups;
 static uint group_count;
 static Atomic_counter<uint32_t> shutdown_group_count;
+#ifdef ELOQ_MODULE_ENABLED
+static MariaModule maria_module;
+#endif
 
 /**
  Used for printing "pool blocked" message, see
@@ -200,7 +207,11 @@ int io_poll_associate_fd(TP_file_handle pollfd, TP_file_handle fd, void *data, v
   struct epoll_event ev;
   ev.data.u64= 0; /* Keep valgrind happy */
   ev.data.ptr= data;
+#ifdef COROUTINE_ENABLED
+  ev.events=  EPOLLIN|EPOLLET|EPOLLERR|EPOLLRDHUP;
+#else
   ev.events=  EPOLLIN|EPOLLET|EPOLLERR|EPOLLRDHUP|EPOLLONESHOT;
+#endif
   return epoll_ctl(pollfd, EPOLL_CTL_ADD,  fd, &ev);
 }
 
@@ -513,13 +524,27 @@ static void queue_put(thread_group_t *thread_group, native_event *ev, int cnt)
 }
 
 #ifdef COROUTINE_ENABLED
-static void lockfree_queue_put(thread_group_t *thread_group, native_event *ev, int cnt)
+static void lockfree_queue_put_bulk(thread_group_t *thread_group,
+                                    native_event *ev, int cnt)
 {
+  thread_group->io_event_count.fetch_add(cnt, std::memory_order_relaxed);
+
   ulonglong now= threadpool_exact_stats ?
     microsecond_interval_timer():pool_timer.current_microtime;
   for(int i=0; i < cnt; i++)
   {
     TP_connection_generic *c = (TP_connection_generic *)native_event_get_userdata(&ev[i]);
+    if (c == nullptr)
+    {
+      continue;
+    }
+    int prev= c->epoll_events_.fetch_add(1, std::memory_order_acq_rel);
+    // If the prior epoll events is non-zero, it means there is an active
+    // coroutine processing the connection.
+    if (prev > 0)
+    {
+      continue;
+    }
     c->enqueue_time= now;
     thread_group->coroutine_info_->req_queue_.Enqueue(c);
   }
@@ -913,16 +938,21 @@ static TP_connection_generic * listener(worker_thread_t *current_thread,
 
   @return a ready connection, or NULL on shutdown
 */
-static TP_connection_generic *lockfree_listener(worker_thread_t *current_thread,
-                                                thread_group_t *thread_group)
+static void lockfree_listener(worker_thread_t *current_thread,
+                              thread_group_t *thread_group)
 {
   DBUG_ENTER("listener");
-  TP_connection_generic *retval= NULL;
 
   for(;;)
   {
     native_event ev[MAX_EVENTS];
     int cnt;
+
+    while (!thread_group->shutdown && thread_group->HasActiveWorker())
+    {
+      std::unique_lock<std::mutex> lk(thread_group->listener_mux_);
+      thread_group->listener_cv_.wait_for(lk, std::chrono::seconds(5));
+    }
 
     if (thread_group->shutdown)
       break;
@@ -940,12 +970,14 @@ static TP_connection_generic *lockfree_listener(worker_thread_t *current_thread,
       break;
     }
 
-    thread_group->io_event_count.fetch_add(cnt, std::memory_order_relaxed);
+    lockfree_queue_put_bulk(thread_group, ev, cnt);
 
-    lockfree_queue_put(thread_group, ev, cnt);
-
-    if (thread_group->active_thread_count.load(std::memory_order_relaxed) == 0)
+    if (!thread_group->HasActiveWorker())
     {
+#ifdef ELOQ_MODULE_ENABLED
+      // When SQL runtime is registered as a module, wakes up the external worker.
+      eloq::EloqModule::NotifyWorker(thread_group->coroutine_info_->group_id_);
+#else
       mysql_mutex_lock(&thread_group->mutex);
 
       // Re-checks active threads after acquiring the mutex.
@@ -975,10 +1007,11 @@ static TP_connection_generic *lockfree_listener(worker_thread_t *current_thread,
         }
       }
       mysql_mutex_unlock(&thread_group->mutex);
+#endif
     }
   }
 
-  DBUG_RETURN(retval);
+  DBUG_VOID_RETURN;
 }
 #endif
 
@@ -994,8 +1027,10 @@ static TP_connection_generic *lockfree_listener(worker_thread_t *current_thread,
 static void add_thread_count(thread_group_t *thread_group, int32 count)
 {
   thread_group->thread_count += count;
+#ifndef COROUTINE_ENABLED
   /* worker starts out and end in "active" state */
   thread_group->active_thread_count += count;
+#endif
   tp_stats.num_worker_threads+= count;
 }
 
@@ -1216,6 +1251,13 @@ static int wake_listener(thread_group_t *thread_group)
   }
 
   /* Wake listener */
+#ifdef COROUTINE_ENABLED
+  {
+    std::unique_lock<std::mutex> lk(thread_group->listener_mux_);
+    thread_group->listener_cv_.notify_one();
+  }
+#endif
+
   if (io_poll_associate_fd(thread_group->pollfd,
     thread_group->shutdown_pipe[0], NULL, NULL))
   {
@@ -1291,14 +1333,23 @@ static void lockfree_queue_put(thread_group_t *thread_group, TP_connection_gener
 {
   DBUG_ENTER("queue_put");
 
+  connection->epoll_events_.store(1, std::memory_order_relaxed);
+  connection->events_snapshot_ = 1;
   connection->enqueue_time= threadpool_exact_stats?microsecond_interval_timer():pool_timer.current_microtime;
   thread_group->coroutine_info_->req_queue_.Enqueue(connection);
 
-  if (thread_group->active_thread_count.load(std::memory_order_relaxed) == 0)
+  if (!thread_group->HasActiveWorker())
   {
+#ifdef ELOQ_MODULE_ENABLED
+    eloq::EloqModule::NotifyWorker(thread_group->coroutine_info_->group_id_);
+#else
     mysql_mutex_lock(&thread_group->mutex);
-    wake_or_create_thread(thread_group);
+    if (thread_group->active_thread_count.load(std::memory_order_relaxed) == 0)
+    {
+      wake_or_create_thread(thread_group);
+    }
     mysql_mutex_unlock(&thread_group->mutex);
+#endif
   }
 
   DBUG_VOID_RETURN;
@@ -1448,7 +1499,6 @@ TP_connection_generic *get_event(worker_thread_t *current_thread,
 }
 
 #ifdef COROUTINE_ENABLED
-thread_local int thd_id_in_group = 0;
 thread_local std::array<TP_connection_generic*, 128> local_conns;
 thread_local uint8_t conns_cnt{0};
 thread_local uint8_t conns_offset{0};
@@ -1478,6 +1528,17 @@ void get_event_bulk(worker_thread_t *current_thread,
     if (!oversubscribed)
     {
       thread_group->queue_event_count.fetch_add(1, std::memory_order_relaxed);
+
+#ifdef ELOQ_MODULE_ENABLED
+      if (!coro_info->sql_native_queue_.IsEmpty())
+      {
+        conns_cnt= coro_info->sql_native_queue_.TryDequeueBulk(
+            local_conns.begin(), local_conns.size());
+        coro_info->empty_run_cnt_= 0;
+        break;
+      }
+#endif
+
       conns_cnt = coro_info->resume_queue_.TryDequeueBulk(
           local_conns.begin(), local_conns.size());
       if (conns_cnt == 0)
@@ -1499,69 +1560,68 @@ void get_event_bulk(worker_thread_t *current_thread,
         coro_info->empty_run_cnt_ = 0;
         break;
       }
-      else if (coro_info->running_thds_.load(std::memory_order_relaxed) == 1 &&
+#ifndef ELOQ_MODULE_ENABLED
+      else if (thread_group->active_thread_count.load(
+                   std::memory_order_relaxed) == 1 &&
                thread_group->listener != nullptr)
       {
+        // If this is the last active thread besides the listener and there are
+        // ongoing coroutines, busy waits for the coroutines to resume.
         if (coro_info->coro_cnt_.load(std::memory_order_relaxed) > 0)
         {
-          coro_info->empty_run_cnt_ = 0;
+          coro_info->empty_run_cnt_= 0;
           // Inserts a pseudo connection.
-          local_conns[0] = nullptr;
-          conns_cnt = 1;
+          local_conns[0]= nullptr;
+          conns_cnt= 1;
           break;
         }
 
+        // If there is no coroutine or incoming request, busy loops for a while
+        // before entering the sleep mode.
         if (coro_info->empty_run_cnt_ == 0)
         {
-          coro_info->empty_begin_tp_ = std::chrono::system_clock::now();
+          coro_info->empty_begin_tp_= std::chrono::system_clock::now();
         }
 
         coro_info->empty_run_cnt_++;
         using namespace std::chrono_literals;
-        auto dur_in_milli_sec = 0ms;
+        auto dur_in_milli_sec= 0ms;
         if (coro_info->empty_run_cnt_ % 100000 == 0)
         {
-          auto now = std::chrono::system_clock::now();
-          auto dur = 
-            now.time_since_epoch() - coro_info->empty_begin_tp_.time_since_epoch();
-          dur_in_milli_sec =
-            std::chrono::duration_cast<std::chrono::milliseconds>(dur);
+          auto now= std::chrono::system_clock::now();
+          auto dur= now.time_since_epoch() -
+                    coro_info->empty_begin_tp_.time_since_epoch();
+          dur_in_milli_sec=
+              std::chrono::duration_cast<std::chrono::milliseconds>(dur);
         }
-        
+
         if (dur_in_milli_sec < 100ms)
         {
-          // Inserts a pseudo connection. 
-          local_conns[0] = nullptr;
-          conns_cnt = 1;
-          break; 
+          // Inserts a pseudo connection.
+          local_conns[0]= nullptr;
+          conns_cnt= 1;
+          break;
         }
       }
+#endif
     }
 
     /* If there is currently no listener in the group, become one. */
     if(!thread_group->listener)
     {
       thread_group->listener= current_thread;
-      thread_group->active_thread_count--;
-      coro_info->running_thds_.fetch_sub(1, std::memory_order_relaxed);
-#ifdef EXT_TX_PROC_ENABLED
+      thread_group->active_thread_count.fetch_sub(1,
+                                                  std::memory_order_relaxed);
+#if defined (EXT_TX_PROC_ENABLED) && !defined (ELOQ_MODULE_ENABLED)
       (coro_info->update_ext_proc_)(-1);
 #endif
       mysql_mutex_unlock(&thread_group->mutex);
-
-      TP_connection_generic *connection =
-        lockfree_listener(current_thread, thread_group);
-
-      if (connection != nullptr)
-      {
-        local_conns[0] = connection;
-        conns_cnt = 1;
-      }
-
+      lockfree_listener(current_thread, thread_group);
       mysql_mutex_lock(&thread_group->mutex);
-      thread_group->active_thread_count++;
-      coro_info->running_thds_.fetch_add(1, std::memory_order_relaxed);
-#ifdef EXT_TX_PROC_ENABLED
+      // The listener thread is about to exit. Does not increase the active
+      // thread count.
+
+#if defined (EXT_TX_PROC_ENABLED) && !defined (ELOQ_MODULE_ENABLED)
       (coro_info->update_ext_proc_)(1);
 #endif
       /* There is no listener anymore, it just returned. */
@@ -1569,32 +1629,33 @@ void get_event_bulk(worker_thread_t *current_thread,
       break;
     }
 
-    int32_t prev_running_cnt =
-      coro_info->running_thds_.fetch_sub(1, std::memory_order_relaxed);
-    thread_group->active_thread_count.fetch_sub(1, std::memory_order_acq_rel);
+    int32_t prev_active_cnt= thread_group->active_thread_count.fetch_sub(
+        1, std::memory_order_acq_rel);
 
     // This is the last running thread who is going to sleep.
-    // Re-checks the resume and request queues before sleeping.
-    // Do not sleep if there are requests to process.
-    if (prev_running_cnt == 1)
+    if (prev_active_cnt == 1)
     {
-      conns_cnt = coro_info->resume_queue_.TryDequeueBulk(
-          local_conns.begin(), local_conns.size());
-      if (conns_cnt == 0)
+#if ELOQ_MODULE_ENABLED
+      // This is the last SQL thread to sleep. Ensures the external worker
+      // thread is active.
+      eloq::EloqModule::NotifyWorker(coro_info->group_id_);
+#else
+      // Re-checks the resume and request queues before sleeping. Do not sleep
+      // if there are requests to process.
+      if (!coro_info->IsEmpty())
       {
-        conns_cnt = coro_info->req_queue_.TryDequeueBulk(
-          local_conns.begin(), local_conns.size());
+        thread_group->active_thread_count.fetch_add(1,
+                                                    std::memory_order_relaxed);
+        continue;
       }
 
-      if (conns_cnt > 0)
-      {
-        coro_info->running_thds_.fetch_add(1, std::memory_order_relaxed);
-        thread_group->active_thread_count.fetch_add(1, std::memory_order_relaxed);
-        break;
-      }
+      // This is the last thread going to sleep. Wakes up the listener thread.
+      std::unique_lock<std::mutex> lk(thread_group->listener_mux_);
+      thread_group->listener_cv_.notify_one();
+#endif
     }
 
-#ifdef EXT_TX_PROC_ENABLED
+#if defined (EXT_TX_PROC_ENABLED) && !defined (ELOQ_MODULE_ENABLED)
     (coro_info->update_ext_proc_)(-1);
 #endif
 
@@ -1617,11 +1678,10 @@ void get_event_bulk(worker_thread_t *current_thread,
     {
       err = mysql_cond_wait(&current_thread->cond, &thread_group->mutex);
     }
-    thread_group->active_thread_count.fetch_add(1, std::memory_order_acq_rel);
+    prev_active_cnt= thread_group->active_thread_count.fetch_add(
+        1, std::memory_order_relaxed);
 
-    prev_running_cnt =
-      coro_info->running_thds_.fetch_add(1, std::memory_order_relaxed);
-#ifdef EXT_TX_PROC_ENABLED
+#if defined (EXT_TX_PROC_ENABLED) && !defined (ELOQ_MODULE_ENABLED)
     (coro_info->update_ext_proc_)(1);
 #endif
 
@@ -1637,14 +1697,40 @@ void get_event_bulk(worker_thread_t *current_thread,
 
     if (err)
     {
-      // If this is the last thread timing out, only exits when there are
-      // no ongoing coroutines or incoming requests.
-      if (prev_running_cnt > 0 ||
-          (coro_info->coro_cnt_.load(std::memory_order_relaxed) == 0 &&
-           coro_info->req_queue_.IsEmpty()))
+      // Prepares to exit, if (1) this is not the last thread timing out
+      // (because we expect there is only SQL thread unless there are stalls),
+      // or (2) this is the last thread and there is no request to process, or
+      // (3) there is an active external worker thread.
+      if (thread_group->ext_worker_active_.load(std::memory_order_relaxed))
       {
         break;
       }
+      else if (prev_active_cnt > 0 || coro_info->IsEmpty())
+      {
+        // Ready to exit. Decreases the active thread count.
+        prev_active_cnt= thread_group->active_thread_count.fetch_sub(
+            1, std::memory_order_relaxed);
+
+        // Re-checks if there are requests to process.
+        if (prev_active_cnt == 1 && !coro_info->IsEmpty())
+        {
+          thread_group->active_thread_count.fetch_add(
+              1, std::memory_order_relaxed);
+        }
+        else
+        {
+          if (prev_active_cnt == 1)
+          {
+            // This is the last thread going to exit. Wakes up the listener
+            // thread.
+            std::unique_lock<std::mutex> lk(thread_group->listener_mux_);
+            thread_group->listener_cv_.notify_one();
+          }
+          break;
+        }
+      }
+      // else: this is the last thread timing out, but there are requests. Does
+      // not exit and continues the loop.
     }
   }
 
@@ -1654,8 +1740,7 @@ void get_event_bulk(worker_thread_t *current_thread,
   // the thread is about to exit. Excludes the thread from the working set.
   if (conns_cnt == 0)
   {
-    coro_info->running_thds_.fetch_sub(1, std::memory_order_relaxed);
-#ifdef EXT_TX_PROC_ENABLED
+#if defined (EXT_TX_PROC_ENABLED) && !defined (ELOQ_MODULE_ENABLED)
     (coro_info->update_ext_proc_)(-1);
 #endif
   }
@@ -1671,14 +1756,25 @@ void get_event_bulk(worker_thread_t *current_thread,
   sleep() or similar.
 */
 
-void wait_begin(thread_group_t *thread_group)
+void wait_begin(thread_group_t *thread_group, TP_connection_generic *conn)
 {
   DBUG_ENTER("wait_begin");
   mysql_mutex_lock(&thread_group->mutex);
-  thread_group->active_thread_count--;
+  if (is_sql_thd)
+  {
+    conn->wait_from_sql_thd_= true;
+  #ifdef COROUTINE_ENABLED
+    thread_group->active_thread_count.fetch_sub(1, std::memory_order_relaxed);
+  #else
+    thread_group->active_thread_count--;
+  #endif
+  }
+  else
+  {
+    conn->wait_from_sql_thd_= false;
+  }
 #ifdef COROUTINE_ENABLED
   CoroutineInfo *coro_info = thread_group->coroutine_info_.get();
-  coro_info->running_thds_.fetch_sub(1, std::memory_order_relaxed);
 
   // Before entering the wait mode, re-enqueues to-be-processed commands
   // into the group to allow other threads in the group to process.
@@ -1709,13 +1805,13 @@ void wait_begin(thread_group_t *thread_group)
   DBUG_ASSERT(thread_group->active_thread_count >=0);
   DBUG_ASSERT(thread_group->connection_count > 0);
 
-  if ((thread_group->active_thread_count == 0) &&
 #ifdef COROUTINE_ENABLED
-     (!coro_info->req_queue_.IsEmpty() ||
-      !thread_group->listener ||
+  if ((thread_group->active_thread_count.load(std::memory_order_relaxed) == 0) &&
+      (!is_sql_thd || !coro_info->IsEmpty() || !thread_group->listener || 
       coro_info->coro_cnt_.load(std::memory_order_relaxed) > 0))
 #else
-     (!is_queue_empty(thread_group) || !thread_group->listener))
+  if ((thread_group->active_thread_count == 0) &&
+      (!is_queue_empty(thread_group) || !thread_group->listener))
 #endif
   {
     /*
@@ -1725,10 +1821,24 @@ void wait_begin(thread_group_t *thread_group)
     wake_or_create_thread(thread_group, false, true);
   }
 
-#ifdef EXT_TX_PROC_ENABLED
+#if defined (EXT_TX_PROC_ENABLED) && !defined (ELOQ_MODULE_ENABLED)
   (coro_info->update_ext_proc_)(-1);
 #endif
 
+#if defined(COROUTINE_ENABLED) & defined (ELOQ_MODULE_ENABLED)
+  if (!is_sql_thd)
+  {
+    // A SQL command entering the waiting section can only be processed by SQL
+    // threads. If this is the external worker thread, enqueus the coroutine
+    // into the SQL queue which can only be processed by SQL threads.
+    coro_info->sql_native_queue_.Enqueue(conn);
+    mysql_mutex_unlock(&thread_group->mutex);
+    conn->thd->yield_func_();
+    // When the coroutine resumes, it can only be SQL threads.
+    assert(is_sql_thd);
+    DBUG_VOID_RETURN;
+  }
+#endif
   mysql_mutex_unlock(&thread_group->mutex);
   DBUG_VOID_RETURN;
 }
@@ -1737,15 +1847,23 @@ void wait_begin(thread_group_t *thread_group)
   Tells the pool has finished waiting.
 */
 
-void wait_end(thread_group_t *thread_group)
+void wait_end(thread_group_t *thread_group, TP_connection_generic *conn)
 {
   DBUG_ENTER("wait_end");
   mysql_mutex_lock(&thread_group->mutex);
-  thread_group->active_thread_count++;
+  assert(is_sql_thd);
+  if (conn->wait_from_sql_thd_)
+  {
 #ifdef COROUTINE_ENABLED
+    thread_group->active_thread_count.fetch_add(1, std::memory_order_relaxed);
+#else
+    thread_group->active_thread_count++;
+#endif
+  }
+  conn->wait_from_sql_thd_ = true;
+#ifdef COROUTINE_ENABLED
+#if defined (EXT_TX_PROC_ENABLED) && !defined (ELOQ_MODULE_ENABLED)
   CoroutineInfo *coro_info = thread_group->coroutine_info_.get();
-  coro_info->running_thds_.fetch_add(1, std::memory_order_relaxed);
-#ifdef EXT_TX_PROC_ENABLED
   (coro_info->update_ext_proc_)(1);
 #endif
 #endif
@@ -1800,7 +1918,7 @@ void TP_connection_generic::wait_begin(int type)
   DBUG_ASSERT(!waiting);
   waiting++;
   if (waiting == 1)
-    ::wait_begin(thread_group);
+    ::wait_begin(thread_group, this);
   DBUG_VOID_RETURN;
 }
 
@@ -1814,7 +1932,7 @@ void TP_connection_generic::wait_end()
   DBUG_ASSERT(waiting);
   waiting--;
   if (waiting == 0)
-    ::wait_end(thread_group);
+    ::wait_end(thread_group, this);
   DBUG_VOID_RETURN;
 }
 
@@ -1963,6 +2081,30 @@ int TP_connection_generic::start_io()
   /*
     Bind to poll descriptor if not yet done.
   */
+#ifdef COROUTINE_ENABLED
+  if (!bound_to_poll_descriptor)
+  {
+    bound_to_poll_descriptor= true;
+    epoll_events_.store(0, std::memory_order_relaxed);
+    events_snapshot_= 0;
+    return io_poll_associate_fd(thread_group->pollfd, fd, this,
+                                OPTIONAL_IO_POLL_READ_PARAM);
+  }
+  else
+  {
+    // If CAS fails, there is a new epoll event since last read, re-enqueues
+    // the connection for execution.
+    assert(events_snapshot_ > 0);
+    if (!epoll_events_.compare_exchange_strong(events_snapshot_, 0,
+                                               std::memory_order_acq_rel))
+    {
+      events_snapshot_= 1;
+      epoll_events_.store(1, std::memory_order_relaxed);
+      thread_group->coroutine_info_->req_queue_.Enqueue(this);
+    }
+    return 0;
+  }
+#else
   if (!bound_to_poll_descriptor)
   {
     bound_to_poll_descriptor= true;
@@ -1970,6 +2112,12 @@ int TP_connection_generic::start_io()
   }
 
   return io_poll_start_read(thread_group->pollfd, fd, this, OPTIONAL_IO_POLL_READ_PARAM);
+#endif
+}
+
+int TP_connection_generic::end_io()
+{
+  return io_poll_disassociate_fd(thread_group->pollfd, fd);
 }
 
 /**
@@ -1987,6 +2135,7 @@ static void *worker_main(void *param)
   my_thread_init();
 
   DBUG_ENTER("worker_main");
+  is_sql_thd = true;
 
   thread_group_t *thread_group = (thread_group_t *)param;
 
@@ -1996,8 +2145,8 @@ static void *worker_main(void *param)
   this_thread.event_count=0;
 #ifdef COROUTINE_ENABLED
   CoroutineInfo *coro_info = thread_group->coroutine_info_.get();
-  coro_info->running_thds_.fetch_add(1, std::memory_order_relaxed);
-#ifdef EXT_TX_PROC_ENABLED
+  thread_group->active_thread_count.fetch_add(1, std::memory_order_relaxed);
+#if defined (EXT_TX_PROC_ENABLED) && !defined (ELOQ_MODULE_ENABLED)
   if (coro_info->tx_processor_exec_ == nullptr)
   {
     int16_t group_id = coro_info->group_id_;
@@ -2008,8 +2157,6 @@ static void *worker_main(void *param)
   }
   (coro_info->update_ext_proc_)(1);
 #endif
-  thd_id_in_group = coro_info->thd_cnt_.fetch_add(1);
-  size_t loop_cnt = 0;
 #endif
 
   struct timespec ts;
@@ -2018,11 +2165,7 @@ static void *worker_main(void *param)
   for(;;)
   {
 #ifdef COROUTINE_ENABLED
-    if (loop_cnt % 10000 == 0)
-    {
-      set_timespec(ts,threadpool_idle_timeout);
-    }
-    ++loop_cnt;
+    set_timespec(ts, threadpool_idle_timeout);
 
     conns_cnt = 0;
     get_event_bulk(&this_thread, thread_group, &ts);
@@ -2081,7 +2224,7 @@ static void *worker_main(void *param)
     }
 #endif
 
-#ifdef EXT_TX_PROC_ENABLED
+#if defined (EXT_TX_PROC_ENABLED) && !defined (ELOQ_MODULE_ENABLED)
     (thread_group->coroutine_info_->tx_processor_exec_)();
 #endif
 
@@ -2111,6 +2254,15 @@ static void *worker_main(void *param)
     }
 #endif
 
+    if (!thread_group->shutdown.load(std::memory_order_relaxed))
+    {
+      native_event ev[MAX_EVENTS];
+      int cnt= io_poll_wait(thread_group->pollfd, ev, MAX_EVENTS, 0);
+      if (cnt > 0)
+      {
+        lockfree_queue_put_bulk(thread_group, ev, cnt);
+      }
+    }
 #else
     TP_connection_generic *connection;
     set_timespec(ts,threadpool_idle_timeout);
@@ -2177,6 +2329,9 @@ int TP_pool_generic::init()
   }
   pool_timer.tick_interval= threadpool_stall_limit;
   start_timer(&pool_timer);
+#ifdef ELOQ_MODULE_ENABLED
+  register_module(&maria_module);
+#endif
   DBUG_RETURN(0);
 }
 
@@ -2186,6 +2341,10 @@ TP_pool_generic::~TP_pool_generic()
 
   if (!threadpool_started)
     DBUG_VOID_RETURN;
+
+#ifdef ELOQ_MODULE_ENABLED
+  unregister_module(&maria_module);
+#endif
 
   stop_timer(&pool_timer);
   shutdown_group_count= threadpool_max_size;
@@ -2219,6 +2378,10 @@ int TP_pool_generic::set_pool_size(uint size)
 {
   bool success= true;
 
+#ifdef ELOQ_MODULE_ENABLED
+  maria_module.ResizeGroups(size);
+#endif
+
   for(uint i=0; i< size; i++)
   {
     thread_group_t *group= &all_groups[i];
@@ -2236,8 +2399,15 @@ int TP_pool_generic::set_pool_size(uint size)
     if (!success)
     {
       group_count= i;
+#ifdef ELOQ_MODULE_ENABLED
+      maria_module.ResizeGroups(i);
+#endif
       return -1;
     }
+#ifdef ELOQ_MODULE_ENABLED
+    maria_module.SetGroup(i, group);
+    create_worker(group, false);
+#endif
   }
   group_count= size;
   server_threads.iterate(thd_reset_group);
@@ -2326,10 +2496,154 @@ static void print_pool_blocked_message(bool max_threads_reached)
   }
 }
 
+#ifdef COROUTINE_ENABLED
 int thread_group_t::WakeOrCreateThread()
 {
   return wake_or_create_thread(this, false, true);
 }
+
+bool thread_group_t::HasActiveWorker() const
+{
+  return ext_worker_active_.load(std::memory_order_relaxed) ||
+         active_thread_count.load(std::memory_order_relaxed) > 0;
+}
+
+#ifdef ELOQ_MODULE_ENABLED
+void MariaModule::ExtThdStart(int thd_id)
+{
+  if (thd_id < 0 || (size_t) thd_id >= groups_.size())
+  {
+    return;
+  }
+
+  is_sql_thd = false;
+  groups_[thd_id]->ext_worker_active_.store(true, std::memory_order_relaxed);
+}
+
+void MariaModule::ExtThdEnd(int thd_id)
+{
+  if (thd_id < 0 || (size_t) thd_id >= groups_.size())
+  {
+    return;
+  }
+  thread_group_t *group = groups_[thd_id];
+  group->ext_worker_active_.store(false, std::memory_order_relaxed);
+
+  // Wakes up the listener thread.
+  std::unique_lock<std::mutex> lk(group->listener_mux_);
+  group->listener_cv_.notify_one();
+}
+
+void MariaModule::Process(int thd_id)
+{
+  if (thd_id < 0 || (size_t) thd_id >= groups_.size())
+  {
+    return;
+  }
+
+  thread_group_t *group = groups_[thd_id];
+  if (group->shutdown.load(std::memory_order_relaxed))
+  {
+    return;
+  }
+
+  // Increments the queue event count so that the stall checker does not miss
+  // the external worker thread.
+  group->queue_event_count.fetch_add(1, std::memory_order_relaxed);
+
+  CoroutineInfo *coro_info= group->coroutine_info_.get();
+
+  conns_cnt= coro_info->resume_queue_.TryDequeueBulk(local_conns.begin(),
+                                                     local_conns.size());
+  if (conns_cnt == 0)
+  {
+    conns_cnt= coro_info->req_queue_.TryDequeueBulk(local_conns.begin(),
+                                                    local_conns.size());
+  }
+
+  for (conns_offset= 0; conns_offset < conns_cnt; ++conns_offset)
+  {
+    TP_connection_generic *conn= local_conns[conns_offset];
+
+    if (conn->being_processed_.load(std::memory_order_relaxed))
+    {
+      // The connection's corresponding coroutine has not returned, but the
+      // connection has been scheduled to resume and is picked up by a separate
+      // physical thread. Re-enqueus the connection for re-execution, until the
+      // prior execution of coroutine has fully returned.
+      group->coroutine_info_->resume_queue_.Enqueue(conn);
+      continue;
+    }
+
+    tp_callback(conn);
+  }
+
+#ifdef IOURING_ENABLED
+  if (iouring_wrap.to_submit_reqs_ > 0)
+  {
+    int ret= io_uring_submit(&iouring_wrap.ring_);
+    if (ret > 0)
+    {
+      iouring_wrap.to_peek_reqs_+= ret;
+      iouring_wrap.to_submit_reqs_-= ret;
+    }
+    else
+    {
+      sql_print_error(
+          "ThreadGroup(%d): failed to do io_uring_submit, error %d.",
+          coro_info->group_id_, ret);
+    }
+  }
+#endif
+
+#ifdef IOURING_ENABLED
+  if (iouring_wrap.to_peek_reqs_ > 0)
+  {
+    unsigned head;
+    struct io_uring_cqe *cqe;
+    int ret= io_uring_peek_cqe(&iouring_wrap.ring_, &cqe);
+    if (ret == 0)
+    {
+      unsigned num_completed= 0;
+      io_uring_for_each_cqe(&iouring_wrap.ring_, head, cqe)
+      {
+        ++num_completed;
+        // resume the sql task
+        THD *thd= (THD *) cqe->user_data;
+        assert(thd != nullptr);
+        thd->iouring_cqe_res_= cqe->res;
+        auto resume_fp= thd->CoroFunctors().second;
+        assert(resume_fp != nullptr);
+        (*resume_fp)();
+      }
+      io_uring_cq_advance(&iouring_wrap.ring_, num_completed);
+      iouring_wrap.to_peek_reqs_-= num_completed;
+    }
+  }
+#endif
+
+  native_event ev[MAX_EVENTS];
+  int cnt= io_poll_wait(group->pollfd, ev, MAX_EVENTS, 0);
+  if (cnt > 0)
+  {
+    lockfree_queue_put_bulk(group, ev, cnt);
+  }
+}
+
+bool MariaModule::HasTask(int thd_id) const
+{
+  if (thd_id < 0 || (size_t) thd_id >= groups_.size())
+  {
+    return false;
+  }
+
+  thread_group_t *group= groups_[thd_id];
+  CoroutineInfo *coro_info= group->coroutine_info_.get();
+  return !coro_info->req_queue_.IsEmpty() ||
+         coro_info->coro_cnt_.load(std::memory_order_relaxed) > 0;
+}
+#endif
+#endif
 
 #if defined(COROUTINE_ENABLED) && defined(IOURING_ENABLED)
 IoUringWrapper::IoUringWrapper()

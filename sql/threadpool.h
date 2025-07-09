@@ -79,7 +79,10 @@ enum TP_STATE
   TP_STATE_PENDING
 #ifdef COROUTINE_ENABLED
   ,
-  TP_STATE_CLOSING
+  TP_STATE_CLOSING,
+  TP_STATE_CONNECTING,
+  TP_STATE_CONNECTED,
+  TP_STATE_CONNECTED_ERR
 #endif
 };
 
@@ -105,6 +108,8 @@ struct TP_connection
    * 
    */
   std::atomic<bool> being_processed_{false};
+  std::atomic<int32_t> epoll_events_{0};
+  int32_t events_snapshot_{0};
 
   TP_connection(CONNECT *c) :
     thd(0),
@@ -123,6 +128,7 @@ struct TP_connection
 
   /* Read for the next client command (async) with specified timeout */
   virtual int start_io() = 0;
+  virtual int end_io() = 0;
 
   virtual void wait_begin(int type)= 0;
   virtual void wait_end() = 0;

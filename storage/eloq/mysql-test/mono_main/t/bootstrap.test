@@ -9,6 +9,7 @@ drop table if exists t1;
 # Add the datadir to the bootstrap command
 let $MYSQLD_DATADIR= `select @@datadir`;
 let $MYSQLD_BOOTSTRAP_CMD= $MYSQLD_BOOTSTRAP_CMD --datadir=$MYSQLD_DATADIR --default-storage-engine=Eloq --loose-skip-innodb --plugin-maturity=unknown;
+let $RM_LOG_CMD= rm -rf $MYSQLTEST_VARDIR/mysqld.1/data/tx_log;
 #
 # Check that --bootstrap reads from stdin
 #
@@ -17,6 +18,7 @@ use test;
 CREATE TABLE t1(a int);
 EOF
 --source include/kill_mysqld.inc
+--exec $RM_LOG_CMD
 --exec $MYSQLD_BOOTSTRAP_CMD < $MYSQLTEST_VARDIR/tmp/bootstrap_test.sql >> $MYSQLTEST_VARDIR/tmp/bootstrap.log 2>&1
 --source include/start_mysqld.inc
 drop table t1;
@@ -29,6 +31,7 @@ use test;
 CREATE TABLE t1;
 EOF
 --source include/kill_mysqld.inc
+--exec $RM_LOG_CMD
 --error 1
 --exec $MYSQLD_BOOTSTRAP_CMD  < $MYSQLTEST_VARDIR/tmp/bootstrap_error.sql >> $MYSQLTEST_VARDIR/tmp/bootstrap.log 2>&1
 # Table t1 should not exists
@@ -48,6 +51,7 @@ create table t1 select 2 as a, concat(repeat('MySQL', @@max_allowed_packet/10), 
 eval select * into outfile '$MYSQLTEST_VARDIR/tmp/long_query.sql' from t1;
 --enable_query_log
 --source include/kill_mysqld.inc
+--exec $RM_LOG_CMD
 --error 1
 --exec $MYSQLD_BOOTSTRAP_CMD --eloq_ddl_skip_kv=on < $MYSQLTEST_VARDIR/tmp/long_query.sql >> $MYSQLTEST_VARDIR/tmp/bootstrap.log 2>&1
 remove_file $MYSQLTEST_VARDIR/tmp/long_query.sql;
@@ -66,6 +70,7 @@ SELECT 'bug' as '' FROM INFORMATION_SCHEMA.ENGINES WHERE engine='eloq'
  and SUPPORT='YES';
 
 --source include/kill_mysqld.inc
+--exec $RM_LOG_CMD
 #
 # MDEV-13063 Server crashes in intern_plugin_lock or assertion `plugin_ptr->ref_count == 1' fails in plugin_init
 #
@@ -91,6 +96,7 @@ EOF
 #
 let $PLUGIN_DIR=`select @@plugin_dir`;
 --source include/kill_mysqld.inc
+--exec $RM_LOG_CMD
 --write_file $MYSQLTEST_VARDIR/tmp/install_plugin.sql
 install soname 'ha_example';
 uninstall plugin unusable;
@@ -125,6 +131,7 @@ delete from mysql.plugin;
 use test;
 EOF
 --source include/kill_mysqld.inc
+--exec $RM_LOG_CMD
 --exec $MYSQLD_BOOTSTRAP_CMD --ignore-db-dirs='some_dir' --ignore-db-dirs='some_dir' < $MYSQLTEST_VARDIR/tmp/bootstrap_9969.sql >> $MYSQLTEST_VARDIR/tmp/bootstrap.log 2>&1
 --remove_file $MYSQLTEST_VARDIR/tmp/bootstrap_9969.sql
 

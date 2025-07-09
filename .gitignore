@@ -623,3 +623,4 @@ win/packaging/ca/symlinks.cc
 .vimspector.json
 .ignore
 .root
+.rgignore

@@ -2,7 +2,9 @@
 # Use default setting for mysqld processes
 !include include/default_mysqld.cnf
 !include include/default_client.cnf
+!include include/eloq_kv_storage.cnf
 !include include/eloq_kv_keyspace.cnf
+!include include/eloq_kv_dss.cnf
 
 [mysqld]
 default-storage-engine=eloq
@@ -16,13 +18,8 @@ thread_pool_size=1
 thread_pool_dedicated_listener=1
 table_open_cache_instances=20
 eloq_core_num=1
-eloq_cass_user=cassandra
-eloq_cass_password=cassandra
 eloq_enable_mvcc=off
 eloq_cc_protocol=Locking
-eloq_rocksdb_cloud_bucket_name = eloqdb-mysql-test
-eloq_rocksdb_cloud_bucket_prefix = rocksdb-cloud-
-eloq_rocksdb_cloud_region = ap-northeast-1
 eloq_hm_bin_path = @ENV.MYSQLTEST_VARDIR/../../storage/eloq/host_manager
 # Trigger a deadlock check every 15 seconds to ensure detection occurs between ReRunOp retries during transaction timeouts. 
 # This guarantees the deadlock is identified before ReRunOp exhausts its 3 retry attempts and forces an error.

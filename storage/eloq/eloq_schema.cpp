@@ -21,11 +21,14 @@
 #include <vector>
 #include <regex>
 
+#include "eloq_key_def.h"
 #include "eloq_schema.h"
 #include "date.h"
 #include "eloq_key.h"
-#if WITH_KV_STORAGE == KV_CASS
+#include "tx_record.h"
+#if defined(DATA_STORE_TYPE_CASSANDRA)
 #include "store_handler/cass_big_number.h"
+#include "cass/include/cassandra.h"
 #endif
 #include "butil/logging.h"
 
@@ -232,7 +235,7 @@ MyEloq::EloqFieldType MyEloq::EloqFieldType::Convert(const mysql::Field *field,
                        field->unireg_check == Field::NEXT_NUMBER);
 }
 
-#if WITH_KV_STORAGE == KV_CASS
+#if defined(DATA_STORE_TYPE_CASSANDRA)
 /*
  * convert eloq data type to Cassandra type
  * Cassandra type reference:
@@ -593,46 +596,78 @@ void MyEloq::EloqRecordSchema::Encode(const uchar *table_record,
   }
 }
 
-#if WITH_KV_STORAGE == KV_CASS
+#if defined(DATA_STORE_TYPE_CASSANDRA)
 /**
  * @brief Encode cass row into mysql record format. Only encode non-pk cols,
  * assume col idx start from 0 in cass row.
  *
+ * @param table_type
  * @param row
  * @param buf
  */
-void MyEloq::EloqRecordSchema::Encode(const CassRow *row,
-                                      std::vector<char> &buf) const
+void MyEloq::EloqRecordSchema::EncodeToSerializeFormat(
+    txservice::TableType table_type, const void *row, std::string &buf) const
 {
   buf.clear();
-  // Reserves the bitmap bytes at the beginning.
-  uint16_t bitmap_bytes= BitmapBytes();
-  buf.insert(buf.end(), bitmap_bytes, 0);
 
-  for (size_t fidx= 0, non_pk_offset= 0; fidx < field_types_.size(); ++fidx)
+  const CassRow *cass_row= reinterpret_cast<const CassRow *>(row);
+  const CassValue *unpack_info_value=
+      cass_row_get_column_by_name(cass_row, "___unpack_info___");
+
+  const cass_byte_t *unpack_info= NULL;
+  size_t unpack_len= 0;
+  if (cass_value_is_null(unpack_info_value) == cass_false)
   {
-    if (is_part_of_pk_[fidx])
-    {
-      continue;
-    }
+    cass_value_get_bytes(unpack_info_value, &unpack_info, &unpack_len);
+  }
 
-    const CassValue *cass_val= cass_row_get_column(row, non_pk_offset);
-    const EloqFieldType &eloq_type= field_types_.at(fidx);
+  const char *unpack_len_ptr=
+      static_cast<const char *>(static_cast<const void *>(&unpack_len));
+  buf.append(unpack_len_ptr, sizeof(size_t));
+  buf.append(reinterpret_cast<const char *>(unpack_info), unpack_len);
 
-    if (cass_value_is_null(cass_val))
-    {
-      char &bitmap_byte= buf[non_pk_offset >> 3];
-      uint8_t offset= non_pk_offset & 7;
-      bitmap_byte|= 1 << offset;
-      ++non_pk_offset;
-      continue;
-    }
-    else
-    {
-      ++non_pk_offset;
-    }
+  if (table_type == txservice::TableType::Primary ||
+      table_type == txservice::TableType::UniqueSecondary)
+  {
+    const cass_byte_t *encoded_blob= NULL;
+    size_t encoded_blob_len= 0;
+    cass_value_get_bytes(cass_row_get_column(cass_row, 0), &encoded_blob,
+                         &encoded_blob_len);
+    const char *len_ptr= reinterpret_cast<const char *>(&encoded_blob_len);
+    buf.append(len_ptr, sizeof(size_t));
+    buf.append(reinterpret_cast<const char *>(encoded_blob), encoded_blob_len);
+  }
+  else
+  {
+    size_t len_val= 0;
+    const char *len_ptr= reinterpret_cast<const char *>(&len_val);
+    buf.append(len_ptr, sizeof(size_t));
+  }
+}
 
-    EncodeCassValue(cass_val, buf, eloq_type, false);
+void MyEloq::EloqRecordSchema::EncodeToTxRecord(
+    const txservice::TableName &table_name, const void *row,
+    txservice::TxRecord &tx_record) const
+{
+  EloqRecord &eloq_record= static_cast<EloqRecord &>(tx_record);
+
+  const CassRow *cass_row= reinterpret_cast<const CassRow *>(row);
+  const CassValue *unpack_info_value=
+      cass_row_get_column_by_name(cass_row, "___unpack_info___");
+
+  const cass_byte_t *unpack_info= NULL;
+  size_t unpack_len= 0;
+  cass_value_get_bytes(unpack_info_value, &unpack_info, &unpack_len);
+  eloq_record.SetUnpackInfo(unpack_info, unpack_len);
+
+  if (table_name.Type() == txservice::TableType::Primary ||
+      table_name.Type() == txservice::TableType::UniqueSecondary)
+  {
+    const cass_byte_t *encoded_blob= NULL;
+    size_t encoded_blob_len= 0;
+    cass_value_get_bytes(cass_row_get_column(cass_row, 0), &encoded_blob,
+                         &encoded_blob_len);
+    eloq_record.SetEncodedBlob(encoded_blob, encoded_blob_len);
   }
 }
 #endif
@@ -855,7 +890,7 @@ void MyEloq::EloqRecordSchema::Decode(
   }
 }
 
-#if WITH_KV_STORAGE == KV_DYNAMO
+#if defined(DATA_STORE_TYPE_DYNAMODB)
 void MyEloq::EloqRecordSchema::Encode(
     const Aws::Map<Aws::String, Aws::DynamoDB::Model::AttributeValue> &row,
     std::vector<char> &buf) const
@@ -1141,7 +1176,7 @@ void MyEloq::EloqRecordSchema::NonPkColumnList(std::string &col_list) const
   }
 }
 
-#if WITH_KV_STORAGE == KV_CASS
+#if defined(DATA_STORE_TYPE_CASSANDRA)
 // generate Cassandra pair of non-pk column name and type name.
 void MyEloq::EloqRecordSchema::NonPkColumnListWithType(
     std::string &col_list) const
@@ -1179,7 +1214,7 @@ void MyEloq::EloqRecordSchema::ColumnListWithType(std::string &col_list) const
 }
 #endif
 
-#if WITH_KV_STORAGE == KV_BIGTABLE
+#if defined(DATA_STORE_TYPE_BIGTABLE)
 void MyEloq::EloqRecordSchema::Encode(const std::string &payload,
                                       std::vector<char> &buf) const
 {
@@ -1541,7 +1576,7 @@ void MyEloq::EloqRecordSchema::DecodeFloat(float &val,
   offset+= 4;
 }
 
-#if WITH_KV_STORAGE == KV_CASS
+#if defined(DATA_STORE_TYPE_CASSANDRA)
 void MyEloq::EloqRecordSchema::EncodeCassValue(const CassValue *cass_val,
                                                std::vector<char> &buf,
                                                const EloqFieldType &field_type,
@@ -1654,7 +1689,7 @@ void MyEloq::EloqRecordSchema::EncodeCassValue(const CassValue *cass_val,
       int32_t scale;
       cass_value_get_decimal(cass_val, &cass_decimal_buf, &cass_buf_len,
                              &scale);
-      BigNumber bn(cass_decimal_buf, cass_buf_len, scale);
+      EloqDS::BigNumber bn(cass_decimal_buf, cass_buf_len, scale);
       std::string decimal_str= bn.str();
       uint64_t int_val= std::stoull(decimal_str);
 
@@ -1801,7 +1836,7 @@ void MyEloq::EloqRecordSchema::EncodeCassValue(const CassValue *cass_val,
     size_t cass_buf_len;
     int32_t scale;
     cass_value_get_decimal(cass_val, &cass_decimal_buf, &cass_buf_len, &scale);
-    BigNumber bn(cass_decimal_buf, cass_buf_len, scale);
+    EloqDS::BigNumber bn(cass_decimal_buf, cass_buf_len, scale);
     std::string decimal_str= bn.str();
 
     uint8_t precision= field_type.len_ >> 8;
@@ -2089,12 +2124,15 @@ void MyEloq::EloqRecordSchema::UpdateOffset(const std::vector<char> &rec_buf,
   }
 }
 
-#if WITH_KV_STORAGE == KV_CASS
+#if defined(DATA_STORE_TYPE_CASSANDRA)
 void MyEloq::EloqRecordSchema::BindCassStatement(
     const std::vector<char> &rec_buf, size_t &offset,
     const EloqFieldType &field_type, bool is_key_field, CassStatement *statem,
     size_t para_idx)
 {
+  // TODO(lzx): check whether this function is used. If not, delete it.
+  assert(false);
+
   switch (field_type.data_type_)
   {
   case EloqDataType::Integer: {
@@ -2159,7 +2197,7 @@ void MyEloq::EloqRecordSchema::BindCassStatement(
           read_lowendian((uchar *) rec_buf.data() + offset, field_type.len_);
 
       std::string int_str= std::to_string(val);
-      BigNumber bn(int_str);
+      EloqDS::BigNumber bn(int_str);
       std::vector<unsigned char> encoded_vec= bn.encode_varint();
 
       cass_statement_bind_decimal(statem, para_idx, encoded_vec.data(),
@@ -2296,7 +2334,7 @@ void MyEloq::EloqRecordSchema::BindCassStatement(
       decimal_str= decimal_str.substr(0, out_len);
     }
 
-    BigNumber bn(decimal_str);
+    EloqDS::BigNumber bn(decimal_str);
     std::vector<unsigned char> encoded_vec= bn.encode_varint();
 
     cass_statement_bind_decimal(statem, para_idx, encoded_vec.data(),
@@ -2427,7 +2465,7 @@ MyEloq::EloqKeySchema::EloqKeySchema(const TABLE_SHARE *table_share,
   }
 }
 
-#if WITH_KV_STORAGE == KV_DYNAMO
+#if defined(DATA_STORE_TYPE_DYNAMODB)
 void MyEloq::EloqRecordSchema::BindDynamoAttribute(
     const std::vector<char> &rec_buf, size_t &offset,
     const EloqFieldType &field_type, Aws::DynamoDB::Model::AttributeValue &att)
@@ -2624,7 +2662,7 @@ void MyEloq::EloqRecordSchema::BindDynamoRequest(
 }
 #endif
 
-#if WITH_KV_STORAGE == KV_CASS
+#if defined(DATA_STORE_TYPE_CASSANDRA)
 void MyEloq::EloqKeySchema::EncodeFromBaseTable(const CassRow *row,
                                                 std::vector<char> &buf) const
 {
@@ -2895,7 +2933,7 @@ void MyEloq::EloqKeySchema::ColumnList(
   }
 }
 
-#if WITH_KV_STORAGE == KV_CASS
+#if defined(DATA_STORE_TYPE_CASSANDRA)
 void MyEloq::EloqKeySchema::ColumnListWithType(
     std::string &cql, bool trim, const std::vector<size_t> *pk_only_col) const
 {
@@ -2996,7 +3034,7 @@ uint16_t MyEloq::EloqKeySchema::ExtendKeyParts() const
   return key_def_->get_key_parts();
 }
 
-#if WITH_KV_STORAGE == KV_CASS
+#if defined(DATA_STORE_TYPE_CASSANDRA)
 void MyEloq::EloqHiddenKeySchema::EncodeFromBaseTable(
     const CassRow *row, std::vector<char> &key_buf) const
 {

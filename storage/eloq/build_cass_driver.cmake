@@ -15,13 +15,13 @@ set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wno-unused-local-typedefs -Wno-non-vir
 # Policies
 #---------------
 
-if(POLICY CMP0074)
-  cmake_policy(SET CMP0074 NEW)
-endif()
+# if(POLICY CMP0074)
+#   cmake_policy(SET CMP0074 NEW)
+# endif()
 
-if (POLICY CMP0054)
-  cmake_policy(SET CMP0054 NEW)
-endif()
+# if (POLICY CMP0054)
+#   cmake_policy(SET CMP0054 NEW)
+# endif()
 
 #---------------
 # Options

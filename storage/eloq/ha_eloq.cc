@@ -125,14 +125,12 @@
 
 #include <iostream>
 #include <string>
-#include <mutex>
-#include <filesystem>
-#include <charconv>
 #include <memory>
 #include <unordered_map>
 #include <map>
 #include <algorithm>
 #include <tuple>
+#include <filesystem>
 
 #include "my_global.h"
 #include "thr_lock.h" /* THR_LOCK, THR_LOCK_DATA */
@@ -154,17 +152,36 @@
 #include "tx_util.h"
 // #include "eloq_tests.hpp"
 #include "ha_eloq.h"
-#include "sequences.h"
+#include "tx_service/include/sequences/sequences.h"
 #include "slice.h"
 
 #include "store_handler/kv_store.h"
 
-#if WITH_KV_STORAGE == KV_CASS
+#if (defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3) ||                     \
+     defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_GCS) ||                    \
+     defined(DATA_STORE_TYPE_ELOQDSS_ELOQSTORE))
+#define ELOQDS 1
+#endif
+
+#if defined(DATA_STORE_TYPE_CASSANDRA)
 #include "store_handler/cass_handler.h"
-#elif WITH_KV_STORAGE == KV_DYNAMO
+#elif defined(DATA_STORE_TYPE_DYNAMODB)
 #include "store_handler/dynamo_handler.h"
-#elif WITH_KV_STORAGE == KV_BIGTABLE
+#elif defined(DATA_STORE_TYPE_BIGTABLE)
 #include "store_handler/bigtable_handler.h"
+
+#elif ELOQDS
+#include "store_handler/eloq_data_store_service/data_store_service.h"
+#include "store_handler/eloq_data_store_service/data_store_service_config.h"
+#include "store_handler/data_store_service_client.h"
+#if (defined(ROCKSDB_CLOUD_FS_TYPE) &&                                        \
+     (ROCKSDB_CLOUD_FS_TYPE == ROCKSDB_CLOUD_FS_TYPE_S3 ||                    \
+      ROCKSDB_CLOUD_FS_TYPE == ROCKSDB_CLOUD_FS_TYPE_GCS))
+#include "store_handler/eloq_data_store_service/rocksdb_cloud_data_store_factory.h"
+#include "store_handler/eloq_data_store_service/rocksdb_config.h"
+#elif defined(DATA_STORE_TYPE_ELOQDSS_ELOQSTORE)
+#include "store_handler/eloq_data_store_service/eloq_store_data_store_factory.h"
+#endif
 #else
 #endif
 
@@ -183,13 +200,15 @@
 #include "log_utils.h"
 
 #if defined(USE_ROCKSDB_LOG_STATE) && defined(WITH_ROCKSDB_CLOUD)
-#include "rocksdb_cloud_config.h"
+#include "log_service/include/rocksdb_cloud_config.h"
 #endif
 
 // Don't put this include after sql_class.h include, it will cause compile
 // error
-#if (WITH_KV_STORAGE == KV_DYNAMO ||                                          \
-     (defined(USE_ROCKSDB_LOG_STATE) && (WITH_ROCKSDB_CLOUD == CS_TYPE_S3)))
+#if (defined(DATA_STORE_TYPE_DYNAMODB) ||                                     \
+     (defined(USE_ROCKSDB_LOG_STATE) &&                                       \
+      (WITH_ROCKSDB_CLOUD == CS_TYPE_S3)) ||                                  \
+     defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3))
 #include <aws/core/Aws.h>
 #endif
 
@@ -232,6 +251,7 @@ static char *eloq_standby_ip_list= nullptr;
 static char *eloq_voter_ip_list= nullptr;
 static char *eloq_hm_ip= nullptr;
 static char *eloq_hm_bin_path= nullptr;
+static char *eloq_cluster_config_file= nullptr;
 static char *eloq_cass_hosts= nullptr;
 static int eloq_cass_port= 9042;
 static int eloq_cass_queue_size_io= 300000;
@@ -279,8 +299,11 @@ static unsigned int eloq_node_log_limit_mb= 16000;
 static my_bool eloq_enable_mvcc= true;
 static unsigned int eloq_metrics_port= 18081;
 static unsigned int eloq_deadlock_interval_sec= 10;
+// If not 0, will create a hook function that will close all braft connections
+// when mysqld received crash single.
 static int eloq_signal_monitor= 0;
 // tx log service list
+static char *eloq_txlog_rocksdb_storage_path= nullptr;
 static char *eloq_txlog_service_list= nullptr;
 static unsigned int eloq_txlog_group_replica_num= 3;
 static ulong eloq_partition_type= 0;
@@ -308,31 +331,58 @@ static unsigned long long eloq_busy_round_threshold= 10;
 static my_bool eloq_enable_log_service_metrics= false;
 
 // log server/rocksdb/cloud
-static char *eloq_rocksdb_cloud_bucket_name= nullptr;
-static char *eloq_rocksdb_cloud_bucket_prefix= nullptr;
-static char *eloq_rocksdb_cloud_region= nullptr;
-static char *eloq_rocksdb_cloud_endpoint_url= nullptr;
-static char *eloq_rocksdb_cloud_sst_file_cache_size= nullptr;
-static char *eloq_rocksdb_target_file_size_base= nullptr;
-static char *eloq_rocksdb_sst_files_size_limit= nullptr;
-static unsigned int eloq_rocksdb_cloud_ready_timeout= 10;
-static unsigned int eloq_rocksdb_cloud_file_deletion_delay= 3600;
+static char *eloq_txlog_rocksdb_cloud_bucket_name= nullptr;
+static char *eloq_txlog_rocksdb_cloud_bucket_prefix= nullptr;
+static char *eloq_txlog_rocksdb_cloud_region= nullptr;
+static char *eloq_txlog_rocksdb_cloud_endpoint_url= nullptr;
+static char *eloq_txlog_rocksdb_cloud_sst_file_cache_size= nullptr;
+static int eloq_txlog_rocksdb_cloud_sst_file_cache_num_shard_bits= 5;
+static char *eloq_txlog_rocksdb_target_file_size_base= nullptr;
+static char *eloq_txlog_rocksdb_sst_files_size_limit= nullptr;
+static unsigned int eloq_txlog_rocksdb_cloud_ready_timeout= 10;
+static unsigned int eloq_txlog_rocksdb_cloud_file_deletion_delay= 3600;
 static unsigned int eloq_node_group_replica_num= 3;
 static unsigned int eloq_logserver_snapshot_interval= 600;
-static unsigned int eloq_rocksdb_cloud_in_mem_log_size_high_watermark=
+static unsigned int eloq_txlog_rocksdb_cloud_in_mem_log_size_high_watermark=
     50 * 10000;
-static unsigned int eloq_rocksdb_max_write_buffer_number= 8;
-static unsigned int eloq_rocksdb_max_background_jobs= 8;
+static unsigned int eloq_txlog_rocksdb_max_write_buffer_number= 8;
+static unsigned int eloq_txlog_rocksdb_max_background_jobs= 8;
 
 static my_bool eloq_enable_txlog_request_checkpoint= true;
 static unsigned int eloq_check_replay_log_size_interval_sec= 10;
 static char *eloq_notify_checkpointer_threshold_size= nullptr;
 
+// data_store_service
+static char *eloq_dss_config_file_path= nullptr;
+static char *eloq_dss_peer_node= nullptr;
+static char *eloq_dss_rocksdb_cloud_bucket_name= nullptr;
+static char *eloq_dss_rocksdb_cloud_bucket_prefix= nullptr;
+static char *eloq_dss_rocksdb_cloud_region= nullptr;
+static char *eloq_dss_rocksdb_cloud_endpoint_url= nullptr;
+static char *eloq_dss_rocksdb_cloud_sst_file_cache_size= nullptr;
+static int eloq_dss_rocksdb_cloud_sst_file_cache_num_shard_bits= 5;
+static char *eloq_dss_rocksdb_target_file_size_base= nullptr;
+static unsigned int eloq_dss_rocksdb_cloud_file_deletion_delay= 3600;
+static unsigned int eloq_dss_rocksdb_max_write_buffer_number= 8;
+static unsigned int eloq_dss_rocksdb_max_background_jobs= 8;
+#if defined(DATA_STORE_TYPE_ELOQDSS_ELOQSTORE)
+static unsigned int eloq_eloqstore_worker_num= 1;
+static char *eloq_eloqstore_data_path= nullptr;
+static unsigned int eloq_eloqstore_open_files_limit= 1024;
+#endif
+
 const char *enum_var_names[]= {"e1", "e2", NullS};
-const char *kv_storage_names[]= {"cass", "dynamo", "bigtable", NullS};
+const char *kv_storage_names[]= {"cass", "dynamo", "bigtable", "eloqds",
+                                 NullS};
 const char *partition_names[]= {"Hash", "Range", NullS};
 
+#define KV_CASS 0
+#define KV_DYNAMO 1
+#define KV_BIGTABLE 2
+#define KV_ELOQDS 3
+
 static my_bool eloq_enable_heap_defragment= false;
+static my_bool eloq_kickout_data_for_test= false;
 
 #define DIRTY_KEY_ID_BEGIN 16
 
@@ -362,6 +412,10 @@ static MYSQL_SYSVAR_STR(hm_bin_path, eloq_hm_bin_path,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
                         "Path to host manager binary path.", nullptr, nullptr,
                         "");
+
+static MYSQL_SYSVAR_STR(cluster_config_file, eloq_cluster_config_file,
+                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+                        "Path to cluster config file.", nullptr, nullptr, "");
 
 static MYSQL_SYSVAR_STR(cass_hosts, eloq_cass_hosts,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
@@ -692,7 +746,7 @@ int auto_increment_var_check(MYSQL_THD thd, struct st_mysql_sys_var *var,
   st_item_value_holder *mvalue= (st_item_value_holder *) value;
   LEX_CSTRING &pstr= mvalue->item->name;
 
-  return Sequences::UpdateAutoIncrement(
+  return txservice::Sequences::UpdateAutoIncrement(
       std::string(pstr.str, pstr.length),
       std::string(thd->db.str, thd->db.length), thd_get_coro_functors(thd),
       thd_get_group_id(thd));
@@ -702,6 +756,10 @@ static MYSQL_SYSVAR_STR(auto_increment, eloq_auto_increment,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
                         "auto increment parameters", auto_increment_var_check,
                         NULL, "");
+
+static MYSQL_SYSVAR_BOOL(kickout_data_for_test, eloq_kickout_data_for_test,
+                         PLUGIN_VAR_NOCMDARG, "Clean data for test", NULL,
+                         NULL, FALSE);
 
 static int
 invalidate_table_cache(MYSQL_THD thd,
@@ -761,7 +819,8 @@ int invalidate_cache_once_var_check(MYSQL_THD thd,
     }
 
     tx_table_name.append("./").append(db).append("/").append(table);
-    invalidate_tables.emplace_back(tx_table_name, TableType::Primary);
+    invalidate_tables.emplace_back(tx_table_name, TableType::Primary,
+                                   txservice::TableEngine::EloqSql);
   }
 
   return invalidate_table_cache(thd, invalidate_tables);
@@ -788,7 +847,11 @@ static MYSQL_SYSVAR_UINT(deadlock_interval_sec, eloq_deadlock_interval_sec,
                          PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
                          "Interval of dead lock check(s)", NULL, NULL, 300, 1,
                          3600, 1);
-
+static MYSQL_SYSVAR_STR(txlog_rocksdb_storage_path,
+                        eloq_txlog_rocksdb_storage_path,
+                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+                        "The path for tx log service rocksdb storage", nullptr,
+                        nullptr, "");
 static MYSQL_SYSVAR_STR(txlog_service_list, eloq_txlog_service_list,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
                         "Ip address of the tx log service node", nullptr,
@@ -803,44 +866,51 @@ static MYSQL_SYSVAR_INT(signal_monitor, eloq_signal_monitor,
                         PLUGIN_VAR_RQCMDARG, "Monitor mysql crash signal",
                         nullptr, nullptr, 0, 0, INT_MAX, 0);
 
-static MYSQL_SYSVAR_STR(rocksdb_cloud_bucket_name,
-                        eloq_rocksdb_cloud_bucket_name,
+static MYSQL_SYSVAR_STR(txlog_rocksdb_cloud_bucket_name,
+                        eloq_txlog_rocksdb_cloud_bucket_name,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "RocksDB cloud bucket name", NULL, NULL, "");
-static MYSQL_SYSVAR_STR(rocksdb_cloud_bucket_prefix,
-                        eloq_rocksdb_cloud_bucket_prefix,
+                        "TxLog RocksDB cloud bucket name", NULL, NULL, "");
+static MYSQL_SYSVAR_STR(txlog_rocksdb_cloud_bucket_prefix,
+                        eloq_txlog_rocksdb_cloud_bucket_prefix,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "RocksDB cloud bucket prefix", NULL, NULL, "");
-static MYSQL_SYSVAR_STR(rocksdb_cloud_region, eloq_rocksdb_cloud_region,
+                        "TxLog RocksDB cloud bucket prefix", NULL, NULL, "");
+static MYSQL_SYSVAR_STR(txlog_rocksdb_cloud_region,
+                        eloq_txlog_rocksdb_cloud_region,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "RocksDB cloud region", NULL, NULL, "");
-static MYSQL_SYSVAR_STR(rocksdb_cloud_endpoint_url,
-                        eloq_rocksdb_cloud_endpoint_url,
+                        "TxLog RocksDB cloud region", NULL, NULL, "");
+static MYSQL_SYSVAR_STR(txlog_rocksdb_cloud_endpoint_url,
+                        eloq_txlog_rocksdb_cloud_endpoint_url,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "RocksDB Cloud endpoint URL", NULL, NULL, "");
-static MYSQL_SYSVAR_STR(rocksdb_cloud_sst_file_cache_size,
-                        eloq_rocksdb_cloud_sst_file_cache_size,
+                        "TxLog RocksDB Cloud endpoint URL", NULL, NULL, "");
+static MYSQL_SYSVAR_STR(txlog_rocksdb_cloud_sst_file_cache_size,
+                        eloq_txlog_rocksdb_cloud_sst_file_cache_size,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "RocksDB Cloud SST file cache size", NULL, NULL,
-                        "3GB");
-static MYSQL_SYSVAR_STR(rocksdb_target_file_size_base,
-                        eloq_rocksdb_target_file_size_base,
+                        "TxLog RocksDB Cloud SST file cache size", NULL, NULL,
+                        "10GB");
+static MYSQL_SYSVAR_INT(txlog_rocksdb_cloud_sst_file_cache_num_shard_bits,
+                        eloq_txlog_rocksdb_cloud_sst_file_cache_num_shard_bits,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "RocksDB target file size", NULL, NULL, "64MB");
-static MYSQL_SYSVAR_STR(rocksdb_sst_files_size_limit,
-                        eloq_rocksdb_sst_files_size_limit,
+                        "TxLog RocksDB Cloud SST file cache num shard bits",
+                        NULL, NULL, 5, 0, 30, 1);
+static MYSQL_SYSVAR_STR(txlog_rocksdb_target_file_size_base,
+                        eloq_txlog_rocksdb_target_file_size_base,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "RocksDB sst files size limit", NULL, NULL, "500MB");
-static MYSQL_SYSVAR_UINT(rocksdb_cloud_ready_timeout,
-                         eloq_rocksdb_cloud_ready_timeout,
+                        "TxLog RocksDB target file size", NULL, NULL, "64MB");
+static MYSQL_SYSVAR_STR(txlog_rocksdb_sst_files_size_limit,
+                        eloq_txlog_rocksdb_sst_files_size_limit,
+                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+                        "TxLog RocksDB sst files size limit", NULL, NULL,
+                        "500MB");
+static MYSQL_SYSVAR_UINT(txlog_rocksdb_cloud_ready_timeout,
+                         eloq_txlog_rocksdb_cloud_ready_timeout,
                          PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                         "RocksDB Cloud becomes ready timeout(seconds)", NULL,
-                         NULL, 10, 1, 120, 1);
-static MYSQL_SYSVAR_UINT(rocksdb_cloud_file_deletion_delay,
-                         eloq_rocksdb_cloud_file_deletion_delay,
+                         "TxLog RocksDB Cloud becomes ready timeout(seconds)",
+                         NULL, NULL, 10, 1, 120, 1);
+static MYSQL_SYSVAR_UINT(txlog_rocksdb_cloud_file_deletion_delay,
+                         eloq_txlog_rocksdb_cloud_file_deletion_delay,
                          PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                         "RocksDB Cloud becomes ready timeout", NULL, NULL, 60,
-                         1, 3600, 1);
+                         "TxLog RocksDB Cloud becomes ready timeout", NULL,
+                         NULL, 60, 1, 3600, 1);
 static MYSQL_SYSVAR_UINT(node_group_replica_num, eloq_node_group_replica_num,
                          PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
                          "Replicate number of node group(Max: 9)", NULL, NULL,
@@ -850,21 +920,22 @@ static MYSQL_SYSVAR_UINT(logserver_snapshot_interval,
                          PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
                          "Logserver log state snapshot interval", NULL, NULL,
                          600, 10, 7200, 1);
-static MYSQL_SYSVAR_UINT(rocksdb_cloud_in_mem_log_high_watermark,
-                         eloq_rocksdb_cloud_in_mem_log_size_high_watermark,
+static MYSQL_SYSVAR_UINT(
+    txlog_rocksdb_cloud_in_mem_log_high_watermark,
+    eloq_txlog_rocksdb_cloud_in_mem_log_size_high_watermark,
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+    "TxLog RocksDB Cloud in memory log queue high watermark", NULL, NULL,
+    50 * 10000, 10000, 1000 * 10000, 1);
+static MYSQL_SYSVAR_UINT(txlog_rocksdb_max_write_buffer_number,
+                         eloq_txlog_rocksdb_max_write_buffer_number,
                          PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "RocksDB Cloud in memory log queue high watermark",
-                         NULL, NULL, 50 * 10000, 10000, 1000 * 10000, 1);
-static MYSQL_SYSVAR_UINT(rocksdb_max_write_buffer_number,
-                         eloq_rocksdb_max_write_buffer_number,
+                         "TxLog RocksDB max write buffer number", NULL, NULL,
+                         8, 4, 100, 1);
+static MYSQL_SYSVAR_UINT(txlog_rocksdb_max_background_jobs,
+                         eloq_txlog_rocksdb_max_background_jobs,
                          PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "RocksDB max write buffer number", NULL, NULL, 8, 4,
+                         "TxLog RocksDB max background jobs", NULL, NULL, 8, 4,
                          100, 1);
-static MYSQL_SYSVAR_UINT(rocksdb_max_background_jobs,
-                         eloq_rocksdb_max_background_jobs,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "RocksDB max background jobs", NULL, NULL, 8, 4, 100,
-                         1);
 
 static MYSQL_SYSVAR_BOOL(enable_txlog_request_checkpoint,
                          eloq_enable_txlog_request_checkpoint,
@@ -886,6 +957,86 @@ static MYSQL_SYSVAR_STR(
     "When the replay log size reaches this threshold, the "
     "txlog server sends a checkpoint request to tx_service.",
     NULL, NULL, "1GB");
+
+static MYSQL_SYSVAR_STR(dss_config_file_path, eloq_dss_config_file_path,
+                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+                        "EloqDataStoreService config file path", NULL, NULL,
+                        "");
+static MYSQL_SYSVAR_STR(dss_peer_node, eloq_dss_peer_node,
+                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+                        "EloqDataStoreService peer node endpoint", NULL, NULL,
+                        "");
+
+static MYSQL_SYSVAR_STR(dss_rocksdb_cloud_bucket_name,
+                        eloq_dss_rocksdb_cloud_bucket_name,
+                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+                        "EloqDataStoreService RocksDB cloud bucket name", NULL,
+                        NULL, "");
+static MYSQL_SYSVAR_STR(dss_rocksdb_cloud_bucket_prefix,
+                        eloq_dss_rocksdb_cloud_bucket_prefix,
+                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+                        "EloqDataStoreService RocksDB cloud bucket prefix",
+                        NULL, NULL, "");
+static MYSQL_SYSVAR_STR(dss_rocksdb_cloud_region,
+                        eloq_dss_rocksdb_cloud_region,
+                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+                        "EloqDataStoreService RocksDB cloud region", NULL,
+                        NULL, "");
+static MYSQL_SYSVAR_STR(dss_rocksdb_cloud_endpoint_url,
+                        eloq_dss_rocksdb_cloud_endpoint_url,
+                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+                        "EloqDataStoreService RocksDB Cloud endpoint URL",
+                        NULL, NULL, "");
+static MYSQL_SYSVAR_STR(
+    dss_rocksdb_cloud_sst_file_cache_size,
+    eloq_dss_rocksdb_cloud_sst_file_cache_size,
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+    "EloqDataStoreService RocksDB Cloud SST file cache size", NULL, NULL,
+    "10GB");
+static MYSQL_SYSVAR_INT(
+    dss_rocksdb_cloud_sst_file_cache_num_shard_bits,
+    eloq_dss_rocksdb_cloud_sst_file_cache_num_shard_bits,
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+    "EloqDataStoreService RocksDB Cloud SST file cache num shard bits", NULL,
+    NULL, 5, 0, 30, 1);
+static MYSQL_SYSVAR_STR(dss_rocksdb_target_file_size_base,
+                        eloq_dss_rocksdb_target_file_size_base,
+                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+                        "EloqDataStoreService RocksDB target file size", NULL,
+                        NULL, "64MB");
+static MYSQL_SYSVAR_UINT(
+    dss_rocksdb_cloud_file_deletion_delay,
+    eloq_dss_rocksdb_cloud_file_deletion_delay,
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+    "EloqDataStoreService RocksDB Cloud becomes ready timeout", NULL, NULL, 60,
+    1, 3600, 1);
+static MYSQL_SYSVAR_UINT(
+    dss_rocksdb_max_write_buffer_number,
+    eloq_dss_rocksdb_max_write_buffer_number,
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+    "EloqDataStoreService RocksDB max write buffer number", NULL, NULL, 8, 4,
+    100, 1);
+static MYSQL_SYSVAR_UINT(dss_rocksdb_max_background_jobs,
+                         eloq_dss_rocksdb_max_background_jobs,
+                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+                         "EloqDataStoreService RocksDB max background jobs",
+                         NULL, NULL, 8, 4, 100, 1);
+#if defined(DATA_STORE_TYPE_ELOQDSS_ELOQSTORE)
+static MYSQL_SYSVAR_UINT(eloqstore_worker_num, eloq_eloqstore_worker_num,
+                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+                         "EloqStore server worker num.", NULL, NULL, 1, 1,
+                         UINT_MAX, 1);
+static MYSQL_SYSVAR_STR(
+    eloqstore_data_path, eloq_eloqstore_data_path,
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY | PLUGIN_VAR_MEMALLOC,
+    "The data path of the EloqStore (use memory store if empty).", NULL, NULL,
+    "");
+static MYSQL_SYSVAR_UINT(eloqstore_open_files_limit,
+                         eloq_eloqstore_open_files_limit,
+                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+                         "EloqStore server max open files.", NULL, NULL, 1024,
+                         1, UINT_MAX, 1);
+#endif
 
 static struct st_mysql_sys_var *eloq_system_variables[]= {
     MYSQL_SYSVAR(local_ip),
@@ -926,6 +1077,7 @@ static struct st_mysql_sys_var *eloq_system_variables[]= {
     MYSQL_SYSVAR(skip_redo_log),
     MYSQL_SYSVAR(use_key_cache),
     MYSQL_SYSVAR(auto_increment),
+    MYSQL_SYSVAR(kickout_data_for_test),
     MYSQL_SYSVAR(invalidate_cache_once),
     MYSQL_SYSVAR(scan_skip_kv),
     MYSQL_SYSVAR(random_scan_sort),
@@ -935,6 +1087,7 @@ static struct st_mysql_sys_var *eloq_system_variables[]= {
     MYSQL_SYSVAR(enable_mvcc),
     MYSQL_SYSVAR(metrics_port),
     MYSQL_SYSVAR(deadlock_interval_sec),
+    MYSQL_SYSVAR(txlog_rocksdb_storage_path),
     MYSQL_SYSVAR(txlog_service_list),
     MYSQL_SYSVAR(txlog_group_replica_num),
     MYSQL_SYSVAR(signal_monitor),
@@ -952,28 +1105,47 @@ static struct st_mysql_sys_var *eloq_system_variables[]= {
     MYSQL_SYSVAR(collect_memory_usage_round),
     MYSQL_SYSVAR(collect_tx_duration_round),
     MYSQL_SYSVAR(enable_log_service_metrics),
-    MYSQL_SYSVAR(rocksdb_cloud_bucket_name),
-    MYSQL_SYSVAR(rocksdb_cloud_bucket_prefix),
-    MYSQL_SYSVAR(rocksdb_cloud_region),
-    MYSQL_SYSVAR(rocksdb_cloud_sst_file_cache_size),
-    MYSQL_SYSVAR(rocksdb_cloud_endpoint_url),
-    MYSQL_SYSVAR(rocksdb_target_file_size_base),
-    MYSQL_SYSVAR(rocksdb_sst_files_size_limit),
-    MYSQL_SYSVAR(rocksdb_cloud_ready_timeout),
-    MYSQL_SYSVAR(rocksdb_cloud_file_deletion_delay),
+    MYSQL_SYSVAR(txlog_rocksdb_cloud_bucket_name),
+    MYSQL_SYSVAR(txlog_rocksdb_cloud_bucket_prefix),
+    MYSQL_SYSVAR(txlog_rocksdb_cloud_region),
+    MYSQL_SYSVAR(txlog_rocksdb_cloud_sst_file_cache_size),
+    MYSQL_SYSVAR(txlog_rocksdb_cloud_sst_file_cache_num_shard_bits),
+    MYSQL_SYSVAR(txlog_rocksdb_cloud_endpoint_url),
+    MYSQL_SYSVAR(txlog_rocksdb_target_file_size_base),
+    MYSQL_SYSVAR(txlog_rocksdb_sst_files_size_limit),
+    MYSQL_SYSVAR(txlog_rocksdb_cloud_ready_timeout),
+    MYSQL_SYSVAR(txlog_rocksdb_cloud_file_deletion_delay),
     MYSQL_SYSVAR(node_group_replica_num),
     MYSQL_SYSVAR(logserver_snapshot_interval),
     MYSQL_SYSVAR(logserver_rocksdb_scan_thread_num),
-    MYSQL_SYSVAR(rocksdb_cloud_in_mem_log_high_watermark),
-    MYSQL_SYSVAR(rocksdb_max_write_buffer_number),
-    MYSQL_SYSVAR(rocksdb_max_background_jobs),
+    MYSQL_SYSVAR(txlog_rocksdb_cloud_in_mem_log_high_watermark),
+    MYSQL_SYSVAR(txlog_rocksdb_max_write_buffer_number),
+    MYSQL_SYSVAR(txlog_rocksdb_max_background_jobs),
     MYSQL_SYSVAR(enable_txlog_request_checkpoint),
     MYSQL_SYSVAR(check_replay_log_size_interval_sec),
     MYSQL_SYSVAR(notify_checkpointer_threshold_size),
     MYSQL_SYSVAR(range_split_worker_num),
     MYSQL_SYSVAR(bthread_worker_num),
     MYSQL_SYSVAR(hm_bin_path),
+    MYSQL_SYSVAR(cluster_config_file),
     MYSQL_SYSVAR(enable_heap_defragment),
+    MYSQL_SYSVAR(dss_config_file_path),
+    MYSQL_SYSVAR(dss_peer_node),
+    MYSQL_SYSVAR(dss_rocksdb_cloud_bucket_name),
+    MYSQL_SYSVAR(dss_rocksdb_cloud_bucket_prefix),
+    MYSQL_SYSVAR(dss_rocksdb_cloud_region),
+    MYSQL_SYSVAR(dss_rocksdb_cloud_sst_file_cache_size),
+    MYSQL_SYSVAR(dss_rocksdb_cloud_sst_file_cache_num_shard_bits),
+    MYSQL_SYSVAR(dss_rocksdb_cloud_endpoint_url),
+    MYSQL_SYSVAR(dss_rocksdb_target_file_size_base),
+    MYSQL_SYSVAR(dss_rocksdb_cloud_file_deletion_delay),
+    MYSQL_SYSVAR(dss_rocksdb_max_write_buffer_number),
+    MYSQL_SYSVAR(dss_rocksdb_max_background_jobs),
+#if defined(DATA_STORE_TYPE_ELOQDSS_ELOQSTORE)
+    MYSQL_SYSVAR(eloqstore_worker_num),
+    MYSQL_SYSVAR(eloqstore_data_path),
+    MYSQL_SYSVAR(eloqstore_open_files_limit),
+#endif
     NULL};
 
 /**
@@ -1102,6 +1274,10 @@ static const char *ha_eloq_exts[]= {NullS};
 uint32_t node_id= 0; // node id of itself
 std::unique_ptr<store::DataStoreHandler> storage_hd= nullptr;
 
+#if ELOQDS
+std::unique_ptr<EloqDS::DataStoreService> data_store_service_;
+#endif
+
 static std::unique_ptr<TxService> tx_service= nullptr;
 static std::unique_ptr<::txlog::LogServer> txlog_server= nullptr;
 static MariaCatalogFactory maria_catalog_factory{};
@@ -1139,7 +1315,7 @@ static int convert_tx_error(txservice::TxErrorCode err_code,
 {
   if (err_msg == nullptr)
   {
-    err_msg= TxRequest::ErrorMessage(err_code).c_str();
+    err_msg= TxErrorMessage(err_code).c_str();
   }
 
   switch (err_code)
@@ -1257,17 +1433,16 @@ static bool get_or_create_myeloq_tx(THD *const thd, MyEloqTx **my_tx,
                                     bool *exists= nullptr,
                                     bool start_now= false)
 {
-  txservice::CcProtocol cc_proto= fetch_tx_cc_protocol(thd);
-  IsolationLevel iso_level= IsolationLevel::ReadCommitted;
-  if (!fetch_tx_isolation_level(thd, cc_proto, iso_level))
-  {
-    return false;
-  }
-
   *my_tx= get_myeloq_tx(thd);
 
   if (*my_tx == nullptr || (*my_tx)->Txm() == nullptr)
   {
+    txservice::CcProtocol cc_proto= fetch_tx_cc_protocol(thd);
+    IsolationLevel iso_level= IsolationLevel::ReadCommitted;
+    if (!fetch_tx_isolation_level(thd, cc_proto, iso_level))
+    {
+      return false;
+    }
     if (exists)
       *exists= false;
 
@@ -1278,9 +1453,10 @@ static bool get_or_create_myeloq_tx(THD *const thd, MyEloqTx **my_tx,
     }
 
     int16_t thd_group_id= thd_get_group_id(thd);
+    auto [yield_func, resume_func]= thd_get_coro_functors(thd);
     txservice::TransactionExecution *txm=
         txservice::NewTxInit(tx_service.get(), iso_level, cc_proto, UINT32_MAX,
-                             thd_group_id, start_now);
+                             thd_group_id, start_now, yield_func, resume_func);
     (*my_tx)->Reset(txm, thd);
 
     if (txm == nullptr)
@@ -1310,7 +1486,8 @@ static void drop_table(const std::string &table_name_str)
   {
     // All tables in mariadb_tables are of TableType::Primary
     std::string_view table_name_sv{table_name_str};
-    TableName table_name{table_name_sv, txservice::TableType::Primary};
+    TableName table_name{table_name_sv, txservice::TableType::Primary,
+                         txservice::TableEngine::EloqSql};
     CatalogKey catalog_key(table_name);
     TxKey catalog_tx_key{&catalog_key};
     CatalogRecord catalog_rec;
@@ -1491,8 +1668,8 @@ static int eloq_discover_table(handlerton *hton, THD *thd, TABLE_SHARE *share)
   // Use table file path name instead of the table name,
   // keep consistent with create and delete table
   std::string_view table_name_sv{share->path.str};
-  txservice::TableName table_name{table_name_sv,
-                                  txservice::TableType::Primary};
+  txservice::TableName table_name{table_name_sv, txservice::TableType::Primary,
+                                  txservice::TableEngine::EloqSql};
   CatalogKey table_key{table_name};
   CatalogRecord catalog_rec;
   TxErrorCode err= my_tx->ReadCatalog(table_key, catalog_rec, false, exists);
@@ -1502,7 +1679,8 @@ static int eloq_discover_table(handlerton *hton, THD *thd, TABLE_SHARE *share)
     {
       const TableSchema *schema= catalog_rec.Schema();
       std::string frm, kv_info, schemas_ts;
-      DeserializeSchemaImage(schema->SchemaImage(), frm, kv_info, schemas_ts);
+      EloqDS::DeserializeSchemaImage(schema->SchemaImage(), frm, kv_info,
+                                     schemas_ts);
 
       share->init_from_binary_frm_image(
           thd, false, reinterpret_cast<const unsigned char *>(frm.data()),
@@ -1510,11 +1688,6 @@ static int eloq_discover_table(handlerton *hton, THD *thd, TABLE_SHARE *share)
 
       if (share->error == 0)
       {
-        my_tx->UpdateTableSchema(
-            std::static_pointer_cast<const MysqlTableSchema>(
-                catalog_rec.CopySchema()),
-            std::static_pointer_cast<const MysqlTableSchema>(
-                catalog_rec.CopyDirtySchema()));
         DBUG_RETURN(0);
       }
       else
@@ -1955,8 +2128,10 @@ static void PrintEloqConfig()
   std::cout << std::endl;
 }
 
-#if WITH_KV_STORAGE == KV_DYNAMO ||                                           \
-    (defined(USE_ROCKSDB_LOG_STATE) && (WITH_ROCKSDB_CLOUD == CS_TYPE_S3))
+#if defined(DATA_STORE_TYPE_DYNAMODB) ||                                      \
+    (defined(USE_ROCKSDB_LOG_STATE) && (WITH_ROCKSDB_CLOUD == CS_TYPE_S3)) || \
+    defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3)
+
 Aws::SDKOptions aws_options;
 
 static int aws_init()
@@ -1986,8 +2161,9 @@ static int eloq_init_abort()
     txlog_server= nullptr; // stop and release txlog service
   }
 
-#if WITH_KV_STORAGE == KV_DYNAMO ||                                           \
-    (defined(USE_ROCKSDB_LOG_STATE) && (WITH_ROCKSDB_CLOUD == CS_TYPE_S3))
+#if defined(DATA_STORE_TYPE_DYNAMODB) ||                                      \
+    (defined(USE_ROCKSDB_LOG_STATE) && (WITH_ROCKSDB_CLOUD == CS_TYPE_S3)) || \
+    defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3)
   aws_deinit();
 #endif
 
@@ -1997,6 +2173,8 @@ static int eloq_init_abort()
 static void RegisterFactory()
 {
   txservice::TxKeyFactory::RegisterCreateTxKeyFunc(EloqKey::Create);
+  txservice::TxKeyFactory::RegisterCreateDefaultTxKeyFunc(
+      EloqKey::CreateDefault);
   txservice::TxKeyFactory::RegisterNegInfTxKey(EloqKey::NegInfTxKey());
   txservice::TxKeyFactory::RegisterPosInfTxKey(EloqKey::PosInfTxKey());
   txservice::TxKeyFactory::RegisterPackedNegativeInfinity(
@@ -2014,8 +2192,9 @@ static int eloq_init_func(void *p)
 
   sql_print_information("Eloq initializing.");
 
-#if WITH_KV_STORAGE == KV_DYNAMO ||                                           \
-    (defined(USE_ROCKSDB_LOG_STATE) && (WITH_ROCKSDB_CLOUD == CS_TYPE_S3))
+#if defined(DATA_STORE_TYPE_DYNAMODB) ||                                      \
+    (defined(USE_ROCKSDB_LOG_STATE) && (WITH_ROCKSDB_CLOUD == CS_TYPE_S3)) || \
+    defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3)
   if (aws_init())
   {
     sql_print_error("Eloq failed to initialize AWS SDK.");
@@ -2099,6 +2278,13 @@ static int eloq_init_func(void *p)
   uint16_t hm_port;
   std::string hm_bin_path(eloq_hm_bin_path);
 
+  std::string cluster_config_file(eloq_cluster_config_file);
+  if (cluster_config_file.empty())
+  {
+    cluster_config_file.append(mysql_real_data_home_ptr);
+    cluster_config_file.append("/tx_service/cluster_config");
+  }
+
   // bootstrap is done in standalone mode and does not need host manager.
   if (!opt_bootstrap)
   {
@@ -2133,12 +2319,13 @@ static int eloq_init_func(void *p)
   }
 
   std::unordered_map<uint32_t, std::vector<NodeConfig>> ng_configs;
-  uint64_t cluster_config_version;
+  uint64_t cluster_config_version= 2;
 
   std::string store_keyspace_name(eloq_keyspace_name);
+
   switch (eloq_kv_storage)
   {
-#if WITH_KV_STORAGE == KV_CASS
+#if defined(DATA_STORE_TYPE_CASSANDRA)
   case KV_CASS: {
     // initialize Cassandra handler.
     std::string store_host(eloq_cass_hosts);
@@ -2152,7 +2339,7 @@ static int eloq_init_func(void *p)
       std::string user(eloq_cass_user);
       std::string password(eloq_cass_password);
 
-      storage_hd= std::make_unique<CassHandler>(
+      storage_hd= std::make_unique<EloqDS::CassHandler>(
           store_host, store_port, user, password, store_keyspace_name,
           keyspace_class, replication_factor, eloq_high_compression_ratio,
           store_queue_size_io, opt_bootstrap, eloq_ddl_skip_kv);
@@ -2172,7 +2359,7 @@ static int eloq_init_func(void *p)
     }
     break;
   }
-#elif WITH_KV_STORAGE == KV_DYNAMO
+#elif defined(DATA_STORE_TYPE_DYNAMODB)
   case KV_DYNAMO: {
     // initialize DynamoDB handler.
     std::string endpoint(eloq_dynamodb_endpoint);
@@ -2180,7 +2367,7 @@ static int eloq_init_func(void *p)
     std::string access_key(eloq_aws_access_key_id);
     std::string secret_key(eloq_aws_secret_key);
 
-    storage_hd= std::make_unique<DynamoHandler>(
+    storage_hd= std::make_unique<EloqDS::DynamoHandler>(
         store_keyspace_name, endpoint, region, access_key, secret_key,
         opt_bootstrap, eloq_ddl_skip_kv, eloq_core_num * 2);
     if (!storage_hd->Connect())
@@ -2191,11 +2378,11 @@ static int eloq_init_func(void *p)
     }
     break;
   }
-#elif WITH_KV_STORAGE == KV_BIGTABLE
+#elif defined(DATA_STORE_TYPE_BIGTABLE)
   case KV_BIGTABLE: {
     std::string project_id(eloq_bigtable_project_id);
     std::string instance_id(eloq_bigtable_instance_id);
-    storage_hd= std::make_unique<BigTableHandler>(
+    storage_hd= std::make_unique<EloqDS::BigTableHandler>(
         store_keyspace_name, project_id, instance_id, opt_bootstrap,
         eloq_ddl_skip_kv);
     if (!storage_hd->Connect())
@@ -2206,6 +2393,183 @@ static int eloq_init_func(void *p)
     }
     break;
   }
+
+#elif ELOQDS
+  case KV_ELOQDS: {
+    bool is_single_node= true;
+    std::string ds_peer_node= eloq_dss_peer_node;
+    std::string dss_data_path= mysql_real_data_home_ptr;
+    dss_data_path.append("/eloq_dss");
+    try
+    {
+      if (!std::filesystem::exists(dss_data_path))
+      {
+        std::filesystem::create_directories(dss_data_path);
+      }
+    }
+    catch (const std::filesystem::filesystem_error &e)
+    {
+      sql_print_error("Failed to create dir: %s", dss_data_path.c_str());
+      DBUG_RETURN(eloq_init_abort());
+    }
+    std::string dss_config_file_path= eloq_dss_config_file_path;
+    if (dss_config_file_path.empty())
+    {
+      dss_config_file_path= dss_data_path + "/dss_config.ini";
+    }
+
+    EloqDS::DataStoreServiceClusterManager ds_config;
+    if (!ds_config.Load(dss_config_file_path))
+    {
+      if (!ds_peer_node.empty())
+      {
+        ds_config.SetThisNode(local_ip, local_port + 7);
+        // Fetch ds topology from peer node
+        if (!EloqDS::DataStoreService::FetchConfigFromPeer(ds_peer_node,
+                                                           ds_config))
+        {
+          sql_print_error("Failed to fetch config from peer node: %s",
+                          ds_peer_node.c_str());
+          DBUG_RETURN(eloq_init_abort());
+        }
+
+        // Save the fetched config to the local file
+        if (!ds_config.Save(dss_config_file_path))
+        {
+          sql_print_error("Failed to save config to file: %s",
+                          dss_config_file_path.c_str());
+          DBUG_RETURN(eloq_init_abort());
+        }
+      }
+      else if (opt_bootstrap || is_single_node)
+      {
+        // Initialize the data store service config
+        ds_config.Initialize(local_ip, local_port + 7);
+        if (!ds_config.Save(dss_config_file_path))
+        {
+          sql_print_error("Failed to save config to file: %s",
+                          dss_config_file_path.c_str());
+          DBUG_RETURN(eloq_init_abort());
+        }
+      }
+      else
+      {
+        sql_print_error("Failed to load data store service config file: %s",
+                        dss_config_file_path.c_str());
+        DBUG_RETURN(eloq_init_abort());
+      }
+    }
+    else
+    {
+      sql_print_information("EloqDataStoreService loaded config file %s",
+                            dss_config_file_path.c_str());
+    }
+
+#if defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3) ||                      \
+    defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_GCS)
+    // std::string ds_rocksdb_config_file_path=
+    //     "/home/lzx/test-eloqsql/eloq_ds.ini";
+    INIReader fake_config_reader(nullptr, 0);
+    EloqDS::RocksDBConfig rocksdb_config(fake_config_reader, dss_data_path);
+    EloqDS::RocksDBCloudConfig rocksdb_cloud_config(fake_config_reader);
+#if defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3)
+    rocksdb_cloud_config.aws_access_key_id_= eloq_aws_access_key_id;
+    rocksdb_cloud_config.aws_secret_key_= eloq_aws_secret_key;
+#endif
+    rocksdb_cloud_config.bucket_name_= eloq_dss_rocksdb_cloud_bucket_name;
+    rocksdb_cloud_config.bucket_prefix_= eloq_dss_rocksdb_cloud_bucket_prefix;
+    rocksdb_cloud_config.region_= eloq_dss_rocksdb_cloud_region;
+    rocksdb_cloud_config.s3_endpoint_url_= eloq_dss_rocksdb_cloud_endpoint_url;
+    rocksdb_cloud_config.sst_file_cache_size_=
+        txlog::parse_size(eloq_dss_rocksdb_cloud_sst_file_cache_size);
+    rocksdb_cloud_config.sst_file_cache_num_shard_bits_=
+        eloq_dss_rocksdb_cloud_sst_file_cache_num_shard_bits;
+    rocksdb_cloud_config.db_file_deletion_delay_=
+        eloq_dss_rocksdb_cloud_file_deletion_delay;
+
+    bool enable_cache_replacement_= fake_config_reader.GetBoolean(
+        "local", "enable_cache_replacement", false);
+    auto ds_factory= std::make_unique<EloqDS::RocksDBCloudDataStoreFactory>(
+        rocksdb_config, rocksdb_cloud_config, enable_cache_replacement_);
+#elif defined(DATA_STORE_TYPE_ELOQDSS_ELOQSTORE)
+    EloqDS::EloqStoreConfig eloq_store_config;
+    eloq_store_config.worker_count_= eloq_eloqstore_worker_num;
+    eloq_store_config.storage_path_= eloq_eloqstore_data_path;
+    eloq_store_config.open_files_limit_= eloq_eloqstore_open_files_limit;
+    auto ds_factory=
+        std::make_unique<EloqDS::EloqStoreDataStoreFactory>(eloq_store_config);
+#endif
+
+    data_store_service_= std::make_unique<EloqDS::DataStoreService>(
+        ds_config, eloq_dss_config_file_path, dss_data_path + "/DSMigrateLog",
+        std::move(ds_factory));
+    std::vector<uint32_t> dss_shards= ds_config.GetShardsForThisNode();
+    std::unordered_map<uint32_t, std::unique_ptr<EloqDS::DataStore>>
+        dss_shards_map;
+    // setup rocksdb cloud data store
+    for (int shard_id : dss_shards)
+    {
+#if defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3) ||                      \
+    defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_GCS)
+      // TODO(lzx):move setup datastore to data_store_service
+      auto ds= std::make_unique<EloqDS::RocksDBCloudDataStore>(
+          rocksdb_cloud_config, rocksdb_config,
+          (opt_bootstrap || is_single_node), enable_cache_replacement_,
+          shard_id, data_store_service_.get());
+#elif defined(DATA_STORE_TYPE_ELOQDSS_ELOQSTORE)
+      DLOG(INFO) << "worker: " << eloq_store_config.worker_count_
+                 << ", path: " << eloq_store_config.storage_path_
+                 << ", max open files: "
+                 << eloq_store_config.open_files_limit_;
+      ::kvstore::KvOptions store_config;
+      store_config.num_threads= eloq_store_config.worker_count_;
+      store_config.store_path.emplace_back()
+          .append(eloq_store_config.storage_path_)
+          .append("/ds_")
+          .append(std::to_string(shard_id));
+      store_config.fd_limit= eloq_store_config.open_files_limit_ /
+                             eloq_store_config.worker_count_;
+      auto ds= std::make_unique<EloqDS::EloqStoreDataStore>(
+          shard_id, data_store_service_.get(), store_config);
+#endif
+      ds->Initialize();
+
+      // Start db if the shard status is not closed
+      if (ds_config.FetchDSShardStatus(shard_id) !=
+          EloqDS::DSShardStatus::Closed)
+      {
+        bool ret= ds->StartDB();
+        if (!ret)
+        {
+          sql_print_error("Failed to start db instance in data store service");
+          DBUG_RETURN(eloq_init_abort());
+        }
+      }
+      dss_shards_map[shard_id]= std::move(ds);
+    }
+
+    // setup local data store service
+    bool ret= data_store_service_->StartService();
+    if (!ret)
+    {
+      sql_print_error("Failed to start data store service");
+      DBUG_RETURN(eloq_init_abort());
+    }
+    data_store_service_->ConnectDataStore(std::move(dss_shards_map));
+    // setup data store service client
+    storage_hd= std::make_unique<EloqDS::DataStoreServiceClient>(
+        ds_config, data_store_service_.get());
+
+    if (!storage_hd->Connect())
+    {
+      sql_print_error("!!!!!!!! Failed to connect ELOQ_DS server, EloqDB "
+                      "startup is terminated !!!!!!!!");
+      DBUG_RETURN(eloq_init_abort());
+    }
+
+    break;
+  }
+
 #endif
 
   default:
@@ -2217,75 +2581,19 @@ static int eloq_init_func(void *p)
     std::vector<NodeConfig> solo_config;
     solo_config.emplace_back(0, local_ip, local_port);
     ng_configs.try_emplace(0, std::move(solo_config));
-    cluster_config_version= 2;
   }
-  else
+  else if (!txservice::ReadClusterConfigFile(cluster_config_file, ng_configs,
+                                             cluster_config_version))
   {
-    bool uninitialized= false;
-    if (!storage_hd->ReadClusterConfig(ng_configs, cluster_config_version,
-                                       uninitialized))
+
+    // Read cluster topology from general config file in this case
+    auto parse_res= txservice::ParseNgConfig(
+        eloq_ip_list, eloq_standby_ip_list, eloq_voter_ip_list, ng_configs,
+        eloq_node_group_replica_num, 0);
+    if (!parse_res)
     {
-      if (!uninitialized)
-      {
-        // Read cluster config table error
-        sql_print_error("!!!!!!!! Failed to read cluster config from kv "
-                        "store, EloqDB "
-                        "startup is terminated !!!!!!!!");
-        DBUG_RETURN(eloq_init_abort());
-      }
-      // First time start up, read cluster config from config table and write
-      // it to kv store.
-      std::vector<std::string> ips;
-      std::vector<uint16_t> ports;
-
-      // When execute mysql_install_db.sh, read cluster config from config file
-      // and write it to kv store.
-      std::string token;
-      std::istringstream ip_list_token_stream(eloq_ip_list);
-
-      while (std::getline(ip_list_token_stream, token, ','))
-      {
-        size_t c_idx= token.find_first_of(':');
-
-        if (c_idx == std::string::npos)
-        {
-          // The conf does not specify the port. Use the default 8000.
-
-          ips.emplace_back(token);
-          ports.emplace_back(8000);
-
-          token.append(":");
-          token.append(std::to_string(8000));
-        }
-        else
-        {
-          uint16_t pt= std::stoi(token.substr(c_idx + 1));
-
-          ips.emplace_back(token.substr(0, c_idx));
-          ports.emplace_back(pt);
-        }
-      }
-      if (ips.size() == 0)
-      {
-        ips.emplace_back(local_ip);
-        ports.emplace_back(local_port);
-      }
-      auto parse_res= txservice::ParseNgConfig(
-          eloq_ip_list, eloq_standby_ip_list, eloq_voter_ip_list, ng_configs,
-          eloq_node_group_replica_num, 0);
-      if (!parse_res)
-      {
-        LOG(ERROR) << "Failed to extract cluster configs from ip_port_list.";
-        DBUG_RETURN(eloq_init_abort());
-      }
-      if (!storage_hd->InitializeClusterConfig(ng_configs))
-      {
-        sql_print_error("!!!!!!!! Failed to initialize cluster config in kv "
-                        "store, EloqDB "
-                        "startup is terminated !!!!!!!!");
-        DBUG_RETURN(eloq_init_abort());
-      }
-      cluster_config_version= 2;
+      LOG(ERROR) << "Failed to extract cluster configs from ip_port_list.";
+      DBUG_RETURN(eloq_init_abort());
     }
   }
 
@@ -2341,6 +2649,21 @@ static int eloq_init_func(void *p)
     // initialize log service.
     std::string txlog_path(local_path);
     txlog_path.append("/tx_log");
+    std::string txlog_rocksdb_path;
+    // default rocksdb path is <data_home>/tx_log/rocksdb
+    if (strlen(eloq_txlog_rocksdb_storage_path) == 0)
+    {
+      // remove "local://" prefix
+      txlog_rocksdb_path= txlog_path.substr(8) + "/rocksdb";
+    }
+    else
+    {
+      txlog_rocksdb_path= eloq_txlog_rocksdb_storage_path;
+    }
+    sql_print_information("EloqDB txlog path: %s", txlog_path.c_str());
+    sql_print_information("EloqDB txlog rocksdb path: %s",
+                          txlog_rocksdb_path.c_str());
+
     uint16_t log_server_port= local_port + 2;
     for (uint32_t ng= 0; ng < ng_configs.size(); ng++)
     {
@@ -2366,67 +2689,97 @@ static int eloq_init_func(void *p)
 
 #ifdef USE_ROCKSDB_LOG_STATE
     size_t rocksdb_target_file_size_base_val=
-        txlog::parse_size(eloq_rocksdb_target_file_size_base);
+        txlog::parse_size(eloq_txlog_rocksdb_target_file_size_base);
 #ifdef WITH_ROCKSDB_CLOUD
     txlog::RocksDBCloudConfig rocksdb_cloud_config;
 #if WITH_ROCKSDB_CLOUD == CS_TYPE_S3
     rocksdb_cloud_config.aws_access_key_id_= eloq_aws_access_key_id;
     rocksdb_cloud_config.aws_secret_key_= eloq_aws_secret_key;
 #endif /* WITH_ROCKSDB_CLOUD == CS_TYPE_S3 */
-    rocksdb_cloud_config.bucket_name_= eloq_rocksdb_cloud_bucket_name;
-    rocksdb_cloud_config.bucket_prefix_= eloq_rocksdb_cloud_bucket_prefix;
-    rocksdb_cloud_config.region_= eloq_rocksdb_cloud_region;
-    rocksdb_cloud_config.endpoint_url_= eloq_rocksdb_cloud_endpoint_url;
+    rocksdb_cloud_config.bucket_name_= eloq_txlog_rocksdb_cloud_bucket_name;
+    rocksdb_cloud_config.bucket_prefix_=
+        eloq_txlog_rocksdb_cloud_bucket_prefix;
+    rocksdb_cloud_config.region_= eloq_txlog_rocksdb_cloud_region;
+    rocksdb_cloud_config.endpoint_url_= eloq_txlog_rocksdb_cloud_endpoint_url;
     rocksdb_cloud_config.sst_file_cache_size_=
-        txlog::parse_size(eloq_rocksdb_cloud_sst_file_cache_size);
+        txlog::parse_size(eloq_txlog_rocksdb_cloud_sst_file_cache_size);
+    rocksdb_cloud_config.sst_file_cache_num_shard_bits_=
+        eloq_txlog_rocksdb_cloud_sst_file_cache_num_shard_bits;
     rocksdb_cloud_config.db_ready_timeout_us_=
-        eloq_rocksdb_cloud_ready_timeout * 1000 * 1000;
+        eloq_txlog_rocksdb_cloud_ready_timeout * 1000 * 1000;
     rocksdb_cloud_config.db_file_deletion_delay_=
-        eloq_rocksdb_cloud_file_deletion_delay;
+        eloq_txlog_rocksdb_cloud_file_deletion_delay;
 
     if (opt_bootstrap)
     {
       txlog_server= std::make_unique<::txlog::LogServer>(
-          node_id, log_server_port, txlog_path, 1,
-          rocksdb_cloud_config,
-          eloq_rocksdb_cloud_in_mem_log_size_high_watermark,
-          eloq_rocksdb_max_write_buffer_number,
-          eloq_rocksdb_max_background_jobs, rocksdb_target_file_size_base_val);
+          node_id, log_server_port, txlog_ips, txlog_ports, txlog_path, 0,
+          eloq_txlog_group_replica_num, txlog_rocksdb_path,
+          eloq_logserver_rocksdb_scan_thread_num, rocksdb_cloud_config,
+          eloq_txlog_rocksdb_cloud_in_mem_log_size_high_watermark,
+          eloq_txlog_rocksdb_max_write_buffer_number,
+          eloq_txlog_rocksdb_max_background_jobs,
+          rocksdb_target_file_size_base_val, eloq_logserver_snapshot_interval);
     }
     else
     {
       txlog_server= std::make_unique<::txlog::LogServer>(
-          node_id, log_server_port, txlog_path, 1,
-          rocksdb_cloud_config,
-          eloq_rocksdb_cloud_in_mem_log_size_high_watermark,
-          eloq_rocksdb_max_write_buffer_number,
-          eloq_rocksdb_max_background_jobs, rocksdb_target_file_size_base_val);
+          node_id, log_server_port, txlog_ips, txlog_ports, txlog_path, 0,
+          eloq_txlog_group_replica_num, txlog_rocksdb_path,
+          eloq_logserver_rocksdb_scan_thread_num, rocksdb_cloud_config,
+          eloq_txlog_rocksdb_cloud_in_mem_log_size_high_watermark,
+          eloq_txlog_rocksdb_max_write_buffer_number,
+          eloq_txlog_rocksdb_max_background_jobs,
+          rocksdb_target_file_size_base_val, eloq_logserver_snapshot_interval,
+          enable_txlog_request_checkpoint,
+          eloq_check_replay_log_size_interval_sec,
+          notify_checkpointer_threshold_size);
     }
 #else /* WITH_ROCKSDB_CLOUD */
     size_t rocksdb_sst_files_size_limit_val=
-        txlog::parse_size(eloq_rocksdb_sst_files_size_limit);
+        txlog::parse_size(eloq_txlog_rocksdb_sst_files_size_limit);
+
+#ifdef ELOQ_MODULE_ENABLED
+    GFLAGS_NAMESPACE::SetCommandLineOption(
+        "bthread_concurrency", std::to_string(eloq_core_num).c_str());
+    GFLAGS_NAMESPACE::SetCommandLineOption("use_pthread_event_dispatcher",
+                                           "true");
+    int busy_time= 10000;
+    GFLAGS_NAMESPACE::SetCommandLineOption("worker_polling_time_us",
+                                           std::to_string(busy_time).c_str());
+#endif
 
     if (opt_bootstrap)
     {
       txlog_server= std::make_unique<::txlog::LogServer>(
-          node_id, log_server_port, txlog_path, 1,
+          node_id, log_server_port, txlog_ips, txlog_ports, txlog_path, 0,
+          eloq_txlog_group_replica_num, txlog_rocksdb_path,
+          eloq_logserver_rocksdb_scan_thread_num,
           rocksdb_sst_files_size_limit_val,
-          eloq_rocksdb_max_write_buffer_number,
-          eloq_rocksdb_max_background_jobs, rocksdb_target_file_size_base_val);
+          eloq_txlog_rocksdb_max_write_buffer_number,
+          eloq_txlog_rocksdb_max_background_jobs,
+          rocksdb_target_file_size_base_val, eloq_logserver_snapshot_interval);
     }
     else
     {
       txlog_server= std::make_unique<::txlog::LogServer>(
-          node_id, log_server_port, txlog_path, 1,
+          node_id, log_server_port, txlog_ips, txlog_ports, txlog_path, 0,
+          eloq_txlog_group_replica_num, txlog_rocksdb_path,
+          eloq_logserver_rocksdb_scan_thread_num,
           rocksdb_sst_files_size_limit_val,
-          eloq_rocksdb_max_write_buffer_number,
-          eloq_rocksdb_max_background_jobs, rocksdb_target_file_size_base_val);
+          eloq_txlog_rocksdb_max_write_buffer_number,
+          eloq_txlog_rocksdb_max_background_jobs,
+          rocksdb_target_file_size_base_val, eloq_logserver_snapshot_interval,
+          enable_txlog_request_checkpoint,
+          eloq_check_replay_log_size_interval_sec,
+          notify_checkpointer_threshold_size);
     }
 
 #endif /* WITH_ROCKSDB_CLOUD */
 #else  /* USE_ROCKSDB_LOG_STATE */
     txlog_server= std::make_unique<::txlog::LogServer>(
-        node_id, log_server_port, txlog_path, 1);
+        node_id, log_server_port, txlog_ips, txlog_ports, txlog_path, 0,
+        eloq_txlog_group_replica_num, eloq_logserver_snapshot_interval);
 #endif /* USE_ROCKSDB_LOG_STATE */
     err= txlog_server->Start();
     if (err != 0)
@@ -2514,11 +2867,11 @@ static int eloq_init_func(void *p)
       "enable_shard_heap_defragment", eloq_enable_heap_defragment ? 1 : 0));
   tx_service_conf.insert(std::pair<std::string, uint32_t>(
       "bthread_worker_num", eloq_bthread_worker_num));
+  tx_service_conf.insert(std::pair<std::string, uint32_t>(
+      "kickout_data_for_test", eloq_kickout_data_for_test ? 1 : 0));
 
-  auto log_agent= eloq_skip_redo_log
-                      ? nullptr
-                      : std::make_unique<MyEloqLogAgent>(static_cast<uint32_t>(
-                            eloq_txlog_group_replica_num));
+  auto log_agent= std::make_unique<MyEloqLogAgent>(
+      static_cast<uint32_t>(eloq_txlog_group_replica_num));
 
   sql_print_information("enable_metrics: %s",
                         eloq_enable_metrics ? "ON" : "OFF");
@@ -2636,8 +2989,8 @@ static int eloq_init_func(void *p)
           tx_service_conf, node_id, native_ng_id, &ng_configs,
           cluster_config_version, storage_hd.get(), log_agent.get(),
           eloq_enable_mvcc, eloq_skip_redo_log, false /*skip kv*/,
-          true /*enable cache replacement*/, metrics_registry.get(),
-          tx_service_common_labels);
+          true /*enable cache replacement*/, true /*auto redirect */,
+          metrics_registry.get(), tx_service_common_labels);
 
       sql_print_information("Eloq metrics collector bind port: %d",
                             eloq_metrics_port);
@@ -2664,14 +3017,16 @@ static int eloq_init_func(void *p)
   if (tx_service->Start(node_id, native_ng_id, &ng_configs,
                         cluster_config_version, &txlog_ips, &txlog_ports,
                         &hm_ip, &hm_port, &hm_bin_path, tx_service_conf,
-                        std::move(log_agent), local_path) < 0)
+                        std::move(log_agent), local_path,
+                        cluster_config_file) < 0)
   {
     sql_print_error("!!!!!!Failed to start tx service. EloqDB startup is "
                     "terminated!!!!!!");
     DBUG_RETURN(eloq_init_abort());
   }
 
-  Sequences::InitSequence(tx_service.get(), storage_hd.get());
+  txservice::Sequences::InitSequence(tx_service.get(), storage_hd.get());
+
   DeadLockCheck::SetTimeInterval(eloq_deadlock_interval_sec);
 
   storage_hd->SetTxService(tx_service != nullptr ? tx_service.get() : nullptr);
@@ -2687,12 +3042,19 @@ static int eloq_init_func(void *p)
   // tx_service is a distributed service, should wait for all the tx_service
   // nodes to finish the log recovery process and setup the cc_stream_sender.
   tx_service->WaitClusterReady();
+  // wait for the tx_service node to become the native group leader.
+  tx_service->WaitNodeBecomeNativeGroupLeader();
 
   drop_orphan_tmp_tables();
 
   if (eloq_signal_monitor != 0)
   {
-    terminate_hook= [](int sig) {};
+    terminate_hook= [](int sig) {
+      if (txlog_server)
+      {
+        txlog_server->CloseBraft();
+      }
+    };
   }
 
   sql_print_information("Eloq initialized.");
@@ -2711,13 +3073,20 @@ static int eloq_done_func(void *p)
 
   sql_print_information("Shutting down the storage handler.");
   storage_hd= nullptr; // Wait for all in-fight requests complete.
+#if ELOQDS
+  if (data_store_service_ != nullptr)
+  {
+    data_store_service_->DisconnectDataStore();
+    data_store_service_= nullptr;
+  }
+#endif
   sql_print_information("Storage handler shut down.");
 
   sql_print_information("Shutting down the log service.");
   txlog_server= nullptr;
   sql_print_information("Log service shut down.");
 
-  Sequences::Destory();
+  txservice::Sequences::Destory();
 
   // Guarantee shutdown. In some cases, like bootstrap,
   // eloq_pre_shutdown() won't call.
@@ -2739,8 +3108,10 @@ static int eloq_done_func(void *p)
     metrics_registry= nullptr;
   }
 
-#if WITH_KV_STORAGE == KV_DYNAMO ||                                           \
-    (defined(USE_ROCKSDB_LOG_STATE) && (WITH_ROCKSDB_CLOUD == CS_TYPE_S3))
+#if defined(DATA_STORE_TYPE_DYNAMODB) ||                                      \
+    (defined(USE_ROCKSDB_LOG_STATE) && (WITH_ROCKSDB_CLOUD == CS_TYPE_S3)) || \
+    defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3)
+
   aws_deinit();
 #endif
 
@@ -2764,12 +3135,31 @@ bool MyEloqTx::Commit()
   if (!success)
   {
     tx_err_code_= err;
-    my_error(HA_ERR_ELOQ_COMMIT_FAILED, MYF(0),
-             TxRequest::ErrorMessage(err).data());
+    my_error(HA_ERR_ELOQ_COMMIT_FAILED, MYF(0), TxErrorMessage(err).data());
   }
 
+  ClearSchemaReaders();
   Reset(nullptr, nullptr);
   return success;
+}
+
+void MyEloqTx::ClearSchemaReaders()
+{
+  for (auto &[tbl_name, schema_cntl] : cached_schemas_)
+  {
+    schema_cntl->FinishReader();
+  }
+  cached_schemas_.clear();
+}
+
+void MyEloqTx::ClearSchemaReader(const TableName &tbl_name)
+{
+  auto it= cached_schemas_.find(tbl_name);
+  if (it != cached_schemas_.end())
+  {
+    it->second->FinishReader();
+    cached_schemas_.erase(it);
+  }
 }
 
 std::pair<const std::function<void()> *, const std::function<void()> *>
@@ -2812,10 +3202,12 @@ ha_eloq::ha_eloq(handlerton *hton, TABLE_SHARE *table_share)
           table_share
               ? txservice::TableName{table_share->normalized_path.str,
                                      table_share->normalized_path.length,
-                                     txservice::TableType::Primary}
+                                     txservice::TableType::Primary,
+                                     txservice::TableEngine::EloqSql}
               : txservice::TableName{txservice::empty_sv.data(),
                                      txservice::empty_sv.size(),
-                                     txservice::TableType::Primary}),
+                                     txservice::TableType::Primary,
+                                     txservice::TableEngine::EloqSql}),
       pk_descr_(nullptr), pack_buffer_(nullptr), record_buffer_(nullptr),
       pk_packed_tuple_(nullptr), sk_packed_tuple_(nullptr)
 {
@@ -4254,7 +4646,7 @@ int ha_eloq::analyze(THD *thd, HA_CHECK_OPT *check_opt)
   for (const TableName &table_name : table_names)
   {
     TableName scan_table_name(table_name.StringView(),
-                              TableType::RangePartition);
+                              TableType::RangePartition, table_name.Engine());
     ScanIndexType scan_type= table_name.Type() == TableType::Primary
                                  ? ScanIndexType::Primary
                                  : ScanIndexType::Secondary;
@@ -4844,7 +5236,7 @@ int ha_eloq::Insert(const uchar *buf, std::unique_ptr<EloqKey> eloq_key,
     if (err != TxErrorCode::NO_ERROR)
     {
       my_tx->tx_err_code_= err;
-      // my_tx->detailed_err_message_= TxRequest::ErrorMessage(err);
+      // my_tx->detailed_err_message_= TxErrorMessage(err);
       // my_error(HA_ERR_ELOQ_INSERT_FAILED, MYF(0),
       //          my_tx->detailed_err_message_.data());
       return HA_ERR_OUT_OF_MEM;
@@ -5226,40 +5618,69 @@ const txservice::KVCatalogInfo *ha_eloq::GetKVCatalogInfo()
 
 const MysqlTableSchema *ha_eloq::DiscoverTableSchema(MyEloqTx *my_tx)
 {
-  auto [session_schema, session_dirty_schema]=
-      my_tx->GetTableSchema(base_table_name_);
+  const MysqlTableSchema *session_schema= nullptr,
+                         *session_dirty_schema= nullptr;
+
+  const MysqlTableSchema *tx_cached_schema=
+      my_tx->GetCachedSchema(base_table_name_);
+  if (tx_cached_schema != nullptr)
+  {
+    session_schema= tx_cached_schema;
+  }
+  else if (schema_cntl_ != nullptr)
+  {
+    bool success= schema_cntl_->AddReader();
+    if (success)
+    {
+      my_tx->UpdateSchemaCntl(schema_cntl_);
+      session_schema=
+          static_cast<const MysqlTableSchema *>(schema_cntl_->GetObjectPtr());
+    }
+    else
+    {
+      schema_cntl_= nullptr;
+    }
+  }
+
   if (session_schema == nullptr)
   {
-    CatalogKey table_key(base_table_name_);
-    TxKey tbl_tx_key(&table_key);
-    CatalogRecord catalog_rec;
-
-    std::pair<const std::function<void()> *, const std::function<void()> *>
-        coro_functors= my_tx->CoroFunctors();
-    TransactionExecution *txm= my_tx->Txm();
-
-    // No need to check the version of __catalog table.
-    ReadTxRequest read_tx_req(&txservice::catalog_ccm_name, 0, &tbl_tx_key,
-                              &catalog_rec, false, false, true, 0, false,
-                              false, false, coro_functors.first,
-                              coro_functors.second, txm);
-    txm->Execute(&read_tx_req);
-    read_tx_req.Wait();
-    const RecordStatus &rec_status= read_tx_req.Result().first;
-
-    if (rec_status == RecordStatus::Normal)
+    std::tie(session_schema, session_dirty_schema)=
+        my_tx->GetTableSchema(base_table_name_);
+    if (session_schema == nullptr)
     {
-      if (catalog_rec.Schema() != nullptr)
+      CatalogKey table_key(base_table_name_);
+      TxKey tbl_tx_key(&table_key);
+      CatalogRecord catalog_rec;
+
+      std::pair<const std::function<void()> *, const std::function<void()> *>
+          coro_functors= my_tx->CoroFunctors();
+      TransactionExecution *txm= my_tx->Txm();
+
+      // No need to check the version of __catalog table.
+      ReadTxRequest read_tx_req(&txservice::catalog_ccm_name, 0, &tbl_tx_key,
+                                &catalog_rec, false, false, true, 0, false,
+                                false, false, coro_functors.first,
+                                coro_functors.second, txm);
+      txm->Execute(&read_tx_req);
+      read_tx_req.Wait();
+      const RecordStatus &rec_status= read_tx_req.Result().first;
+
+      if (rec_status == RecordStatus::Normal)
       {
-        session_schema=
-            static_cast<const MysqlTableSchema *>(catalog_rec.Schema());
-        session_dirty_schema=
-            static_cast<const MysqlTableSchema *>(catalog_rec.DirtySchema());
-        my_tx->UpdateTableSchema(
-            std::static_pointer_cast<const MysqlTableSchema>(
-                catalog_rec.CopySchema()),
-            std::static_pointer_cast<const MysqlTableSchema>(
-                catalog_rec.CopyDirtySchema()));
+        if (catalog_rec.Schema() != nullptr)
+        {
+          session_schema=
+              static_cast<const MysqlTableSchema *>(catalog_rec.Schema());
+          session_dirty_schema=
+              static_cast<const MysqlTableSchema *>(catalog_rec.DirtySchema());
+          my_tx->UpdateTableSchema(
+              std::static_pointer_cast<const MysqlTableSchema>(
+                  catalog_rec.CopySchema()),
+              std::static_pointer_cast<const MysqlTableSchema>(
+                  catalog_rec.CopyDirtySchema()));
+
+          schema_cntl_= catalog_rec.GetSchemaCntl();
+        }
       }
     }
   }
@@ -5289,6 +5710,7 @@ const MysqlTableSchema *ha_eloq::DiscoverTableSchema(MyEloqTx *my_tx)
     table_schema_= nullptr;
     hidden_key_schema_= nullptr;
     table_dirty_schema_= nullptr;
+    schema_cntl_= nullptr;
   }
 
   return session_schema;
@@ -5918,7 +6340,8 @@ int ha_eloq::SkIndexScanNext(uchar *table_record)
   THD *thd= ha_thd();
   const TableName scan_table_name{
       table_schema_->IndexNameSchema(active_index).first.StringView(),
-      table_schema_->IndexNameSchema(active_index).first.Type()};
+      table_schema_->IndexNameSchema(active_index).first.Type(),
+      table_schema_->IndexNameSchema(active_index).first.Engine()};
 
   const EloqKey *result_key= nullptr;
   const EloqRecord *result_rec= nullptr;
@@ -6726,7 +7149,8 @@ std::pair<RecordStatus, uint64_t> ha_eloq::SkRead(MyEloqTx *my_tx,
 
   const TableName index_name{
       table_schema_->IndexNameSchema(kid).first.StringView(),
-      table_schema_->IndexNameSchema(kid).first.Type()};
+      table_schema_->IndexNameSchema(kid).first.Type(),
+      table_schema_->IndexNameSchema(kid).first.Engine()};
   assert(index_name.Type() == TableType::UniqueSecondary);
 
   auto [yield_func, resume_func]= my_tx->CoroFunctors();
@@ -7372,7 +7796,9 @@ int ha_eloq::delete_table(const char *name)
   DBUG_ASSERT(my_tx != nullptr);
   TransactionExecution *txm= my_tx->Txm();
   std::string_view name_sv{name};
-  txservice::TableName table_name{name_sv, txservice::TableType::Primary};
+  txservice::TableName table_name{name_sv, txservice::TableType::Primary,
+                                  txservice::TableEngine::EloqSql};
+  my_tx->ClearSchemaReader(table_name);
 
   CatalogKey table_key(table_name);
   CatalogRecord catalog_rec;
@@ -8041,20 +8467,6 @@ int ha_eloq::create(const char *name, TABLE *table_arg,
              eloq_unsupported_command.find(sqlcom)->second.c_str());
     DBUG_RETURN(HA_ERR_WRONG_COMMAND);
   }
-  // {
-  //   Key *key;
-  //   List_iterator<Key> key_iterator(create_info->alter_info->key_list);
-  //   while ((key= key_iterator++))
-  //   {
-  //     if (key->type == Key::UNIQUE)
-  //     {
-  //       char buf[1024];
-  //       my_snprintf(buf, sizeof(buf), "UNIQUE KEY on table: %s", name);
-  //       my_error(ER_CHECK_NOT_IMPLEMENTED, MYF(0), buf);
-  //       DBUG_RETURN(HA_ERR_WRONG_COMMAND);
-  //     }
-  //   }
-  // }
 
   // tx_exists is set to false for new TransactionExecution
   MyEloqTx *my_tx= nullptr;
@@ -8069,7 +8481,10 @@ int ha_eloq::create(const char *name, TABLE *table_arg,
   TransactionExecution *txm= my_tx->Txm();
 
   std::string_view name_sv{name};
-  txservice::TableName table_name{name_sv, txservice::TableType::Primary};
+  txservice::TableName table_name{name_sv, txservice::TableType::Primary,
+                                  txservice::TableEngine::EloqSql};
+
+  my_tx->ClearSchemaReader(table_name);
 
   // Convert dbname into path-like encoding ./dbname.
   // Then Check whether db exists.
@@ -8144,14 +8559,14 @@ int ha_eloq::create(const char *name, TABLE *table_arg,
   LEX_CUSTRING *frm_image= table_arg->s->frm_image;
   std::string frm_str((const char *) frm_image->str, frm_image->length);
   std::string schema_image=
-      SerializeSchemaImage(frm_str, std::string(""), std::string(""));
+      EloqDS::SerializeSchemaImage(frm_str, std::string(""), std::string(""));
 
   MysqlTableSchema temp_schema(table_name, schema_image, 0);
   std::string kv_info= storage_hd->CreateKVCatalogInfo(&temp_schema);
 
   std::string empty_image{""};
   std::string new_image=
-      SerializeSchemaImage(frm_str, kv_info, std::string(""));
+      EloqDS::SerializeSchemaImage(frm_str, kv_info, std::string(""));
 
   UpsertTableTxRequest upsert_table_req(&table_name, &empty_image, 1,
                                         &new_image, OperationType::CreateTable,
@@ -8198,11 +8613,11 @@ int ha_eloq::alloc_key_buffers(const TABLE *const table_arg)
   DBUG_ENTER_FUNC();
 
   const std::unordered_map<
-      uint, std::pair<txservice::TableName, txservice::SecondaryKeySchema>>
+      uint16_t, std::pair<txservice::TableName, txservice::SecondaryKeySchema>>
       *kd_arr= table_schema_->GetIndexes();
 
   const std::unordered_map<
-      uint, std::pair<txservice::TableName, txservice::SecondaryKeySchema>>
+      uint16_t, std::pair<txservice::TableName, txservice::SecondaryKeySchema>>
       *dirty_kd_arr= nullptr;
   if (table_dirty_schema_ != nullptr)
   {
@@ -8333,7 +8748,8 @@ static void get_altered_table_info(const txservice::TableName &table_name,
     txservice::TableName add_index_name(
         format_index_name.c_str(), format_index_name.length(),
         is_unique_sk ? txservice::TableType::UniqueSecondary
-                     : txservice::TableType::Secondary);
+                     : txservice::TableType::Secondary,
+        table_name.Engine());
     alter_table_info.index_add_names_.try_emplace(add_index_name);
   }
   assert(alter_table_info.index_add_names_.size() ==
@@ -8352,7 +8768,8 @@ static void get_altered_table_info(const txservice::TableName &table_name,
     txservice::TableName drop_index_name(
         format_index_name.c_str(), format_index_name.length(),
         is_unique_sk ? txservice::TableType::UniqueSecondary
-                     : txservice::TableType::Secondary);
+                     : txservice::TableType::Secondary,
+        table_name.Engine());
     alter_table_info.index_drop_names_.try_emplace(drop_index_name);
   }
   assert(alter_table_info.index_drop_names_.size() ==
@@ -8573,9 +8990,10 @@ bool ha_eloq::inplace_alter_table(TABLE *altered_table,
       .append(table_share->db.str, table_share->db.length)
       .append("/")
       .append(table_share->table_name.str, table_share->table_name.length);
-  txservice::TableName table_name(table_name_path.c_str(),
-                                  table_name_path.length(),
-                                  txservice::TableType::Primary);
+  txservice::TableName table_name(
+      table_name_path.c_str(), table_name_path.length(),
+      txservice::TableType::Primary, txservice::TableEngine::EloqSql);
+  my_tx->ClearSchemaReader(table_name);
   CatalogKey catalog_key(table_name);
   CatalogRecord catalog_rec;
 
@@ -8612,7 +9030,7 @@ bool ha_eloq::inplace_alter_table(TABLE *altered_table,
       static_cast<const MysqlTableSchema *>(catalog_rec.Schema());
 
   // Get current key schemas ts, excluding the key to be dropped.
-  TableKeySchemaTs key_schemas_ts;
+  TableKeySchemaTs key_schemas_ts(TableEngine::EloqSql);
   // The pk schema ts.
   key_schemas_ts.pk_schema_ts_= current_table_schema->KeySchema()->SchemaTs();
   auto sk_schemas= current_table_schema->GetIndexes();
@@ -8630,7 +9048,8 @@ bool ha_eloq::inplace_alter_table(TABLE *altered_table,
     key_schemas_ts.sk_schemas_ts_.emplace(
         std::piecewise_construct,
         std::forward_as_tuple(index_it->second.first.StringView(),
-                              index_it->second.first.Type()),
+                              index_it->second.first.Type(),
+                              index_it->second.first.Engine()),
         std::forward_as_tuple(index_it->second.second.SchemaTs()));
   }
   std::string schemas_ts_str= key_schemas_ts.Serialize();
@@ -8649,7 +9068,7 @@ bool ha_eloq::inplace_alter_table(TABLE *altered_table,
   // value of which is the `commit_ts_` of the UpsertTable Transaction. So,
   // there is no new key's schema ts in the `schemas_ts_str`.
   std::string new_schema_image=
-      SerializeSchemaImage(new_frm_str, new_kv_info, schemas_ts_str);
+      EloqDS::SerializeSchemaImage(new_frm_str, new_kv_info, schemas_ts_str);
 
   OperationType op_type= OperationType::AddIndex;
   if (ha_alter_info->handler_flags & ALTER_ADD_NON_UNIQUE_NON_PRIM_INDEX ||
@@ -8951,7 +9370,7 @@ bool ha_eloq::get_error_message(const int error, String *const buf)
 
     if (my_tx && my_tx->tx_err_code_ != TxErrorCode::NO_ERROR)
     {
-      const std::string &err_str= TxRequest::ErrorMessage(my_tx->tx_err_code_);
+      const std::string &err_str= TxErrorMessage(my_tx->tx_err_code_);
 
       buf->append(err_str.c_str(), err_str.length());
       DBUG_RETURN(false);
@@ -8994,9 +9413,9 @@ void ha_eloq::get_auto_increment(ulonglong offset, ulonglong increment,
   const MysqlTableSchema *session_schema= DiscoverTableSchema(my_tx);
 
   int64_t nb_res= 0;
-  int64_t val= Sequences::ApplyID(
+  int64_t val= txservice::Sequences::ApplyIdOfAutoIncrColumn(
       *GetBaseTableNameFromTableSchema(), increment, nb_desired_values, nb_res,
-      session_schema->Version(), my_tx->CoroFunctors(),
+      session_schema->KeySchema()->SchemaTs(), my_tx->CoroFunctors(),
       thd_get_long_resume_func(thd), thd_get_group_id(thd));
   if (nb_res == 0)
   {
@@ -9278,7 +9697,8 @@ void ha_eloq::start_bulk_insert(ha_rows rows, uint flags)
       // Unique secondary key
       auto insert_it= unique_sk_bulk_insert_buffer_.emplace(
           std::piecewise_construct,
-          std::forward_as_tuple(index_name.StringView(), index_name.Type()),
+          std::forward_as_tuple(index_name.StringView(), index_name.Type(),
+                                index_name.Engine()),
           std::forward_as_tuple(sk_key_version, BulkInsertBuffer()));
       insert_it.first->second.second.reserve(reserve_size);
     }

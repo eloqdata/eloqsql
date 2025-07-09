@@ -15,6 +15,7 @@
  *    along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#include "type.h"
 #define MYSQL_SERVER 1
 
 #include "eloq_catalog_factory.h"
@@ -33,9 +34,10 @@
 #include "cc/template_cc_map.h"
 #include "constants.h"
 #include "cc/range_cc_map.h"
-#include "sequences.h"
+// #include "sequences.h"
 #include "range_record.h"
 #include "range_slice.h"
+#include "tx_service/include/sequences/sequences.h"
 
 MYSQL_THD create_background_thd();
 void destroy_background_thd(MYSQL_THD thd);
@@ -129,7 +131,7 @@ MysqlSkEncoder::~MysqlSkEncoder()
   sk_packed_tuple_vec_.clear();
 }
 
-bool MysqlSkEncoder::AppendPackedSk(
+int32_t MysqlSkEncoder::AppendPackedSk(
     const txservice::TxKey *pk, const txservice::TxRecord *record,
     uint64_t version_ts, std::vector<txservice::WriteEntry> &dest_vec)
 {
@@ -150,7 +152,7 @@ bool MysqlSkEncoder::AppendPackedSk(
   if (!DecodeRecord(buf, mono_key, mono_rec))
   {
     LOG(ERROR) << "Failed to decode record during AppendPackedSk.";
-    return false;
+    return -1;
   }
 
   // For virtual columns, compute those values.
@@ -217,7 +219,7 @@ bool MysqlSkEncoder::AppendPackedSk(
     if (!ReadHiddenPkFromRowkey(uuid_buffer, mono_key))
     {
       LOG(ERROR) << "Failed to read hidden pk during AppendPackedSk.";
-      return false;
+      return -1;
     }
 
     size= sk_schema->KeyDefinition()->pack_record(
@@ -239,9 +241,9 @@ bool MysqlSkEncoder::AppendPackedSk(
   packed_sk_rec->SetUnpackInfo(unpack_info.ptr(),
                                unpack_info.get_current_pos());
 
-  dest_vec.emplace_back(TxKey(std::move(packed_sk)), std::move(packed_sk_rec),
-                        version_ts);
-  return true;
+  dest_vec.emplace_back(txservice::TxKey(std::move(packed_sk)),
+                        std::move(packed_sk_rec), version_ts);
+  return 1;
 }
 
 void MysqlSkEncoder::Reset()
@@ -312,18 +314,20 @@ const txservice::RecordSchema *MysqlTableSchema::RecordSchema() const
   return &record_schema_;
 }
 
-MysqlTableSchema::MysqlTableSchema(const TableName &table_name,
+MysqlTableSchema::MysqlTableSchema(const txservice::TableName &table_name,
                                    const std::string &catalog_image,
                                    uint64_t version)
     : schema_image_(catalog_image), version_(version),
       base_table_name_(table_name.StringView().data(),
-                       table_name.StringView().size(), table_name.Type())
+                       table_name.StringView().size(), table_name.Type(),
+                       table_name.Engine())
 {
+  assert(table_name.Engine() == txservice::TableEngine::EloqSql);
   // Deserialize catalog_image into frm_str and kv_info_str
   std::string frm, kv_info, schemas_ts_str;
-  DeserializeSchemaImage(catalog_image, frm, kv_info, schemas_ts_str);
+  EloqDS::DeserializeSchemaImage(catalog_image, frm, kv_info, schemas_ts_str);
 
-  TableKeySchemaTs key_schemas_ts;
+  txservice::TableKeySchemaTs key_schemas_ts(txservice::TableEngine::EloqSql);
   size_t ts_offset= 0;
   key_schemas_ts.Deserialize(schemas_ts_str.data(), ts_offset);
 
@@ -416,7 +420,8 @@ MysqlTableSchema::MysqlTableSchema(const TableName &table_name,
       txservice::TableName index_table_name(
           index_name.data(), index_name.size(),
           is_unique_sk ? txservice::TableType::UniqueSecondary
-                       : txservice::TableType::Secondary);
+                       : txservice::TableType::Secondary,
+          table_name.Engine());
       key_schema_ts= key_schemas_ts.GetKeySchemaTs(index_table_name);
       key_schema_ts= key_schema_ts == 1 ? version_ : key_schema_ts;
       std::unique_ptr<EloqKeySchema> sk_schema_=
@@ -437,7 +442,18 @@ MysqlTableSchema::MysqlTableSchema(const TableName &table_name,
 MysqlTableSchema::~MysqlTableSchema()
 {
   mysql::free_table_share(&mysql_table_share_);
-  Sequences::DeleteSeqence(base_table_name_);
+  // Sequences::DeleteSequence(base_table_name_);
+  txservice::Sequences::DeleteSequence(
+      base_table_name_, txservice::SequenceType::AutoIncrementColumn, true);
+}
+
+// For multikey index. Document engine only.
+txservice::TableSchema::uptr MysqlTableSchema::Clone() const
+{
+  auto table_schema= std::make_unique<MysqlTableSchema>(
+      base_table_name_, schema_image_, version_);
+  table_schema->BindStatistics(table_statistics_);
+  return table_schema;
 }
 
 const std::string &MysqlTableSchema::SchemaImage() const
@@ -461,7 +477,8 @@ std::vector<txservice::TableName> MysqlTableSchema::IndexNames() const
   for (const auto &index_entry : indexes_)
   {
     index_names.emplace_back(index_entry.second.first.StringView(),
-                             index_entry.second.first.Type());
+                             index_entry.second.first.Type(),
+                             index_entry.second.first.Engine());
   }
 
   return index_names;
@@ -483,7 +500,20 @@ MysqlTableSchema::IndexKeySchema(const txservice::TableName &index_name) const
   return nullptr;
 }
 
-SkEncoder::uptr
+uint16_t
+MysqlTableSchema::IndexOffset(const txservice::TableName &index_name) const
+{
+  for (const auto &[offset, index] : indexes_)
+  {
+    if (index.first == index_name)
+    {
+      return offset;
+    }
+  }
+  return UINT16_MAX;
+}
+
+txservice::SkEncoder::uptr
 MysqlTableSchema::CreateSkEncoder(const txservice::TableName &index_name) const
 {
   return std::make_unique<MysqlSkEncoder>(index_name, this);
@@ -496,52 +526,15 @@ bool MysqlTableSchema::HasAutoIncrement() const
 
 const txservice::TableName *MysqlTableSchema::GetSequenceTableName() const
 {
-  return &Sequences::table_name_;
+  return &txservice::Sequences::table_name_;
 }
 
 std::pair<txservice::TxKey, txservice::TxRecord::Uptr>
 MysqlTableSchema::GetSequenceKeyAndInitRecord(
     const txservice::TableName &table_name) const
 {
-  std::unique_ptr<EloqKey> mono_key= Sequences::GenKey(table_name.String());
-  std::unique_ptr<EloqRecord> mono_rec= std::make_unique<EloqRecord>();
-  // Sequences table columns:
-  // (seq_name varchar(255),
-  // start bigint,node_step int,rec_step int,curr_val bigint,
-  // primary key(seq_name))
-  // Non-pk initial records:
-  // 1,           256,          1,           1
-  auto &encoded_rec= mono_rec->encoded_blob_;
-  encoded_rec.clear();
-  // bitmap bytes
-  encoded_rec.insert(encoded_rec.end(), 1, 0);
-  // start
-  int64_t start_val= 1;
-  encoded_rec.insert(encoded_rec.end(), (char *) &start_val,
-                     (char *) &start_val + 8);
-  // node_step
-  int32_t node_step_val= 256;
-  encoded_rec.insert(encoded_rec.end(), (char *) &node_step_val,
-                     (char *) &node_step_val + 4);
-  // rec_step
-  int32_t rec_step_val= 1;
-  encoded_rec.insert(encoded_rec.end(), (char *) &rec_step_val,
-                     (char *) &rec_step_val + 4);
-  // curr_val
-  int64_t curr_val= 1;
-  encoded_rec.insert(encoded_rec.end(), (char *) &curr_val,
-                     (char *) &curr_val + 8);
-
-  // unpack info.
-  // unpack info is unused in sequence table since the pk value stored is
-  // unpacked. Fill in an invalid value as place holder.
-  auto &unpack_info= mono_rec->unpack_info_;
-  unpack_info.clear();
-  unpack_info.resize(1);
-  int32_t unpack_val= 0xff;
-  memcpy(unpack_info.data(), (char *) &unpack_val, 1);
-
-  return std::pair(TxKey(std::move(mono_key)), std::move(mono_rec));
+  return txservice::Sequences::GetSequenceKeyAndInitRecord(
+      table_name, txservice::SequenceType::AutoIncrementColumn);
 }
 
 const mysql::TABLE_SHARE *MysqlTableSchema::TableShare() const
@@ -576,6 +569,12 @@ MariaCatalogFactory::CreateTableSchema(const txservice::TableName &table_name,
                                        const std::string &catalog_image,
                                        uint64_t version)
 {
+  if (table_name == txservice::Sequences::table_name_)
+  {
+    DLOG(INFO) << "===create sequence table schema";
+    return std::make_unique<txservice::SequenceTableSchema>(
+        table_name, catalog_image, version);
+  }
   return std::make_unique<MysqlTableSchema>(table_name, catalog_image,
                                             version);
 }
@@ -585,8 +584,17 @@ txservice::CcMap::uptr MariaCatalogFactory::CreatePkCcMap(
     const txservice::TableSchema *table_schema, bool ccm_has_full_entries,
     txservice::CcShard *shard, txservice::NodeGroupId cc_ng_id)
 {
+  if (table_name == txservice::Sequences::table_name_)
+  {
+    return std::make_unique<
+        txservice::TemplateCcMap<EloqKey, EloqRecord, true, true>>(
+        shard, cc_ng_id, table_name, table_schema->Version(), table_schema,
+        ccm_has_full_entries);
+  }
+
   uint64_t key_version= table_schema->KeySchema()->SchemaTs();
-  return std::make_unique<txservice::TemplateCcMap<EloqKey, EloqRecord>>(
+  return std::make_unique<
+      txservice::TemplateCcMap<EloqKey, EloqRecord, true, true>>(
       shard, cc_ng_id, table_name, key_version, table_schema,
       ccm_has_full_entries);
 }
@@ -603,7 +611,8 @@ MariaCatalogFactory::CreateSkCcMap(const txservice::TableName &index_name,
   if (mysql_table_schema->IndexKeySchema(index_name) != nullptr)
   {
     uint64_t key_version= table_schema->IndexKeySchema(index_name)->SchemaTs();
-    return std::make_unique<txservice::TemplateCcMap<EloqKey, EloqRecord>>(
+    return std::make_unique<
+        txservice::TemplateCcMap<EloqKey, EloqRecord, true, true>>(
         shard, cc_ng_id, index_name, key_version, table_schema, false);
   }
 
@@ -613,7 +622,7 @@ MariaCatalogFactory::CreateSkCcMap(const txservice::TableName &index_name,
 txservice::CcMap::uptr MariaCatalogFactory::CreateRangeMap(
     const txservice::TableName &range_table_name,
     const txservice::TableSchema *table_schema, uint64_t schema_ts,
-    txservice::CcShard *shard, const NodeGroupId ng_id)
+    txservice::CcShard *shard, const txservice::NodeGroupId ng_id)
 {
   assert(range_table_name.Type() == txservice::TableType::RangePartition);
   return std::make_unique<txservice::RangeCcMap<EloqKey>>(
@@ -625,7 +634,8 @@ MariaCatalogFactory::CreateTableRange(
     txservice::TxKey start_key, uint64_t version_ts, int64_t partition_id,
     std::unique_ptr<txservice::StoreRange> slices)
 {
-  assert(start_key.Type() == KeyType::NegativeInf || start_key.IsOwner());
+  assert(start_key.Type() == txservice::KeyType::NegativeInf ||
+         start_key.IsOwner());
   // The range's start key must not be null. If the start points to negative
   // infinity, it points to EloqKey::NegativeInfinity().
   const EloqKey *start= start_key.GetKey<EloqKey>();
@@ -649,18 +659,18 @@ MariaCatalogFactory::CreatePkCcmScanner(txservice::ScanDirection direction,
   if (direction == txservice::ScanDirection::Forward)
   {
     return std::make_unique<
-        RangePartitionedCcmScanner<EloqKey, EloqRecord, true>>(
-        direction, ScanIndexType::Primary, key_schema);
+        txservice::RangePartitionedCcmScanner<EloqKey, EloqRecord, true>>(
+        direction, txservice::ScanIndexType::Primary, key_schema);
   }
   else
   {
     return std::make_unique<
-        RangePartitionedCcmScanner<EloqKey, EloqRecord, false>>(
-        direction, ScanIndexType::Primary, key_schema);
+        txservice::RangePartitionedCcmScanner<EloqKey, EloqRecord, false>>(
+        direction, txservice::ScanIndexType::Primary, key_schema);
   }
 #else
-  return std::make_unique<TemplateCcScanner<EloqKey, EloqRecord>>(
-      direction, ScanIndexType::Primary, key_schema);
+  return std::make_unique<txservice::TemplateCcScanner<EloqKey, EloqRecord>>(
+      direction, txservice::ScanIndexType::Primary, key_schema);
 #endif
 }
 
@@ -672,18 +682,18 @@ std::unique_ptr<txservice::CcScanner> MariaCatalogFactory::CreateSkCcmScanner(
   if (direction == txservice::ScanDirection::Forward)
   {
     return std::make_unique<
-        RangePartitionedCcmScanner<EloqKey, EloqRecord, true>>(
-        direction, ScanIndexType::Secondary, compound_key_schema);
+        txservice::RangePartitionedCcmScanner<EloqKey, EloqRecord, true>>(
+        direction, txservice::ScanIndexType::Secondary, compound_key_schema);
   }
   else
   {
     return std::make_unique<
-        RangePartitionedCcmScanner<EloqKey, EloqRecord, false>>(
-        direction, ScanIndexType::Secondary, compound_key_schema);
+        txservice::RangePartitionedCcmScanner<EloqKey, EloqRecord, false>>(
+        direction, txservice::ScanIndexType::Secondary, compound_key_schema);
   }
 #else
-  return std::make_unique<TemplateCcScanner<EloqKey, EloqRecord>>(
-      direction, ScanIndexType::Secondary, compound_key_schema);
+  return std::make_unique<txservice::TemplateCcScanner<EloqKey, EloqRecord>>(
+      direction, txservice::ScanIndexType::Secondary, compound_key_schema);
 #endif
 }
 
@@ -693,10 +703,11 @@ MariaCatalogFactory::CreateRangeCcmScanner(
     const txservice::TableName &range_table_name)
 {
   assert(range_table_name.Type() == txservice::TableType::RangePartition);
-  return std::make_unique<TemplateCcScanner<EloqKey, RangeRecord>>(
+  return std::make_unique<
+      txservice::TemplateCcScanner<EloqKey, txservice::RangeRecord>>(
       direction,
-      range_table_name.IsBase() ? ScanIndexType::Primary
-                                : ScanIndexType::Secondary,
+      range_table_name.IsBase() ? txservice::ScanIndexType::Primary
+                                : txservice::ScanIndexType::Secondary,
       key_schema);
 }
 
@@ -705,7 +716,8 @@ MariaCatalogFactory::CreateTableStatistics(
     const txservice::TableSchema *table_schema,
     txservice::NodeGroupId cc_ng_id)
 {
-  return std::make_unique<TableStatistics<EloqKey>>(table_schema, cc_ng_id);
+  return std::make_unique<txservice::TableStatistics<EloqKey>>(table_schema,
+                                                               cc_ng_id);
 }
 
 std::unique_ptr<txservice::Statistics>
@@ -716,17 +728,17 @@ MariaCatalogFactory::CreateTableStatistics(
         sample_pool_map,
     txservice::CcShard *ccs, txservice::NodeGroupId cc_ng_id)
 {
-  return std::make_unique<TableStatistics<EloqKey>>(
+  return std::make_unique<txservice::TableStatistics<EloqKey>>(
       table_schema, std::move(sample_pool_map), ccs, cc_ng_id);
 }
 
 txservice::TxKey MariaCatalogFactory::NegativeInfKey()
 {
-  return TxKey(EloqKey::NegativeInfinity());
+  return txservice::TxKey(EloqKey::NegativeInfinity());
 }
 
 txservice::TxKey MariaCatalogFactory::PositiveInfKey()
 {
-  return TxKey(EloqKey::PositiveInfinity());
+  return txservice::TxKey(EloqKey::PositiveInfinity());
 }
 } // namespace MyEloq

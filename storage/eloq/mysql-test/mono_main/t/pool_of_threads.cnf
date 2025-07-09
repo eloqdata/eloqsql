@@ -1,5 +1,7 @@
 !include include/default_my.cnf
+!include include/eloq_kv_storage.cnf
 !include include/eloq_kv_keyspace.cnf
+!include include/eloq_kv_dss.cnf
 
 [mysqld]
 plugin-maturity=experimental
@@ -7,16 +9,11 @@ plugin_load_add=ha_eloq
 eloq
 skip-log-bin
 eloq_core_num=1
-eloq_cass_user=cassandra
-eloq_cass_password=cassandra
 default-storage-engine=eloq
 default-tmp-storage-engine=eloq
 collation-server=latin1_bin
 eloq_checkpointer_interval_sec=86400
 eloq_ddl_skip_kv=on
-eloq_rocksdb_cloud_bucket_name = eloqdb-mysql-test
-eloq_rocksdb_cloud_bucket_prefix = rocksdb-cloud-
-eloq_rocksdb_cloud_region = ap-northeast-1
 eloq_hm_bin_path = @ENV.MYSQLTEST_VARDIR/../../storage/eloq/host_manager
 
 [mysqld.1]

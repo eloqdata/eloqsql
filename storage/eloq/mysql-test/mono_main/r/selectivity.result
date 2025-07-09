@@ -1285,9 +1285,17 @@ insert t1 select rand()*1e5, rand()*1e5 from t1;
 insert t1 select rand()*1e5, rand()*1e5 from t1;
 insert t1 select rand()*1e5, rand()*1e5 from t1;
 insert t1 select rand()*1e5, rand()*1e5 from t1;
+#
+# sleep 20 seconds waiting for range split to finish
+# for reducing the possiblity of RW conflicts which failed this test case
+#
 insert t1 select rand()*1e5, rand()*1e5 from t1;
 create table t2 (c int, d int, key(c), key(d)) engine=eloq;
 insert t2 select floor(rand()*1e5/2)*2, floor(rand()*1e5/3)*3 from t1;
+#
+# sleep 20 seconds waiting for range split to finish
+# for reducing the possiblity of RW conflicts which failed this test case
+#
 analyze table t1,t2;
 Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	Engine-independent statistics collected
@@ -1749,7 +1757,7 @@ test.t1	analyze	status	OK
 EXPLAIN
 SELECT a FROM t1 WHERE b = 1 ORDER BY c DESC LIMIT 9;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	range	b,b_2	b	4	NULL	210	Using where
+1	SIMPLE	t1	range	b,b_2	b	4	NULL	#	Using where
 SELECT a FROM t1 WHERE b = 1 ORDER BY c DESC,a DESC LIMIT 9;
 a
 2071

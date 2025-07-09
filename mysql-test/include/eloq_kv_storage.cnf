@@ -1,0 +1,2 @@
+[mysqld]
+eloq_kv_storage=eloqds

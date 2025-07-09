@@ -43,8 +43,8 @@ i	j
 1	1
 2	2
 3	1
-drop table t1;
 SET SESSION debug_dbug="-d,eloq;term_TemplateCcMap_Execute_PostWriteCc";
+drop table t1;
 SET SESSION debug_dbug="+d,eloq;term_TemplateCcMap_Execute_AcquireAllCc;node_id=-1";
 create table t1(i int primary key, j int) engine= eloq;
 ERROR HY000: Eloq: failed to create table. Failed at acquire write intent.

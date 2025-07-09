@@ -2719,7 +2719,7 @@ int coro_cond_wait(
     #define mysql_cond_wait(C, M) \
       coro_cond_wait(C, M, __FILE__, __LINE__)
   #else
-    #define mysql_cond_timedwait(C, M) \
+    #define mysql_cond_wait(C, M) \
       coro_cond_wait(C, M)
   #endif
 #else
@@ -2727,7 +2727,7 @@ int coro_cond_wait(
     #define mysql_cond_wait(C, M) \
       coro_cond_wait(C, M, __FILE__, __LINE__)
   #else
-    #define mysql_cond_timedwait(C, M) \
+    #define mysql_cond_wait(C, M) \
       coro_cond_wait(C, M)
   #endif
 #endif
@@ -5745,7 +5745,6 @@ public:
   std::unique_ptr<char[]> coro_stack_mem_{nullptr};
 
   boost::context::stack_context CoroStackContext();
-#endif
 
   std::function<void()> yield_func_;
   std::function<void()> resume_func_;
@@ -5774,13 +5773,14 @@ public:
     thd_group_id_ = group_id;
   }
 
-#if defined(COROUTINE_ENABLED) && defined(IOURING_ENABLED)
+#ifdef IOURING_ENABLED
   IoUringWrapper *iouring_{nullptr};
   int32_t iouring_cqe_res_{0};
 #endif
 
 private:
   int16_t thd_group_id_{-1};
+#endif
 };
 
 /*

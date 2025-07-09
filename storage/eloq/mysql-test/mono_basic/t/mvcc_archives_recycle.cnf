@@ -2,7 +2,9 @@
 # Use default setting for mysqld processes
 !include include/default_mysqld.cnf
 !include include/default_client.cnf
+!include include/eloq_kv_storage.cnf
 !include include/eloq_kv_keyspace.cnf
+!include include/eloq_kv_dss.cnf
 
 
 [mysqld]
@@ -12,13 +14,8 @@ plugin_load_add=ha_eloq
 eloq
 skip-log-bin
 eloq_core_num=1
-eloq_cass_user=cassandra
-eloq_cass_password=cassandra
 eloq_enable_mvcc=on
 eloq_cc_protocol=OccRead
-eloq_rocksdb_cloud_bucket_name = eloqdb-mysql-test
-eloq_rocksdb_cloud_bucket_prefix = rocksdb-cloud-
-eloq_rocksdb_cloud_region = ap-northeast-1
 eloq_hm_bin_path = @ENV.MYSQLTEST_VARDIR/../../storage/eloq/host_manager
 
 [mysqld.1]

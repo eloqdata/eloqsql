@@ -98,6 +98,11 @@ public:
         reinterpret_cast<const uchar *>(data), size));
   }
 
+  static txservice::TxKey CreateDefault()
+  {
+    return txservice::TxKey(std::make_unique<EloqKey>());
+  }
+
   // Copy constructor. The new EloqKey object allocates and owns the blob.
   EloqKey(const EloqKey &other) : packed_key_(other.packed_key_.size(), 0)
   {
@@ -605,7 +610,10 @@ public:
   static TxRecord::Uptr Create() { return std::make_unique<EloqRecord>(); }
 
   // const unsigned char *Buf() const { return sqlrec_blob_.data(); }
-  size_t Length() const { return encoded_blob_.size() + unpack_info_.size(); }
+  size_t Length() const override
+  {
+    return encoded_blob_.size() + unpack_info_.size();
+  }
 
   size_t MemUsage() const override
   {
@@ -753,6 +761,14 @@ public:
   {
     return Slice(encoded_blob_.data(), encoded_blob_.size());
   }
+
+  const char *EncodedBlobData() const override { return encoded_blob_.data(); }
+
+  size_t EncodedBlobSize() const override { return encoded_blob_.size(); }
+
+  const char *UnpackInfoData() const override { return unpack_info_.data(); }
+
+  size_t UnpackInfoSize() const override { return unpack_info_.size(); }
 
   void SetEncodedBlob(const uchar *blob_ptr, const size_t blob_size) override
   {

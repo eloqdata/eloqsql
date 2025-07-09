@@ -1,0 +1,3 @@
+--eloq_checkpointer_interval_sec=10
+--eloq_ddl_skip_kv=off
+

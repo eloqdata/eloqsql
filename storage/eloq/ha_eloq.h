@@ -61,21 +61,18 @@
 // #include "sql_class.h"
 
 #include <unordered_map>
-#include <shared_mutex>
 #include "ha_eloq_macro.h"
 #include "eloq_key.h"
 #include "eloq_schema.h"
-#include "tx_service/include/circular_queue.h"
 #include "tx_service/include/statistics.h"
 #include "tx_service/include/tx_request.h"
 #include "tx_service/include/tx_execution.h"
 #include "tx_service/include/tx_util.h"
 #include "tx_service/include/store/data_store_scanner.h"
-#include "metrics.h"
-#include "eloq_errors.h"
 #include "eloq_catalog_factory.h"
 #include "eloq_buff.h"
 #include "eloq_key_def.h"
+#include "tx_service/include/cc/reader_writer_cntl.h"
 
 using namespace MyEloq;
 using namespace txservice;
@@ -147,6 +144,7 @@ public:
       AbortTx(Txm());
     }
 
+    ClearSchemaReaders();
     Reset(nullptr, nullptr);
   }
 
@@ -171,7 +169,8 @@ public:
     discovered_table_schemas_.emplace(
         std::piecewise_construct,
         std::forward_as_tuple(schema->GetBaseTableName().StringView(),
-                              schema->GetBaseTableName().Type()),
+                              schema->GetBaseTableName().Type(),
+                              schema->GetBaseTableName().Engine()),
         std::forward_as_tuple(schema, dirty_schema));
 
     if (schema != nullptr && dirty_schema != nullptr)
@@ -184,7 +183,8 @@ public:
                       new_index_name) == old_index_names.end())
         {
           dirty_index_names_.emplace_back(new_index_name.StringView(),
-                                          new_index_name.Type());
+                                          new_index_name.Type(),
+                                          new_index_name.Engine());
         }
       }
     }
@@ -209,13 +209,45 @@ public:
     return dirty_index_names_;
   }
 
-public:
+  const MysqlTableSchema *GetCachedSchema(const TableName &tbl_name) const
+  {
+    auto it= cached_schemas_.find(tbl_name);
+    if (it == cached_schemas_.end())
+    {
+      return nullptr;
+    }
+    else
+    {
+      const TableSchema *sch= it->second->GetObjectPtr();
+      assert(sch != nullptr);
+      return static_cast<const MysqlTableSchema *>(sch);
+    }
+  }
+
+  void
+  UpdateSchemaCntl(std::shared_ptr<ReaderWriterObject<TableSchema>> sch_cntl)
+  {
+    const TableSchema *schema= sch_cntl->GetObjectPtr();
+    assert(schema != nullptr);
+
+    cached_schemas_.emplace(
+        std::piecewise_construct,
+        std::forward_as_tuple(schema->GetBaseTableName().StringView(),
+                              schema->GetBaseTableName().Type(),
+                              schema->GetBaseTableName().Engine()),
+        std::forward_as_tuple(sch_cntl));
+  }
+
   std::pair<const std::function<void()> *, const std::function<void()> *>
   CoroFunctors() const;
+
+  void ClearSchemaReader(const TableName &tbl_name);
 
   TxErrorCode tx_err_code_;
 
 private:
+  void ClearSchemaReaders();
+
   size_t tables_in_use_;
   txservice::TransactionExecution *txm_;
   /**
@@ -227,10 +259,14 @@ private:
    * the cached schema, without reading the schema from the tx service.
    *
    */
-  std::unordered_map<TableName,
-                     std::pair<std::shared_ptr<const MysqlTableSchema>,
-                               std::shared_ptr<const MysqlTableSchema>>>
+  absl::flat_hash_map<TableName,
+                      std::pair<std::shared_ptr<const MysqlTableSchema>,
+                                std::shared_ptr<const MysqlTableSchema>>>
       discovered_table_schemas_; // not string owner, sv->MysqlTableSchema
+
+  absl::flat_hash_map<TableName,
+                      std::shared_ptr<ReaderWriterObject<TableSchema>>>
+      cached_schemas_;
 
   // A collection of dirty index names.
   std::vector<TableName> dirty_index_names_;
@@ -817,6 +853,8 @@ private:
    */
   const MysqlTableSchema *table_schema_{nullptr};
   std::unique_ptr<EloqHiddenKeySchema> hidden_key_schema_{nullptr};
+
+  std::shared_ptr<ReaderWriterObject<TableSchema>> schema_cntl_{nullptr};
 
   /**
    * @brief For DML that executes concurrently during a DDL operation, this

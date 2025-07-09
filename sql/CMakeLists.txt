@@ -54,6 +54,13 @@ if (EXT_TX_PROC_ENABLED)
   add_definitions(-DEXT_TX_PROC_ENABLED)
 endif()
 
+option(ELOQ_MODULE_ENABLED "Allows external threads to loop thread groups." OFF)
+if (ELOQ_MODULE_ENABLED)
+  add_definitions(-DELOQ_MODULE_ENABLED)
+endif()
+
+option(BRPC_WITH_GLOG "With glog" ON)
+
 option(IOURING_ENABLED "Use io_uring to send socket." ON)
 if (CMAKE_SYSTEM_NAME MATCHES "Linux")
   # if not specified LINUX_KERNEL_VERSION, then fetch os kernel version.
@@ -99,6 +106,15 @@ endif()
 
 IF(COROUTINE_ENABLED)
   find_package(Boost REQUIRED COMPONENTS context)
+ENDIF()
+
+IF(ELOQ_MODULE_ENABLED)
+  find_path(BRPC_INCLUDE_PATH NAMES brpc/stream.h)
+  find_library(BRPC_LIB NAMES brpc)
+
+  if((NOT BRPC_INCLUDE_PATH) OR(NOT BRPC_LIB))
+      message(FATAL_ERROR "Fail to find brpc")
+  endif()
 ENDIF()
 
 INCLUDE_DIRECTORIES(
@@ -268,6 +284,11 @@ SET(SQL_DEP_LIBS
 IF(COROUTINE_ENABLED)
   SET(SQL_DEP_LIBS ${SQL_DEP_LIBS} Boost::context)
   set(SQL_INCLUDE_DIR ${Boost_INCLUDE_DIRS})
+ENDIF()
+
+IF(ELOQ_MODULE_ENABLED)
+  SET(SQL_DEP_LIBS ${SQL_DEP_LIBS} ${BRPC_LIB})
+  set(SQL_INCLUDE_DIR ${BRPC_INCLUDE_PATH})
 ENDIF()
 
 IF(MARIA_WITH_GLOG)

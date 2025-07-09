@@ -62,7 +62,33 @@ SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
 --sleep 2
 --source include/wait_until_connected_again.inc
 --sleep 2
-select count(*) from t1;
+
+--disable_abort_on_error
+--disable_result_log
+
+--let $res= 0
+--let $max_loop= 10
+while ($res != 9000)
+{
+    --sleep 1
+    --let $res= `select count(*) from t1;`
+    --dec $max_loop
+    if (! $max_loop)
+    {
+        # break this loop if do not get result yet.
+        if (! $res)
+        {
+            --let $res= 404
+        }
+    }
+}
+if ( $res == 404)
+{
+    --die ERROR: Failed to scan t1 after node 2 restart.
+}
+
+--enable_result_log
+--enable_abort_on_error
 
 SET SESSION debug_dbug="-d,eloq;range_split_commit_acquire_all;node_id=-1;action=panic";
 
@@ -70,13 +96,29 @@ SET SESSION debug_dbug="-d,eloq;range_split_commit_acquire_all;node_id=-1;action
 --exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
 --disable_result_log
 --disable_query_log
+--disable_abort_on_error
 let $counter= 15000;
 while($counter > 12000)
 {
+    --let $retry_cnt= 10
+    --let $mysql_errno= 1
     let $q=insert into t1 values ($counter, 'abc', 'abc', 'abc', $counter);
-    eval $q;
+    while ($mysql_errno)
+    {
+        eval $q;
+        dec $retry_cnt;
+        if ($mysql_errno)
+        {
+            if (! $retry_cnt)
+            {
+                --die ERROR: Failed to insert t1 with error: $mysql_errno.
+            }
+            sleep 1;
+        }
+    }
     dec $counter;
 }
+--enable_abort_on_error
 --enable_query_log
 --enable_result_log
 SET SESSION debug_dbug="+d,eloq;range_split_participant_prepare_post_all;node_id=0;action=panic";
@@ -98,12 +140,28 @@ create table t1 (c0 int, c1 char(250), c2 char(250), c3 char(250), c4 int, prima
 let $counter= 6000;
 --disable_result_log
 --disable_query_log
+--disable_abort_on_error
 while($counter > 3000)
 {
+    --let $retry_cnt= 10
+    --let $mysql_errno= 1
     let $q=insert into t1 values ($counter, 'abc', 'abc', 'abc', $counter);
-    eval $q;
+    while ($mysql_errno)
+    {
+        eval $q;
+        dec $retry_cnt;
+        if ($mysql_errno)
+        {
+            if (! $retry_cnt)
+            {
+                --die ERROR: Failed to insert t1 with error: $mysql_errno.
+            }
+            sleep 1;
+        }
+    }
     dec $counter;
 }
+--enable_abort_on_error
 --enable_query_log
 --enable_result_log
 SET SESSION debug_dbug="+d,eloq;range_split_post_commit;node_id=2;action=panic";
@@ -112,7 +170,26 @@ SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
 --sleep 2
 --source include/wait_until_connected_again.inc
 --sleep 2
-select count(*) from t1;
+
+--disable_abort_on_error
+--disable_result_log
+
+--let $res= 0
+--let $max_loop= 10
+while ($res != 3000)
+{
+    --sleep 1
+    --let $res= `select count(*) from t1;`
+    --dec $max_loop
+    if (! $max_loop)
+    {
+        # break this loop if do not get result yet.
+        if (! $res)
+        {
+            --die ERROR: Failed to scan t1 after node 2 restart.
+        }
+    }
+}
 
 # Test replay for multiple range splits on same table.
 # Write file to make mysql-test-run.pl expect crash
@@ -120,19 +197,49 @@ select count(*) from t1;
 let $counter= 3000;
 --disable_result_log
 --disable_query_log
+--disable_abort_on_error
 while($counter > 0)
 {
+    --let $retry_cnt= 10
+    --let $mysql_errno= 1
     let $q=insert into t1 values ($counter, 'abc', 'abc', 'abc', $counter);
-    eval $q;
+    while ($mysql_errno)
+    {
+        eval $q;
+        dec $retry_cnt;
+        if ($mysql_errno)
+        {
+            if (! $retry_cnt)
+            {
+                --die ERROR: Failed to insert t1 with error: $mysql_errno.
+            }
+            sleep 1;
+        }
+    }
     dec $counter;
 }
 let $counter= 12000;
 while($counter > 9000)
 {
+    --let $retry_cnt= 10
+    --let $mysql_errno= 1
     let $q=insert into t1 values ($counter, 'abc', 'abc', 'abc', $counter);
-    eval $q;
+    while ($mysql_errno)
+    {
+        eval $q;
+        dec $retry_cnt;
+        if ($mysql_errno)
+        {
+            if (! $retry_cnt)
+            {
+                --die ERROR: Failed to insert t1 with error: $mysql_errno.
+            }
+            sleep 1;
+        }
+    }
     dec $counter;
 }
+--enable_abort_on_error
 --enable_query_log
 --enable_result_log
 
@@ -143,7 +250,7 @@ while($counter > 9000)
 SET SESSION debug_dbug="+d,eloq;range_split_post_commit_participant;node_id=2;action=panic";
 --enable_reconnect
 SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
---sleep 2
+--sleep 10
 --source include/wait_until_connected_again.inc
 --sleep 2
 select count(*) from t1;

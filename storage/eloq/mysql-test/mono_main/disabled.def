@@ -73,7 +73,7 @@ bad_frm_crash_5029                   : deleted
 blackhole                            : deleted BLACKHOLE storage engine
 blackhole_plugin                     : no support
 #bool                                 : 0 pass
-#bootstrap                            : 0 pass
+bootstrap                            : 0 pass
 bootstrap_innodb                     : deleted
 #brackets                             : 1 pass
 #bug12427262                          : 1 skipped Need performance schema compiled in
@@ -625,7 +625,7 @@ mysqld--defaults-file                 : need different eloq port
 mysqld--help-aria                     : deleted
 mysqld--help                          : result depending on env.
 mysqld_help_crash-9183                : no support rename
-#mysqld_option_err                     : 1 pass
+mysqld_option_err                     : 1 pass
 #mysqldump-compat-102                  : 1 pass
 #mysqldump-compat                      : 1 pass
 #mysqldump-max                         : 1 pass | alter table | savepoint | delayed
@@ -656,7 +656,7 @@ not_partition                         : no support
 #odbc                                  : 1 pass
 #olap                                  : 0 pass | unique #205
 old-mode                              : 1 result mismatch
-#openssl_1                             : 1 pass | isolation level
+openssl_1                             : 1 pass | isolation level
 #openssl_6975                          : 1 pass
 opt_trace                             : no support analyze #233
 opt_trace_index_merge                 : no support optimizer_trace

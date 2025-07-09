@@ -72,8 +72,8 @@ if ($cc_protocol == 'Locking')
 
 --sleep 5
 select * from t1;
-drop table t1;
 SET SESSION debug_dbug="-d,eloq;term_TemplateCcMap_Execute_PostWriteCc";
+drop table t1;
 
 
 SET SESSION debug_dbug="+d,eloq;term_TemplateCcMap_Execute_AcquireAllCc;node_id=-1";

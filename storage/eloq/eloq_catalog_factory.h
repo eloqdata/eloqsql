@@ -17,6 +17,7 @@
  */
 #pragma once
 
+#include <optional>
 #include <unordered_map>
 #include <string>
 #include <memory>
@@ -49,9 +50,10 @@ public:
                  const MysqlTableSchema *table_schema);
   ~MysqlSkEncoder();
 
-  bool AppendPackedSk(const txservice::TxKey *pk,
-                      const txservice::TxRecord *record, uint64_t version_ts,
-                      std::vector<txservice::WriteEntry> &dest_vec) override;
+  int32_t
+  AppendPackedSk(const txservice::TxKey *pk, const txservice::TxRecord *record,
+                 uint64_t version_ts,
+                 std::vector<txservice::WriteEntry> &dest_vec) override;
 
   void Reset() override;
 
@@ -80,6 +82,7 @@ public:
                    const std::string &catalog_image, uint64_t version);
   ~MysqlTableSchema();
 
+  txservice::TableSchema::uptr Clone() const override;
   const txservice::KeySchema *KeySchema() const override;
   const txservice::RecordSchema *RecordSchema() const override;
   const std::string &SchemaImage() const override;
@@ -89,7 +92,7 @@ public:
   size_t IndexesSize() const override;
   const txservice::SecondaryKeySchema *
   IndexKeySchema(const txservice::TableName &index_name) const override;
-
+  uint16_t IndexOffset(const txservice::TableName &index_name) const override;
   const mysql::TABLE_SHARE *TableShare() const;
   const std::pair<txservice::TableName, txservice::SecondaryKeySchema> &
   IndexNameSchema(uint index_id) const;
@@ -103,8 +106,8 @@ public:
   const EloqRecordSchema *MysqlRecordSchema() const { return &record_schema_; }
 
   const std::unordered_map<
-      uint, std::pair<txservice::TableName, txservice::SecondaryKeySchema>> *
-  GetIndexes() const
+      uint16_t, std::pair<txservice::TableName, txservice::SecondaryKeySchema>>
+      *GetIndexes() const
   {
     return &indexes_;
   }
@@ -149,7 +152,7 @@ private:
   std::unique_ptr<EloqKeySchema> key_schema_; // pk schema
   EloqRecordSchema record_schema_;
   std::unordered_map<
-      uint, std::pair<txservice::TableName, txservice::SecondaryKeySchema>>
+      uint16_t, std::pair<txservice::TableName, txservice::SecondaryKeySchema>>
       indexes_; // sk schemas, string owner
   std::string schema_image_;
 
