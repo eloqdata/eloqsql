@@ -22,10 +22,10 @@ resources:
     uri: git@github.com:eloqdata/eloq-test.git
     private_key: ((git-key))
 
-- name: mono_ubuntu_2004
+- name: mono_ubuntu_2204
   type: registry-image
   source:
-    repository: monographdb/monograph-dev-ci-ubuntu2004
+    repository: monographdb/monograph-dev-ci-ubuntu2204
     username: monographdb
     password: ((docker_hub_pass))
 
@@ -43,9 +43,9 @@ jobs:
         trigger: true
       - get: mono_test_src
         trigger: true
-      - get: mono_ubuntu_2004
+      - get: mono_ubuntu_2204
   - task: compile-test-task
-    image: mono_ubuntu_2004
+    image: mono_ubuntu_2204
     file: eloqsql_src/concourse/tasks/compile_test_main.yml
     params:
       ELOQ_AWS_ACCESS_KEY_ID: ((minio-access-key))
