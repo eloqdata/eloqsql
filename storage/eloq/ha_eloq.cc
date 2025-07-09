@@ -2712,6 +2712,14 @@ static int eloq_init_func(void *p)
 
     if (opt_bootstrap)
     {
+#if defined(OPEN_LOG_SERVICE)
+      txlog_server= std::make_unique<::txlog::LogServer>(
+          node_id, log_server_port, txlog_path, 1,
+          rocksdb_cloud_config,
+          eloq_rocksdb_cloud_in_mem_log_size_high_watermark,
+          eloq_rocksdb_max_write_buffer_number,
+          eloq_rocksdb_max_background_jobs, rocksdb_target_file_size_base_val);
+#else
       txlog_server= std::make_unique<::txlog::LogServer>(
           node_id, log_server_port, txlog_ips, txlog_ports, txlog_path, 0,
           eloq_txlog_group_replica_num, txlog_rocksdb_path,
@@ -2720,9 +2728,18 @@ static int eloq_init_func(void *p)
           eloq_txlog_rocksdb_max_write_buffer_number,
           eloq_txlog_rocksdb_max_background_jobs,
           rocksdb_target_file_size_base_val, eloq_logserver_snapshot_interval);
+#endif
     }
     else
     {
+#if defined(OPEN_LOG_SERVICE)
+      txlog_server= std::make_unique<::txlog::LogServer>(
+          node_id, log_server_port, txlog_path, 1,
+          rocksdb_cloud_config,
+          eloq_rocksdb_cloud_in_mem_log_size_high_watermark,
+          eloq_rocksdb_max_write_buffer_number,
+          eloq_rocksdb_max_background_jobs, rocksdb_target_file_size_base_val);
+#else
       txlog_server= std::make_unique<::txlog::LogServer>(
           node_id, log_server_port, txlog_ips, txlog_ports, txlog_path, 0,
           eloq_txlog_group_replica_num, txlog_rocksdb_path,
@@ -2734,6 +2751,7 @@ static int eloq_init_func(void *p)
           enable_txlog_request_checkpoint,
           eloq_check_replay_log_size_interval_sec,
           notify_checkpointer_threshold_size);
+#endif
     }
 #else /* WITH_ROCKSDB_CLOUD */
     size_t rocksdb_sst_files_size_limit_val=
@@ -2751,6 +2769,13 @@ static int eloq_init_func(void *p)
 
     if (opt_bootstrap)
     {
+#if defined(OPEN_LOG_SERVICE)
+      txlog_server= std::make_unique<::txlog::LogServer>(
+          node_id, log_server_port, txlog_path, 1,
+          rocksdb_sst_files_size_limit_val,
+          eloq_rocksdb_max_write_buffer_number,
+          eloq_rocksdb_max_background_jobs, rocksdb_target_file_size_base_val);
+#else
       txlog_server= std::make_unique<::txlog::LogServer>(
           node_id, log_server_port, txlog_ips, txlog_ports, txlog_path, 0,
           eloq_txlog_group_replica_num, txlog_rocksdb_path,
@@ -2759,9 +2784,17 @@ static int eloq_init_func(void *p)
           eloq_txlog_rocksdb_max_write_buffer_number,
           eloq_txlog_rocksdb_max_background_jobs,
           rocksdb_target_file_size_base_val, eloq_logserver_snapshot_interval);
+#endif
     }
     else
     {
+#if defined(OPEN_LOG_SERVICE)
+      txlog_server= std::make_unique<::txlog::LogServer>(
+          node_id, log_server_port, txlog_path, 1,
+          rocksdb_sst_files_size_limit_val,
+          eloq_rocksdb_max_write_buffer_number,
+          eloq_rocksdb_max_background_jobs, rocksdb_target_file_size_base_val);
+#else
       txlog_server= std::make_unique<::txlog::LogServer>(
           node_id, log_server_port, txlog_ips, txlog_ports, txlog_path, 0,
           eloq_txlog_group_replica_num, txlog_rocksdb_path,
@@ -2773,13 +2806,19 @@ static int eloq_init_func(void *p)
           enable_txlog_request_checkpoint,
           eloq_check_replay_log_size_interval_sec,
           notify_checkpointer_threshold_size);
+#endif
     }
 
 #endif /* WITH_ROCKSDB_CLOUD */
 #else  /* USE_ROCKSDB_LOG_STATE */
+#if defined(OPEN_LOG_SERVICE)
+    txlog_server= std::make_unique<::txlog::LogServer>(
+        node_id, log_server_port, txlog_path, 1);
+#else
     txlog_server= std::make_unique<::txlog::LogServer>(
         node_id, log_server_port, txlog_ips, txlog_ports, txlog_path, 0,
         eloq_txlog_group_replica_num, eloq_logserver_snapshot_interval);
+#endif
 #endif /* USE_ROCKSDB_LOG_STATE */
     err= txlog_server->Start();
     if (err != 0)

@@ -26,3 +26,6 @@
 [submodule "storage/eloq/tx_service"]
 	path = storage/eloq/tx_service
 	url = git@github.com:eloqdata/tx_service.git
+[submodule "storage/eloq/store_handler"]
+	path = storage/eloq/store_handler
+	url = git@github.com:eloqdata/store_handler.git

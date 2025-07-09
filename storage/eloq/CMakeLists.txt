@@ -170,12 +170,22 @@ if(WITH_LOG_SERVICE)
 	add_compile_definitions(WITH_LOG_SERVICE)
 endif()
 
+option(OPEN_LOG_SERVICE "Compile with open log service." ON)
+message("OPEN_LOG_SERVICE: " ${OPEN_LOG_SERVICE})
+if (OPEN_LOG_SERVICE)
+	add_compile_definitions(OPEN_LOG_SERVICE=1)
+endif()
+
 set(STATISTICS ON CACHE BOOL "Turn on STATISTICS")
 
 INCLUDE(build_tx_service.cmake)
 
 if(WITH_LOG_SERVICE)
-	INCLUDE(build_log_service.cmake)
+  if (OPEN_LOG_SERVICE)
+    INCLUDE(build_open_log_service.cmake)
+  else()
+    INCLUDE(build_log_service.cmake)
+  endif()
 endif()
 
 INCLUDE(build_eloq_metrics.cmake)
