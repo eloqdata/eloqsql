@@ -3,7 +3,7 @@ resources:
   type: git
   check_every: 3m
   source:
-    branch: eloq-10.6.10
+    branch: merge
     uri: git@github.com:eloqdata/eloqsql.git
     private_key: ((git-key))
 
