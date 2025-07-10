@@ -2716,9 +2716,9 @@ static int eloq_init_func(void *p)
       txlog_server= std::make_unique<::txlog::LogServer>(
           node_id, log_server_port, txlog_path, 1,
           rocksdb_cloud_config,
-          eloq_rocksdb_cloud_in_mem_log_size_high_watermark,
-          eloq_rocksdb_max_write_buffer_number,
-          eloq_rocksdb_max_background_jobs, rocksdb_target_file_size_base_val);
+          eloq_txlog_rocksdb_cloud_in_mem_log_size_high_watermark,
+          eloq_txlog_rocksdb_max_write_buffer_number,
+          eloq_txlog_rocksdb_max_background_jobs, rocksdb_target_file_size_base_val);
 #else
       txlog_server= std::make_unique<::txlog::LogServer>(
           node_id, log_server_port, txlog_ips, txlog_ports, txlog_path, 0,
@@ -2736,9 +2736,9 @@ static int eloq_init_func(void *p)
       txlog_server= std::make_unique<::txlog::LogServer>(
           node_id, log_server_port, txlog_path, 1,
           rocksdb_cloud_config,
-          eloq_rocksdb_cloud_in_mem_log_size_high_watermark,
-          eloq_rocksdb_max_write_buffer_number,
-          eloq_rocksdb_max_background_jobs, rocksdb_target_file_size_base_val);
+          eloq_txlog_rocksdb_cloud_in_mem_log_size_high_watermark,
+          eloq_txlog_rocksdb_max_write_buffer_number,
+          eloq_txlog_rocksdb_max_background_jobs, rocksdb_target_file_size_base_val);
 #else
       txlog_server= std::make_unique<::txlog::LogServer>(
           node_id, log_server_port, txlog_ips, txlog_ports, txlog_path, 0,
@@ -2773,8 +2773,8 @@ static int eloq_init_func(void *p)
       txlog_server= std::make_unique<::txlog::LogServer>(
           node_id, log_server_port, txlog_path, 1,
           rocksdb_sst_files_size_limit_val,
-          eloq_rocksdb_max_write_buffer_number,
-          eloq_rocksdb_max_background_jobs, rocksdb_target_file_size_base_val);
+          eloq_txlog_rocksdb_max_write_buffer_number,
+          eloq_txlog_rocksdb_max_background_jobs, rocksdb_target_file_size_base_val);
 #else
       txlog_server= std::make_unique<::txlog::LogServer>(
           node_id, log_server_port, txlog_ips, txlog_ports, txlog_path, 0,
@@ -2792,8 +2792,8 @@ static int eloq_init_func(void *p)
       txlog_server= std::make_unique<::txlog::LogServer>(
           node_id, log_server_port, txlog_path, 1,
           rocksdb_sst_files_size_limit_val,
-          eloq_rocksdb_max_write_buffer_number,
-          eloq_rocksdb_max_background_jobs, rocksdb_target_file_size_base_val);
+          eloq_txlog_rocksdb_max_write_buffer_number,
+          eloq_txlog_rocksdb_max_background_jobs, rocksdb_target_file_size_base_val);
 #else
       txlog_server= std::make_unique<::txlog::LogServer>(
           node_id, log_server_port, txlog_ips, txlog_ports, txlog_path, 0,
@@ -3089,10 +3089,13 @@ static int eloq_init_func(void *p)
   if (eloq_signal_monitor != 0)
   {
     terminate_hook= [](int sig) {
+#if defined(OPEN_LOG_SERVICE)
+#else
       if (txlog_server)
       {
         txlog_server->CloseBraft();
       }
+#endif
     };
   }
 
