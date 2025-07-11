@@ -149,6 +149,7 @@ if [ ! -f "Makefile" ]; then
           -DSTATISTICS=ON \
           -DWITH_DATA_STORE=ELOQDSS_ROCKSDB_CLOUD_S3 \
           -DUSE_ROCKSDB_LOG_STATE=ON \
+          -DOPEN_LOG_SERVICE=OFF \
           ../
 fi
 
