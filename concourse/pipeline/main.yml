@@ -46,7 +46,7 @@ jobs:
       - get: mono_ubuntu_2204
   - task: compile-test-task
     image: mono_ubuntu_2204
-    file: mariadb_src/concourse/tasks/compile_test_main.yml
+    file: mariadb_src/concourse/tasks/main.yml
     params:
       ELOQ_AWS_ACCESS_KEY_ID: ((minio-access-key))
       ELOQ_AWS_REGION: ((aws-region))
