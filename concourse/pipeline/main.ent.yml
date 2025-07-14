@@ -34,7 +34,7 @@ resources:
   source:
     repository: monographdb/monograph-dev-ci-ubuntu2204
     username: monographdb
-    password: ((docker_hub_pass))
+    password: ((docker-secret-key))
 
 jobs:
 - name: compile-test
@@ -50,7 +50,6 @@ jobs:
       - get: mariadb_src
         trigger: true
       - get: mono_test_src
-        trigger: true
       - get: mono_ubuntu_2204
   - task: compile-test-task
     image: mono_ubuntu_2204
