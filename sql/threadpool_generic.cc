@@ -1562,8 +1562,7 @@ void get_event_bulk(worker_thread_t *current_thread,
       }
 #ifndef ELOQ_MODULE_ENABLED
       else if (thread_group->active_thread_count.load(
-                   std::memory_order_relaxed) == 1 &&
-               thread_group->listener != nullptr)
+                   std::memory_order_relaxed) == 1)
       {
         // If this is the last active thread besides the listener and there are
         // ongoing coroutines, busy waits for the coroutines to resume.
