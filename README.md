@@ -123,9 +123,7 @@ cmake -DCMAKE_INSTALL_PREFIX=${HOME}/install \
       -DWITH_ASAN=OFF \
       -DCMAKE_C_FLAGS_RELWITHDEBINFO="-O2 -g -DNDEBUG -DDBUG_OFF -fno-omit-frame-pointer -fno-strict-aliasing" \
       -DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-O2 -g -DNDEBUG -DDBUG_OFF -fno-omit-frame-pointer -fno-strict-aliasing -felide-constructors -Wno-error" \
-      -DWITH_KV_STORAGE=CASSANDRA \
-      -DFORK_HM_PROCESS=OFF \
-      -DWITH_LOG_SERVICE=ON \
+      -DWITH_KV_STORAGE=CASSANDRA
       ../
 cmake --build . --config RelWithDebInfo -j
 cmake --install . --config RelWithDebInfo
