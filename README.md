@@ -53,12 +53,12 @@ Provides robust transaction support with **Read Committed** and **Repeatable Rea
 ## Run with EloqCtl
 EloqCtl is the cluster management tool for EloqSQL.
 
-To deploy an EloqKV cluster in production, download [EloqCtl](https://www.eloqdata.com/downloadeloqctl) and follow the [deployment guide](https://www.eloqdata.com/eloqsql/quick-start-ha).
+To deploy an EloqSQL cluster in production, download [EloqCtl](https://www.eloqdata.com/downloadeloqctl) and follow the [deployment guide](https://www.eloqdata.com/eloqsql/quick-start-ha).
 
 ---
 
 ## Run with Tarball
-Download the EloqKV tarball from the [EloqData website](https://www.eloqdata.com/download/eloqsql).
+Download the EloqSQL tarball from the [EloqData website](https://www.eloqdata.com/download/eloqsql).
 
 Follow the [instruction guide](https://www.eloqdata.com/eloqsql/install-from-binary) to set up and run EloqSQL on your local machine.
 
@@ -69,7 +69,7 @@ Follow the [instruction guide](https://www.eloqdata.com/eloqsql/install-from-bin
 Follow these steps to build and run EloqSQL from source.
 
 ### 1. Install Dependencies
-We recommend using our Docker image with pre-installed dependencies for a quick build and run of EloqKV.
+We recommend using our Docker image with pre-installed dependencies for a quick build and run of EloqSQL.
 
 ```bash
 docker pull eloqdata/eloq-build-ubuntu2404:latest
@@ -123,9 +123,7 @@ cmake -DCMAKE_INSTALL_PREFIX=${HOME}/install \
       -DWITH_ASAN=OFF \
       -DCMAKE_C_FLAGS_RELWITHDEBINFO="-O2 -g -DNDEBUG -DDBUG_OFF -fno-omit-frame-pointer -fno-strict-aliasing" \
       -DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-O2 -g -DNDEBUG -DDBUG_OFF -fno-omit-frame-pointer -fno-strict-aliasing -felide-constructors -Wno-error" \
-      -DWITH_KV_STORAGE=CASSANDRA \
-      -DFORK_HM_PROCESS=OFF \
-      -DWITH_LOG_SERVICE=ON \
+      -DWITH_KV_STORAGE=CASSANDRA
       ../
 cmake --build . --config RelWithDebInfo -j
 cmake --install . --config RelWithDebInfo
