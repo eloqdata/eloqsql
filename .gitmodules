@@ -29,3 +29,6 @@
 [submodule "storage/eloq/store_handler"]
 	path = storage/eloq/store_handler
 	url = git@github.com:eloqdata/store_handler.git
+[submodule "storage/eloq/log_service"]
+	path = storage/eloq/log_service
+	url = https://github.com/eloqdata/log_service.git
