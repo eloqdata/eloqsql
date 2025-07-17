@@ -53,12 +53,12 @@ Provides robust transaction support with **Read Committed** and **Repeatable Rea
 ## Run with EloqCtl
 EloqCtl is the cluster management tool for EloqSQL.
 
-To deploy an EloqKV cluster in production, download [EloqCtl](https://www.eloqdata.com/downloadeloqctl) and follow the [deployment guide](https://www.eloqdata.com/eloqsql/quick-start-ha).
+To deploy an EloqSQL cluster in production, download [EloqCtl](https://www.eloqdata.com/downloadeloqctl) and follow the [deployment guide](https://www.eloqdata.com/eloqsql/quick-start-ha).
 
 ---
 
 ## Run with Tarball
-Download the EloqKV tarball from the [EloqData website](https://www.eloqdata.com/download/eloqsql).
+Download the EloqSQL tarball from the [EloqData website](https://www.eloqdata.com/download).
 
 Follow the [instruction guide](https://www.eloqdata.com/eloqsql/install-from-binary) to set up and run EloqSQL on your local machine.
 
@@ -69,7 +69,7 @@ Follow the [instruction guide](https://www.eloqdata.com/eloqsql/install-from-bin
 Follow these steps to build and run EloqSQL from source.
 
 ### 1. Install Dependencies
-We recommend using our Docker image with pre-installed dependencies for a quick build and run of EloqKV.
+We recommend using our Docker image with pre-installed dependencies for a quick build and run of EloqSQL.
 
 ```bash
 docker pull eloqdata/eloq-build-ubuntu2404:latest
