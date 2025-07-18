@@ -123,14 +123,14 @@ cmake -DCMAKE_INSTALL_PREFIX=${HOME}/install \
       -DWITH_ASAN=OFF \
       -DCMAKE_C_FLAGS_RELWITHDEBINFO="-O2 -g -DNDEBUG -DDBUG_OFF -fno-omit-frame-pointer -fno-strict-aliasing" \
       -DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-O2 -g -DNDEBUG -DDBUG_OFF -fno-omit-frame-pointer -fno-strict-aliasing -felide-constructors -Wno-error" \
-      -DWITH_DATA_STORE=ELOQDSS_ROCKSDB_CLOUD_S3
+      -DWITH_DATA_STORE=ELOQDSS_ROCKSDB_CLOUD_S3 \
       ../
 cmake --build . --config RelWithDebInfo -j8
 cmake --install . --config RelWithDebInfo
 ```
 
 ### 4. Set Up Storage Backend
-EloqDoc use s3 as storage backends. For testing, just deploy a s3 emulator.
+EloqSQL use s3 as storage backends. For testing, just deploy a s3 emulator.
 
 Download and start a MINIO instance:
 
