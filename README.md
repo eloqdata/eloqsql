@@ -123,23 +123,21 @@ cmake -DCMAKE_INSTALL_PREFIX=${HOME}/install \
       -DWITH_ASAN=OFF \
       -DCMAKE_C_FLAGS_RELWITHDEBINFO="-O2 -g -DNDEBUG -DDBUG_OFF -fno-omit-frame-pointer -fno-strict-aliasing" \
       -DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-O2 -g -DNDEBUG -DDBUG_OFF -fno-omit-frame-pointer -fno-strict-aliasing -felide-constructors -Wno-error" \
-      -DWITH_KV_STORAGE=CASSANDRA \
-      -DFORK_HM_PROCESS=OFF \
-      -DWITH_LOG_SERVICE=ON \
+      -DWITH_DATA_STORE=ELOQDSS_ROCKSDB_CLOUD_S3 \
       ../
-cmake --build . --config RelWithDebInfo -j
+cmake --build . --config RelWithDebInfo -j8
 cmake --install . --config RelWithDebInfo
 ```
 
-### 4. Set Up Cassandra Cluster 
-Download and start a local Cassandra instance:
+### 4. Set Up Storage Backend
+EloqSQL use s3 as storage backends. For testing, just deploy a s3 emulator.
+
+Download and start a MINIO instance:
 
 ```bash
-wget https://archive.apache.org/dist/cassandra/4.1.8/apache-cassandra-4.1.8-bin.tar.gz
-tar -zxvf apache-cassandra-4.1.8-bin.tar.gz
-./apache-cassandra-4.1.8/bin/cassandra -f
-# Wait for Cassandra to start, then verify with:
-./apache-cassandra-4.1.8/bin/cqlsh localhost -u cassandra -p cassandra
+wget https://dl.min.io/server/minio/release/linux-amd64/minio
+chmod +x minio
+./minio server ./data
 ```
 
 ### 5. Configure EloqSQL
@@ -155,10 +153,13 @@ port=3316
 socket=/tmp/mysqld3316.sock
 plugin_load_add=ha_eloq
 eloq
-eloq_kv_storage=cass
-eloq_cass_hosts=127.0.0.1
-eloq_cass_user=cassandra
-eloq_cass_password=cassandra
+eloq_kv_storage=eloqds
+eloq_dss_rocksdb_cloud_endpoint_url=http://127.0.0.1:9000
+eloq_dss_rocksdb_cloud_bucket_name=eloqsql
+eloq_dss_rocksdb_cloud_bucket_prefix=dss-
+eloq_dss_rocksdb_cloud_region=ap-northeast-1
+eloq_aws_access_key_id=minioadmin
+eloq_aws_secret_key=minioadmin
 eloq_local_ip=127.0.0.1:8000
 eloq_ip_list=127.0.0.1:8000
 ```
