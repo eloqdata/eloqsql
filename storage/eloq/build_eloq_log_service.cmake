@@ -1,4 +1,4 @@
-SET (LOG_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/log_service)
+SET (LOG_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/eloq_log_service)
 SET(TX_LOG_PROTOS_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/tx_service/tx-log-protos)
 
 set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wno-error")
@@ -255,15 +255,15 @@ find_package(Protobuf REQUIRED)
 
 
 ADD_CONVENIENCE_LIBRARY(logservice STATIC
+    ${LOG_SOURCE_DIR}/src/log_instance.cpp
     ${LOG_SOURCE_DIR}/src/log_server.cpp
     ${LOG_SOURCE_DIR}/src/log_state_rocksdb_impl.cpp
     ${LOG_SOURCE_DIR}/src/log_state_rocksdb_cloud_impl.cpp
+    ${LOG_SOURCE_DIR}/src/log_state_memory_impl.cpp
     ${LOG_SOURCE_DIR}/src/fault_inject.cpp
     ${LOG_SOURCE_DIR}/src/INIReader.cpp
     ${LOG_SOURCE_DIR}/src/ini.c
     ${TX_LOG_PROTOS_SOURCE_DIR}/log.pb.cc
-    ${LOG_SOURCE_DIR}/src/open_log_service.cpp
-    ${LOG_SOURCE_DIR}/src/open_log_task.cpp
     )
 
 target_include_directories(logservice PUBLIC ${LOG_INCLUDE_DIR})
