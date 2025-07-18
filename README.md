@@ -125,7 +125,7 @@ cmake -DCMAKE_INSTALL_PREFIX=${HOME}/install \
       -DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-O2 -g -DNDEBUG -DDBUG_OFF -fno-omit-frame-pointer -fno-strict-aliasing -felide-constructors -Wno-error" \
       -DWITH_KV_STORAGE=CASSANDRA
       ../
-cmake --build . --config RelWithDebInfo -j
+cmake --build . --config RelWithDebInfo -j8
 cmake --install . --config RelWithDebInfo
 ```
 
