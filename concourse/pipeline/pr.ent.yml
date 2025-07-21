@@ -41,7 +41,7 @@ resources:
   source:
     repository: monographdb/monograph-dev-ci-ubuntu2004
     username: monographdb
-    password: ((docker_hub_pass))
+    password: ((docker-secret-key))
 
 jobs:
 - name: compile-test

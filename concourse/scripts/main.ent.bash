@@ -1,8 +1,6 @@
 #!/bin/bash
 set -exo pipefail
 
-CASS_HOST=${1:?usage: $0 cass_host}
-
 CWDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ls
 export WORKSPACE=$PWD
