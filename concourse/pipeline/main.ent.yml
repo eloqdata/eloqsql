@@ -56,7 +56,7 @@ jobs:
       - get: mono_ubuntu_2204
   - task: compile-test-task
     image: mono_ubuntu_2204
-    file: eloqsql_src/concourse/tasks/main.yml
+    file: eloqsql_src/concourse/tasks/main.ent.yml
     params:
       ELOQ_AWS_ACCESS_KEY_ID: ((minio-access-key))
       ELOQ_AWS_REGION: ((aws-region))
