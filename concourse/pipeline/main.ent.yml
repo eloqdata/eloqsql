@@ -3,8 +3,16 @@ resources:
   type: git
   check_every: 3m
   source:
-    branch: merge
+    branch: ci1
     uri: git@github.com:eloqdata/eloqsql.git
+    private_key: ((git-key))
+
+- name: logservice_src
+  type: git
+  check_every: 3m
+  source:
+    branch: main
+    uri: git@github.com:eloqdata/eloq_log_service.git
     private_key: ((git-key))
 
 - name: eloq_test_src
@@ -14,12 +22,20 @@ resources:
     uri: git@github.com:eloqdata/eloq-test.git
     private_key: ((git-key))
 
+- name: raft_host_manager_src
+  type: git
+  check_every: 3m
+  source:
+    branch: main
+    uri: git@github.com:eloqdata/raft_host_manager.git
+    private_key: ((git-key))
+
 - name: mono_ubuntu_2204
   type: registry-image
   source:
     repository: monographdb/monograph-dev-ci-ubuntu2204
     username: monographdb
-    password: ((docker_hub_pass))
+    password: ((docker-secret-key))
 
 jobs:
 - name: compile-test
@@ -31,12 +47,16 @@ jobs:
       steps:
       - get: eloqsql_src
         trigger: true
+      - get: logservice_src
+        trigger: true
+      - get: raft_host_manager_src
+        trigger: true
       - get: eloq_test_src
         trigger: true
       - get: mono_ubuntu_2204
   - task: compile-test-task
     image: mono_ubuntu_2204
-    file: eloqsql_src/concourse/tasks/main.yml
+    file: eloqsql_src/concourse/tasks/main.ent.yml
     params:
       ELOQ_AWS_ACCESS_KEY_ID: ((minio-access-key))
       ELOQ_AWS_REGION: ((aws-region))

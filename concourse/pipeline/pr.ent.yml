@@ -5,55 +5,35 @@ resource_types:
     repository: teliaoss/github-pr-resource
 
 resources:
-- name: mariadb_pr
+- name: eloqsql_pr
   type: pull-request
   check_every: 3m
   source:
-    repository: monographdb/mariadb
+    repository: eloqdata/eloqsql
     base_branch: "eloq-10.6.10"
     ignore_drafts: true
     access_token: ((git-token))
-
-- name: mono_src
-  type: git
-  source:
-    branch: main
-    uri: git@github.com:monographdb/eloq_engine_for_mariadb.git
-    private_key: ((git-key))
-
-- name: eloq_metrics_src
-  type: git
-  source:
-    branch: main
-    uri: git@github.com:monographdb/eloq-metrics.git
-    private_key: ((git-key))
-
-- name: txservice_src
-  type: git
-  source:
-    branch: main
-    uri: git@github.com:monographdb/tx_service.git
-    private_key: ((git-key))
+    disable_forks: false
 
 - name: logservice_src
   type: git
   source:
     branch: main
-    uri: git@github.com:monographdb/log_service.git
+    uri: git@github.com:eloqdata/eloq_log_service.git
     private_key: ((git-key))
 
-- name: mono_test_src
+- name: eloq_test_src
   type: git
   source:
     branch: main
-    uri: git@github.com:monographdb/eloq-test.git
+    uri: git@github.com:eloqdata/eloq-test.git
     private_key: ((git-key))
 
 - name: raft_host_manager_src
   type: git
   source:
     branch: main
-    uri: git@github.com:monographdb/raft_host_manager.git
+    uri: git@github.com:eloqdata/raft_host_manager.git
     private_key: ((git-key))
 
 - name: mono_ubuntu_2004
@@ -61,7 +41,7 @@ resources:
   source:
     repository: monographdb/monograph-dev-ci-ubuntu2004
     username: monographdb
-    password: ((docker_hub_pass))
+    password: ((docker-secret-key))
 
 jobs:
 - name: compile-test
@@ -71,33 +51,33 @@ jobs:
   plan:
   - in_parallel:
       steps:
-      - get: mono_src
-      - get: eloq_metrics_src
-      - get: txservice_src
       - get: logservice_src
-      - get: mono_test_src
+      - get: eloq_test_src
       - get: raft_host_manager_src
-      - get: mariadb_pr
+      - get: eloqsql_pr
         trigger: true
         version: every
       - get: mono_ubuntu_2004
-  - put: mariadb_pr
+  - put: eloqsql_pr
     params:
-      path: mariadb_pr
+      path: eloqsql_pr
       status: pending
   - task: compile-test-task
     image: mono_ubuntu_2004
-    file: mono_src/concourse/tasks/compile_test_mariadb.yml
-    vars:
-      cass-host: ((cassandra-host))
+    file: eloqsql_pr/concourse/tasks/pr.ent.yml
+    params:
+      ELOQ_AWS_ACCESS_KEY_ID: ((minio-access-key))
+      ELOQ_AWS_REGION: ((aws-region))
+      ELOQ_AWS_SECRET_KEY: ((minio-secret-key))
+      MINIO_ENDPOINT_URL: ((minio-endpoint))
     privileged: true
     on_failure:
-      put: mariadb_pr
+      put: eloqsql_pr
       params:
-        path: mariadb_pr
+        path: eloqsql_pr
         status: failure
-  - put: mariadb_pr
+  - put: eloqsql_pr
     params:
-      path: mariadb_pr
+      path: eloqsql_pr
       status: success
 
