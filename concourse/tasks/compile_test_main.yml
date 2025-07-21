@@ -1,9 +1,0 @@
-platform: linux
-image_resource:
-  type: registry-image
-inputs:
-  - name: logservice_src
-  - name: mariadb_src
-  - name: mono_test_src
-run:
-  path: mariadb_src/concourse/scripts/compile_test_main.bash
