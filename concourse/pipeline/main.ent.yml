@@ -1,9 +1,9 @@
 resources:
-- name: mariadb_src
+- name: eloqsql_src
   type: git
   check_every: 3m
   source:
-    branch: merge
+    branch: ci1
     uri: git@github.com:eloqdata/eloqsql.git
     private_key: ((git-key))
 
