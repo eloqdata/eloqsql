@@ -65,10 +65,12 @@ jobs:
   - task: compile-test-task
     image: mono_ubuntu_2004
     file: eloqsql_pr/concourse/tasks/pr.ent.yml
-    vars:
-      minio-access-key: ((minio-access-key))
-      minio-endpoint: ((minio-endpoint))
-      minio-secret-key: ((minio-secret-key))    privileged: true
+    params:
+      ELOQ_AWS_ACCESS_KEY_ID: ((minio-access-key))
+      ELOQ_AWS_REGION: ((aws-region))
+      ELOQ_AWS_SECRET_KEY: ((minio-secret-key))
+      MINIO_ENDPOINT_URL: ((minio-endpoint))
+    privileged: true
     on_failure:
       put: eloqsql_pr
       params:
