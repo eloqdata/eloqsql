@@ -14,6 +14,7 @@ resources:
     ignore_drafts: true
     access_token: ((git-token))
     disable_forks: false
+    labels: ["trigger-ci"]
 
 - name: logservice_src
   type: git

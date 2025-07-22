@@ -42,85 +42,85 @@ bucket_name="eloqsql-mtr-test-${timestamp}"
 echo "bucket name is ${bucket_name}"
 
 #config eloq_kv_storage.cnf
-sed -i "s/eloq_kv_storage.*=.\+/eloq_kv_storage=eloqds/g" $WORKSPACE/eloqsql_src/mysql-test/include/eloq_kv_storage.cnf
+sed -i "s/eloq_kv_storage.*=.\+/eloq_kv_storage=eloqds/g" $WORKSPACE/eloqsql_pr/mysql-test/include/eloq_kv_storage.cnf
 
 echo "eloq_kv_storage.cnf"
-cat $WORKSPACE/eloqsql_src/mysql-test/include/eloq_kv_storage.cnf
+cat $WORKSPACE/eloqsql_pr/mysql-test/include/eloq_kv_storage.cnf
 
 # config eloq_kv_dss.cnf
 # ak/sk
-sed -i "s/eloq_aws_access_key_id.*=.\+/eloq_aws_access_key_id=${ELOQ_AWS_ACCESS_KEY_ID}/g" $WORKSPACE/eloqsql_src/mysql-test/include/eloq_kv_dss.cnf
-sed -i "s/eloq_aws_secret_key.*=.\+/eloq_aws_secret_key=${ELOQ_AWS_SECRET_KEY}/g" $WORKSPACE/eloqsql_src/mysql-test/include/eloq_kv_dss.cnf
+sed -i "s/eloq_aws_access_key_id.*=.\+/eloq_aws_access_key_id=${ELOQ_AWS_ACCESS_KEY_ID}/g" $WORKSPACE/eloqsql_pr/mysql-test/include/eloq_kv_dss.cnf
+sed -i "s/eloq_aws_secret_key.*=.\+/eloq_aws_secret_key=${ELOQ_AWS_SECRET_KEY}/g" $WORKSPACE/eloqsql_pr/mysql-test/include/eloq_kv_dss.cnf
 # OSS settings
-sed -i "s|eloq_txlog_rocksdb_cloud_endpoint_url.*=.\+|eloq_txlog_rocksdb_cloud_endpoint_url=${MINIO_ENDPOINT_URL}|g" $WORKSPACE/eloqsql_src/mysql-test/include/eloq_kv_dss.cnf
-sed -i "s|eloq_dss_rocksdb_cloud_endpoint_url.*=.\+|eloq_dss_rocksdb_cloud_endpoint_url=${MINIO_ENDPOINT_URL}|g" $WORKSPACE/eloqsql_src/mysql-test/include/eloq_kv_dss.cnf
-sed -i "s/eloq_txlog_rocksdb_cloud_bucket_name.*=.\+/eloq_txlog_rocksdb_cloud_bucket_name=${bucket_name}/g" $WORKSPACE/eloqsql_src/mysql-test/include/eloq_kv_dss.cnf
-sed -i "s/eloq_dss_rocksdb_cloud_bucket_name.*=.\+/eloq_dss_rocksdb_cloud_bucket_name=${bucket_name}/g" $WORKSPACE/eloqsql_src/mysql-test/include/eloq_kv_dss.cnf
-sed -i "s/eloq_txlog_rocksdb_cloud_region.*=.\+/eloq_txlog_rocksdb_cloud_region=${ELOQ_AWS_REGION}/g" $WORKSPACE/eloqsql_src/mysql-test/include/eloq_kv_dss.cnf
-sed -i "s/eloq_dss_rocksdb_cloud_region.*=.\+/eloq_dss_rocksdb_cloud_region=${ELOQ_AWS_REGION}/g" $WORKSPACE/eloqsql_src/mysql-test/include/eloq_kv_dss.cnf
-sed -i "s/eloq_txlog_rocksdb_cloud_bucket_prefix.*=.\+/eloq_txlog_rocksdb_cloud_bucket_prefix=txlog-/g" $WORKSPACE/eloqsql_src/mysql-test/include/eloq_kv_dss.cnf
-sed -i "s/eloq_dss_rocksdb_cloud_bucket_prefix.*=.\+/eloq_dss_rocksdb_cloud_bucket_prefix=dss-/g" $WORKSPACE/eloqsql_src/mysql-test/include/eloq_kv_dss.cnf
-sed -i "s|eloq_dss_config_file_path.*=.\+|eloq_dss_config_file_path=${WORKSPACE}/eloqsql_src/concourse/scripts/dss_config.example.ini|g" $WORKSPACE/eloqsql_src/mysql-test/include/eloq_kv_dss.cnf
-sed -i "s|eloq_dss_peer_node.*=.\+|eloq_dss_peer_node=|g" $WORKSPACE/eloqsql_src/mysql-test/include/eloq_kv_dss.cnf
+sed -i "s|eloq_txlog_rocksdb_cloud_endpoint_url.*=.\+|eloq_txlog_rocksdb_cloud_endpoint_url=${MINIO_ENDPOINT_URL}|g" $WORKSPACE/eloqsql_pr/mysql-test/include/eloq_kv_dss.cnf
+sed -i "s|eloq_dss_rocksdb_cloud_endpoint_url.*=.\+|eloq_dss_rocksdb_cloud_endpoint_url=${MINIO_ENDPOINT_URL}|g" $WORKSPACE/eloqsql_pr/mysql-test/include/eloq_kv_dss.cnf
+sed -i "s/eloq_txlog_rocksdb_cloud_bucket_name.*=.\+/eloq_txlog_rocksdb_cloud_bucket_name=${bucket_name}/g" $WORKSPACE/eloqsql_pr/mysql-test/include/eloq_kv_dss.cnf
+sed -i "s/eloq_dss_rocksdb_cloud_bucket_name.*=.\+/eloq_dss_rocksdb_cloud_bucket_name=${bucket_name}/g" $WORKSPACE/eloqsql_pr/mysql-test/include/eloq_kv_dss.cnf
+sed -i "s/eloq_txlog_rocksdb_cloud_region.*=.\+/eloq_txlog_rocksdb_cloud_region=${ELOQ_AWS_REGION}/g" $WORKSPACE/eloqsql_pr/mysql-test/include/eloq_kv_dss.cnf
+sed -i "s/eloq_dss_rocksdb_cloud_region.*=.\+/eloq_dss_rocksdb_cloud_region=${ELOQ_AWS_REGION}/g" $WORKSPACE/eloqsql_pr/mysql-test/include/eloq_kv_dss.cnf
+sed -i "s/eloq_txlog_rocksdb_cloud_bucket_prefix.*=.\+/eloq_txlog_rocksdb_cloud_bucket_prefix=txlog-/g" $WORKSPACE/eloqsql_pr/mysql-test/include/eloq_kv_dss.cnf
+sed -i "s/eloq_dss_rocksdb_cloud_bucket_prefix.*=.\+/eloq_dss_rocksdb_cloud_bucket_prefix=dss-/g" $WORKSPACE/eloqsql_pr/mysql-test/include/eloq_kv_dss.cnf
+sed -i "s|eloq_dss_config_file_path.*=.\+|eloq_dss_config_file_path=${WORKSPACE}/eloqsql_pr/concourse/scripts/dss_config.example.ini|g" $WORKSPACE/eloqsql_src/mysql-test/include/eloq_kv_dss.cnf
+sed -i "s|eloq_dss_peer_node.*=.\+|eloq_dss_peer_node=|g" $WORKSPACE/eloqsql_pr/mysql-test/include/eloq_kv_dss.cnf
 
 echo "eloq_kv_dss.cnf"
-cat $WORKSPACE/eloqsql_src/mysql-test/include/eloq_kv_dss.cnf
+cat $WORKSPACE/eloqsql_pr/mysql-test/include/eloq_kv_dss.cnf
 
 # config mtr_bootstrap.cnf
 # ak/sk
-sed -i "s/eloq_aws_access_key_id.*=.\+/eloq_aws_access_key_id=${ELOQ_AWS_ACCESS_KEY_ID}/g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_bootstrap.cnf
-sed -i "s/eloq_aws_secret_key.*=.\+/eloq_aws_secret_key=${ELOQ_AWS_SECRET_KEY}/g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_bootstrap.cnf
+sed -i "s/eloq_aws_access_key_id.*=.\+/eloq_aws_access_key_id=${ELOQ_AWS_ACCESS_KEY_ID}/g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap.cnf
+sed -i "s/eloq_aws_secret_key.*=.\+/eloq_aws_secret_key=${ELOQ_AWS_SECRET_KEY}/g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap.cnf
 # kv_storage
-sed -i "s/eloq_kv_storage.*=.\+/eloq_kv_storage=eloqds/g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_bootstrap.cnf
+sed -i "s/eloq_kv_storage.*=.\+/eloq_kv_storage=eloqds/g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap.cnf
 # OSS settings
-sed -i "s|eloq_txlog_rocksdb_cloud_endpoint_url.*=.\+|eloq_txlog_rocksdb_cloud_endpoint_url=${MINIO_ENDPOINT_URL}|g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_bootstrap.cnf
-sed -i "s|eloq_dss_rocksdb_cloud_endpoint_url.*=.\+|eloq_dss_rocksdb_cloud_endpoint_url=${MINIO_ENDPOINT_URL}|g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_bootstrap.cnf
-sed -i "s/eloq_txlog_rocksdb_cloud_bucket_name.*=.\+/eloq_txlog_rocksdb_cloud_bucket_name=${bucket_name}/g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_bootstrap.cnf
-sed -i "s/eloq_dss_rocksdb_cloud_bucket_name.*=.\+/eloq_dss_rocksdb_cloud_bucket_name=${bucket_name}/g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_bootstrap.cnf
-sed -i "s/eloq_txlog_rocksdb_cloud_region.*=.\+/eloq_txlog_rocksdb_cloud_region=${ELOQ_AWS_REGION}/g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_bootstrap.cnf
-sed -i "s/eloq_dss_rocksdb_cloud_region.*=.\+/eloq_dss_rocksdb_cloud_region=${ELOQ_AWS_REGION}/g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_bootstrap.cnf
-sed -i "s/eloq_txlog_rocksdb_cloud_bucket_prefix.*=.\+/eloq_txlog_rocksdb_cloud_bucket_prefix=txlog-/g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_bootstrap.cnf
-sed -i "s/eloq_dss_rocksdb_cloud_bucket_prefix.*=.\+/eloq_dss_rocksdb_cloud_bucket_prefix=dss-/g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_bootstrap.cnf
-sed -i "s|eloq_dss_config_file_path.*=.\+|eloq_dss_config_file_path=${WORKSPACE}/eloqsql_src/concourse/scripts/dss_config.example.ini|g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_bootstrap.cnf
-sed -i "s|eloq_dss_peer_node.*=.\+|eloq_dss_peer_node=|g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_bootstrap.cnf
+sed -i "s|eloq_txlog_rocksdb_cloud_endpoint_url.*=.\+|eloq_txlog_rocksdb_cloud_endpoint_url=${MINIO_ENDPOINT_URL}|g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap.cnf
+sed -i "s|eloq_dss_rocksdb_cloud_endpoint_url.*=.\+|eloq_dss_rocksdb_cloud_endpoint_url=${MINIO_ENDPOINT_URL}|g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap.cnf
+sed -i "s/eloq_txlog_rocksdb_cloud_bucket_name.*=.\+/eloq_txlog_rocksdb_cloud_bucket_name=${bucket_name}/g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap.cnf
+sed -i "s/eloq_dss_rocksdb_cloud_bucket_name.*=.\+/eloq_dss_rocksdb_cloud_bucket_name=${bucket_name}/g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap.cnf
+sed -i "s/eloq_txlog_rocksdb_cloud_region.*=.\+/eloq_txlog_rocksdb_cloud_region=${ELOQ_AWS_REGION}/g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap.cnf
+sed -i "s/eloq_dss_rocksdb_cloud_region.*=.\+/eloq_dss_rocksdb_cloud_region=${ELOQ_AWS_REGION}/g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap.cnf
+sed -i "s/eloq_txlog_rocksdb_cloud_bucket_prefix.*=.\+/eloq_txlog_rocksdb_cloud_bucket_prefix=txlog-/g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap.cnf
+sed -i "s/eloq_dss_rocksdb_cloud_bucket_prefix.*=.\+/eloq_dss_rocksdb_cloud_bucket_prefix=dss-/g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap.cnf
+sed -i "s|eloq_dss_config_file_path.*=.\+|eloq_dss_config_file_path=${WORKSPACE}/eloqsql_pr/concourse/scripts/dss_config.example.ini|g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_bootstrap.cnf
+sed -i "s|eloq_dss_peer_node.*=.\+|eloq_dss_peer_node=|g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap.cnf
 
 echo "mtr_bootstrap.cnf"
-cat $WORKSPACE/eloqsql_src/concourse/scripts/mtr_bootstrap.cnf
+cat $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap.cnf
 
 #config mtr_multi_bootstrap.cnf
 # ak/sk
-sed -i "s/eloq_aws_access_key_id.*=.\+/eloq_aws_access_key_id=${ELOQ_AWS_ACCESS_KEY_ID}/g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_multi_bootstrap.cnf
-sed -i "s/eloq_aws_secret_key.*=.\+/eloq_aws_secret_key=${ELOQ_AWS_SECRET_KEY}/g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_multi_bootstrap.cnf
+sed -i "s/eloq_aws_access_key_id.*=.\+/eloq_aws_access_key_id=${ELOQ_AWS_ACCESS_KEY_ID}/g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_multi_bootstrap.cnf
+sed -i "s/eloq_aws_secret_key.*=.\+/eloq_aws_secret_key=${ELOQ_AWS_SECRET_KEY}/g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_multi_bootstrap.cnf
 # kv_storage
-sed -i "s/eloq_kv_storage.*=.\+/eloq_kv_storage=eloqds/g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_multi_bootstrap.cnf
+sed -i "s/eloq_kv_storage.*=.\+/eloq_kv_storage=eloqds/g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_multi_bootstrap.cnf
 # OSS settings
-sed -i "s|eloq_txlog_rocksdb_cloud_endpoint_url.*=.\+|eloq_txlog_rocksdb_cloud_endpoint_url=${MINIO_ENDPOINT_URL}|g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_multi_bootstrap.cnf
-sed -i "s|eloq_dss_rocksdb_cloud_endpoint_url.*=.\+|eloq_dss_rocksdb_cloud_endpoint_url=${MINIO_ENDPOINT_URL}|g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_multi_bootstrap.cnf
-sed -i "s/eloq_txlog_rocksdb_cloud_bucket_name.*=.\+/eloq_txlog_rocksdb_cloud_bucket_name=${bucket_name}/g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_multi_bootstrap.cnf
-sed -i "s/eloq_dss_rocksdb_cloud_bucket_name.*=.\+/eloq_dss_rocksdb_cloud_bucket_name=${bucket_name}/g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_multi_bootstrap.cnf
-sed -i "s/eloq_txlog_rocksdb_cloud_region.*=.\+/eloq_txlog_rocksdb_cloud_region=${ELOQ_AWS_REGION}/g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_multi_bootstrap.cnf
-sed -i "s/eloq_dss_rocksdb_cloud_region.*=.\+/eloq_dss_rocksdb_cloud_region=${ELOQ_AWS_REGION}/g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_multi_bootstrap.cnf
-sed -i "s/eloq_txlog_rocksdb_cloud_bucket_prefix.*=.\+/eloq_txlog_rocksdb_cloud_bucket_prefix=txlog-/g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_multi_bootstrap.cnf
-sed -i "s/eloq_dss_rocksdb_cloud_bucket_prefix.*=.\+/eloq_dss_rocksdb_cloud_bucket_prefix=dss-/g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_multi_bootstrap.cnf
-sed -i "s|eloq_dss_config_file_path.*=.\+|eloq_dss_config_file_path=|g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_multi_bootstrap.cnf
-sed -i "s|eloq_dss_peer_node.*=.\+|eloq_dss_peer_node=localhost:9100|g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_multi_bootstrap.cnf
+sed -i "s|eloq_txlog_rocksdb_cloud_endpoint_url.*=.\+|eloq_txlog_rocksdb_cloud_endpoint_url=${MINIO_ENDPOINT_URL}|g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_multi_bootstrap.cnf
+sed -i "s|eloq_dss_rocksdb_cloud_endpoint_url.*=.\+|eloq_dss_rocksdb_cloud_endpoint_url=${MINIO_ENDPOINT_URL}|g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_multi_bootstrap.cnf
+sed -i "s/eloq_txlog_rocksdb_cloud_bucket_name.*=.\+/eloq_txlog_rocksdb_cloud_bucket_name=${bucket_name}/g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_multi_bootstrap.cnf
+sed -i "s/eloq_dss_rocksdb_cloud_bucket_name.*=.\+/eloq_dss_rocksdb_cloud_bucket_name=${bucket_name}/g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_multi_bootstrap.cnf
+sed -i "s/eloq_txlog_rocksdb_cloud_region.*=.\+/eloq_txlog_rocksdb_cloud_region=${ELOQ_AWS_REGION}/g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_multi_bootstrap.cnf
+sed -i "s/eloq_dss_rocksdb_cloud_region.*=.\+/eloq_dss_rocksdb_cloud_region=${ELOQ_AWS_REGION}/g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_multi_bootstrap.cnf
+sed -i "s/eloq_txlog_rocksdb_cloud_bucket_prefix.*=.\+/eloq_txlog_rocksdb_cloud_bucket_prefix=txlog-/g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_multi_bootstrap.cnf
+sed -i "s/eloq_dss_rocksdb_cloud_bucket_prefix.*=.\+/eloq_dss_rocksdb_cloud_bucket_prefix=dss-/g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_multi_bootstrap.cnf
+sed -i "s|eloq_dss_config_file_path.*=.\+|eloq_dss_config_file_path=|g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_multi_bootstrap.cnf
+sed -i "s|eloq_dss_peer_node.*=.\+|eloq_dss_peer_node=localhost:9100|g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_multi_bootstrap.cnf
 
 echo "mtr_multi_bootstrap.cnf"
-cat $WORKSPACE/eloqsql_src/concourse/scripts/mtr_multi_bootstrap.cnf
+cat $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_multi_bootstrap.cnf
 
 #config dss_server.ini
 # ak/sk
-sed -i "s/ip.*=.\+/ip=localhost/g" $WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini
-sed -i "s/port.*=.\+/port=9100/g" $WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini
-sed -i "s/data_path.*=.\+/data_path=dss_data/g" $WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini
-sed -i "s/aws_access_key_id.*=.\+/aws_access_key_id=${ELOQ_AWS_ACCESS_KEY_ID}/g" $WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini
-sed -i "s/aws_secret_key.*=.\+/aws_secret_key=${ELOQ_AWS_SECRET_KEY}/g" $WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini
-sed -i "s|rocksdb_cloud_s3_endpoint_url.*=.\+|rocksdb_cloud_s3_endpoint_url=${MINIO_ENDPOINT_URL}|g" $WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini
-sed -i "s/rocksdb_cloud_bucket_name.*=.\+/rocksdb_cloud_bucket_name=${bucket_name}/g" $WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini
-sed -i "s/rocksdb_cloud_bucket_prefix.*=.\+/rocksdb_cloud_bucket_prefix=dss-/g" $WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini
+sed -i "s/ip.*=.\+/ip=localhost/g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
+sed -i "s/port.*=.\+/port=9100/g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
+sed -i "s/data_path.*=.\+/data_path=dss_data/g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
+sed -i "s/aws_access_key_id.*=.\+/aws_access_key_id=${ELOQ_AWS_ACCESS_KEY_ID}/g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
+sed -i "s/aws_secret_key.*=.\+/aws_secret_key=${ELOQ_AWS_SECRET_KEY}/g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
+sed -i "s|rocksdb_cloud_s3_endpoint_url.*=.\+|rocksdb_cloud_s3_endpoint_url=${MINIO_ENDPOINT_URL}|g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
+sed -i "s/rocksdb_cloud_bucket_name.*=.\+/rocksdb_cloud_bucket_name=${bucket_name}/g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
+sed -i "s/rocksdb_cloud_bucket_prefix.*=.\+/rocksdb_cloud_bucket_prefix=dss-/g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
 
 echo "dss_server.ini"
-cat $WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini
+cat $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
 
 cd /home/mono/workspace/eloqsql
 
@@ -220,7 +220,7 @@ mc rb minio_server/txlog-${bucket_name} --force
 set -e
 
 echo "running mono_main,mono_basic"
-./mtr --suite=mono_main,mono_basic --testcase-timeout=30 --bootstrap-defaults-file=$WORKSPACE/eloqsql_src/concourse/scripts/mtr_bootstrap.cnf
+./mtr --suite=mono_main,mono_basic --testcase-timeout=30 --bootstrap-defaults-file=$WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap.cnf
 
 # Clean up minio buckets
 echo "cleaning minio buckets"
@@ -232,19 +232,19 @@ mc rb minio_server/txlog-${bucket_name} --force
 set -e
 
 # Config eloq_kv_dss.cnf for multi
-sed -i "s|eloq_dss_config_file_path.*=.\+|eloq_dss_config_file_path=|g" $WORKSPACE/eloqsql_src/mysql-test/include/eloq_kv_dss.cnf
-sed -i "s|eloq_dss_peer_node.*=.*|eloq_dss_peer_node=localhost:9100|g" $WORKSPACE/eloqsql_src/mysql-test/include/eloq_kv_dss.cnf
+sed -i "s|eloq_dss_config_file_path.*=.\+|eloq_dss_config_file_path=|g" $WORKSPACE/eloqsql_pr/mysql-test/include/eloq_kv_dss.cnf
+sed -i "s|eloq_dss_peer_node.*=.*|eloq_dss_peer_node=localhost:9100|g" $WORKSPACE/eloqsql_pr/mysql-test/include/eloq_kv_dss.cnf
 
 echo "eloq_kv_dss.cnf"
-cat $WORKSPACE/eloqsql_src/mysql-test/include/eloq_kv_dss.cnf
+cat $WORKSPACE/eloqsql_pr/mysql-test/include/eloq_kv_dss.cnf
 
 # Start dss_server
 echo "starting dss_server"
-nohup /home/mono/workspace/eloqsql/install/bin/dss_server --config=$WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini > dss_server.log 2>&1 &
+nohup /home/mono/workspace/eloqsql/install/bin/dss_server --config=$WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini > dss_server.log 2>&1 &
 sleep 5
 
 echo "running mono_multi"
-./mtr --suite=mono_multi --force --bootstrap-defaults-file=$WORKSPACE/eloqsql_src/concourse/scripts/mtr_multi_bootstrap.cnf
+./mtr --suite=mono_multi --force --bootstrap-defaults-file=$WORKSPACE/eloqsql_pr/concourse/scripts/mtr_multi_bootstrap.cnf
 
 # Clean up minio bucket
 # If mtr test failed, it would not be run.
