@@ -60,7 +60,7 @@ sed -i "s/eloq_txlog_rocksdb_cloud_region.*=.\+/eloq_txlog_rocksdb_cloud_region=
 sed -i "s/eloq_dss_rocksdb_cloud_region.*=.\+/eloq_dss_rocksdb_cloud_region=${ELOQ_AWS_REGION}/g" $WORKSPACE/eloqsql_pr/mysql-test/include/eloq_kv_dss.cnf
 sed -i "s/eloq_txlog_rocksdb_cloud_bucket_prefix.*=.\+/eloq_txlog_rocksdb_cloud_bucket_prefix=txlog-/g" $WORKSPACE/eloqsql_pr/mysql-test/include/eloq_kv_dss.cnf
 sed -i "s/eloq_dss_rocksdb_cloud_bucket_prefix.*=.\+/eloq_dss_rocksdb_cloud_bucket_prefix=dss-/g" $WORKSPACE/eloqsql_pr/mysql-test/include/eloq_kv_dss.cnf
-sed -i "s|eloq_dss_config_file_path.*=.\+|eloq_dss_config_file_path=${WORKSPACE}/eloqsql_pr/concourse/scripts/dss_config.example.ini|g" $WORKSPACE/eloqsql_src/mysql-test/include/eloq_kv_dss.cnf
+sed -i "s|eloq_dss_config_file_path.*=.\+|eloq_dss_config_file_path=${WORKSPACE}/eloqsql_pr/concourse/scripts/dss_config.example.ini|g" $WORKSPACE/eloqsql_pr/mysql-test/include/eloq_kv_dss.cnf
 sed -i "s|eloq_dss_peer_node.*=.\+|eloq_dss_peer_node=|g" $WORKSPACE/eloqsql_pr/mysql-test/include/eloq_kv_dss.cnf
 
 echo "eloq_kv_dss.cnf"
@@ -81,7 +81,7 @@ sed -i "s/eloq_txlog_rocksdb_cloud_region.*=.\+/eloq_txlog_rocksdb_cloud_region=
 sed -i "s/eloq_dss_rocksdb_cloud_region.*=.\+/eloq_dss_rocksdb_cloud_region=${ELOQ_AWS_REGION}/g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap.cnf
 sed -i "s/eloq_txlog_rocksdb_cloud_bucket_prefix.*=.\+/eloq_txlog_rocksdb_cloud_bucket_prefix=txlog-/g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap.cnf
 sed -i "s/eloq_dss_rocksdb_cloud_bucket_prefix.*=.\+/eloq_dss_rocksdb_cloud_bucket_prefix=dss-/g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap.cnf
-sed -i "s|eloq_dss_config_file_path.*=.\+|eloq_dss_config_file_path=${WORKSPACE}/eloqsql_pr/concourse/scripts/dss_config.example.ini|g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_bootstrap.cnf
+sed -i "s|eloq_dss_config_file_path.*=.\+|eloq_dss_config_file_path=${WORKSPACE}/eloqsql_pr/concourse/scripts/dss_config.example.ini|g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap.cnf
 sed -i "s|eloq_dss_peer_node.*=.\+|eloq_dss_peer_node=|g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap.cnf
 
 echo "mtr_bootstrap.cnf"
