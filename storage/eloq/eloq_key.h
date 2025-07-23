@@ -623,71 +623,63 @@ public:
 
   void Serialize(std::vector<char> &buf, size_t &offset) const override
   {
-    size_t len= sizeof(size_t);
-    buf.resize(offset + 2 * sizeof(size_t) + encoded_blob_.size() +
-               unpack_info_.size());
+    uint32_t blob_len= encoded_blob_.size();
+    uint16_t unpack_len= unpack_info_.size();
 
-    size_t blob_len= (size_t) unpack_info_.size();
-    const unsigned char *val_ptr= static_cast<const unsigned char *>(
-        static_cast<const void *>(&blob_len));
-    std::copy(val_ptr, val_ptr + len, buf.begin() + offset);
-    offset+= len;
+    buf.resize(offset + sizeof(uint32_t) + blob_len + sizeof(uint16_t) +
+               unpack_len);
+
+    auto unpack_len_ptr= reinterpret_cast<const char *>(&unpack_len);
+    std::copy(unpack_len_ptr, unpack_len_ptr + sizeof(uint16_t),
+              buf.begin() + offset);
+    offset+= sizeof(uint16_t);
     std::copy(unpack_info_.begin(), unpack_info_.end(), buf.begin() + offset);
-    offset+= blob_len;
+    offset+= unpack_len;
 
-    blob_len= encoded_blob_.size();
-    val_ptr= static_cast<const unsigned char *>(
-        static_cast<const void *>(&blob_len));
-    std::copy(val_ptr, val_ptr + len, buf.begin() + offset);
-    offset+= len;
-
+    auto blob_len_ptr= reinterpret_cast<const char *>(&blob_len);
+    std::copy(blob_len_ptr, blob_len_ptr + sizeof(uint32_t),
+              buf.begin() + offset);
+    offset+= sizeof(uint32_t);
     std::copy(encoded_blob_.begin(), encoded_blob_.end(),
               buf.begin() + offset);
-    offset+= encoded_blob_.size();
+    offset+= blob_len;
   }
 
   void Serialize(std::string &str) const override
   {
-    size_t len_sizeof= sizeof(size_t);
-    size_t unpack_len= (size_t) unpack_info_.size();
-    const char *unpack_len_ptr=
-        static_cast<const char *>(static_cast<const void *>(&unpack_len));
-    str.append(unpack_len_ptr, len_sizeof);
+    uint32_t blob_len= encoded_blob_.size();
+    uint16_t unpack_len= unpack_info_.size();
+
+    str.reserve(str.size() + sizeof(uint32_t) + blob_len + sizeof(uint16_t) +
+                unpack_len);
+
+    auto unpack_len_ptr= reinterpret_cast<const char *>(&unpack_len);
+    str.append(unpack_len_ptr, sizeof(uint16_t));
     str.append(unpack_info_.data(), unpack_len);
 
-    size_t blob_len= encoded_blob_.size();
-    const char *blob_len_ptr=
-        static_cast<const char *>(static_cast<const void *>(&blob_len));
-
-    str.append(blob_len_ptr, len_sizeof);
+    auto blob_len_ptr= reinterpret_cast<const char *>(&blob_len);
+    str.append(blob_len_ptr, sizeof(uint32_t));
     str.append(encoded_blob_.data(), blob_len);
   }
 
   size_t SerializedLength() const override
   {
     // unpack_info_ and encoded_blob_ and their length
-    return sizeof(size_t) * 2 + unpack_info_.size() + encoded_blob_.size();
+    return sizeof(uint16_t) + unpack_info_.size() + sizeof(uint32_t) +
+           encoded_blob_.size();
   }
 
   void Deserialize(const char *buf, size_t &offset) override
   {
-    size_t *len_ptr= (size_t *) (buf + offset);
-    size_t len= *len_ptr;
-    offset+= sizeof(size_t);
-    unpack_info_.clear();
-    unpack_info_.reserve(len);
-    std::copy(buf + offset, buf + offset + len,
-              std::back_inserter(unpack_info_));
-    offset+= len;
+    uint16_t unpack_len= *reinterpret_cast<const uint16_t *>(buf + offset);
+    offset+= sizeof(uint16_t);
+    unpack_info_.assign(buf + offset, buf + offset + unpack_len);
+    offset+= unpack_len;
 
-    len_ptr= (size_t *) (buf + offset);
-    len= *len_ptr;
-    offset+= sizeof(size_t);
-    encoded_blob_.clear();
-    encoded_blob_.reserve(len);
-    std::copy(buf + offset, buf + offset + len,
-              std::back_inserter(encoded_blob_));
-    offset+= len;
+    uint32_t blob_len= *reinterpret_cast<const uint32_t *>(buf + offset);
+    offset+= sizeof(uint32_t);
+    encoded_blob_.assign(buf + offset, buf + offset + blob_len);
+    offset+= blob_len;
   };
 
   TxRecord::Uptr Clone() const override
