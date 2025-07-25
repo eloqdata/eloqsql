@@ -268,6 +268,8 @@ our $opt_fast= 0;
 our $opt_force= 0;
 our $opt_mem= $ENV{'MTR_MEM'};
 our $opt_clean_vardir= $ENV{'MTR_CLEAN_VARDIR'};
+our $opt_clean_dss_bucket_restart = 0;
+our $opt_clean_txlog_bucket_restart = 0;
 
 our $opt_gcov;
 our $opt_gprof;
@@ -405,6 +407,17 @@ sub main {
   mark_time_used('collect');
 
   mysql_install_db(default_mysqld(), "$opt_vardir/install.db") unless using_extern();
+
+  # Backup cloud dss-$bucket_name
+  if ($opt_clean_dss_bucket_restart && $ENV{'bucket_name'}) {
+    my $bucket_name = $ENV{'bucket_name'};
+    backup_cloud_bucket("dss-$bucket_name", "$opt_vardir/install.db/minio_buckups") unless using_extern();
+  }
+
+  if ($opt_clean_txlog_bucket_restart && $ENV{'bucket_name'}) {
+    my $bucket_name = $ENV{'bucket_name'};
+    backup_cloud_bucket("txlog-$bucket_name", "$opt_vardir/install.db/minio_buckups") unless using_extern();
+  }
 
   if ($opt_dry_run)
   {
@@ -1164,6 +1177,8 @@ sub command_line_setup {
              'vardir=s'                 => \$opt_vardir,
              'mem'                      => \$opt_mem,
 	     'clean-vardir'             => \$opt_clean_vardir,
+	     'clean-dss-bucket-restart!' => \$opt_clean_dss_bucket_restart,
+	     'clean-txlog-bucket-restart!' => \$opt_clean_txlog_bucket_restart,
              'client-bindir=s'          => \$path_client_bindir,
              'client-libdir=s'          => \$path_client_libdir,
 
@@ -2720,6 +2735,17 @@ sub mysql_server_start($) {
         copytree("$install_db/performance_schema", "$datadir/performance_schema") if -d $install_db;
         copytree("$install_db/mtr", "$datadir/mtr") if -d $install_db;
         mtr_error("Failed to copy system db to '$datadir'") unless -d $datadir;
+
+	# Restore minio bucket
+        if ($opt_clean_dss_bucket_restart && $ENV{'bucket_name'}) {
+          my $bucket_name = $ENV{'bucket_name'};
+	  restore_cloud_bucket("dss-$bucket_name", "$opt_vardir/install.db/minio_buckups");
+        }
+
+        if ($opt_clean_txlog_bucket_restart && $ENV{'bucket_name'}) {
+          my $bucket_name = $ENV{'bucket_name'};
+	  restore_cloud_bucket("txlog-$bucket_name", "$opt_vardir/install.db/minio_buckups");
+        }
       }
     }
   }
@@ -3801,9 +3827,24 @@ sub run_testcase ($$) {
 
     if ( started(all_servers()) == 0 )
     {
-
       # Remove old datadirs
       clean_datadir() unless $opt_start_dirty;
+      # Clean cloud buckets
+      if ($ENV{'bucket_name'}) {
+	 my $bucket_name= $ENV{'bucket_name'};
+
+	 # don't clean txlog bucket if not asked
+	 if ($opt_clean_txlog_bucket_restart) {
+	   my $txlog_bucket_name= "txlog-$bucket_name";
+           clean_cloud_bucket($txlog_bucket_name);
+	 }
+
+	 # don't clean dss bucket if not asked
+	 if ($opt_clean_dss_bucket_restart) {
+	   my $dss_bucket_name = "dss-$bucket_name";
+           clean_cloud_bucket($dss_bucket_name);
+	 }
+      }
 
       # Restore old ENV
       while (my ($option, $value)= each( %old_env )) {
@@ -4774,7 +4815,6 @@ sub clean_dir {
 	    $dir);
 }
 
-
 sub clean_datadir {
   mtr_verbose("Cleaning datadirs...");
 
@@ -4796,6 +4836,122 @@ sub clean_datadir {
   }
 }
 
+sub restore_cloud_bucket {
+  my ($bucket_name, $backup_dir)= @_;
+
+  mtr_report("Restoring cloud bucket...");
+
+  my $minio_server_alias = $ENV{'minio_server_alias'};
+  if (!$minio_server_alias) {
+    mtr_error("minio_server_alias environment variable is not set");
+    return;
+  }
+
+  # Check if mc command exists
+  my $mc_path = `which mc 2>/dev/null`;
+  chomp($mc_path);
+  if (!$mc_path || !-x $mc_path) {
+    mtr_error("mc command not found. Please install MinIO client (mc) to restore S3 buckets");
+    return;
+  }
+
+  # Check if backup directory exists
+  my $backup = "$backup_dir/$bucket_name";
+  if (!-d $backup) {
+    mtr_warning("Backup directory '$backup' does not exist, skipping restore");
+    return;
+  }
+
+  # Create bucket if it doesn't exist
+  my $bucket = "$minio_server_alias/$bucket_name";
+  my $bucket_check = system("mc ls $bucket >/dev/null 2>&1");
+  if ($bucket_check != 0) {
+    my $create_result = system("mc mb $bucket >/dev/null 2>&1");
+    if ($create_result != 0) {
+      mtr_error("Failed to create S3 bucket: $bucket");
+      return;
+    }
+    mtr_report("Created S3 bucket: $bucket");
+  }
+
+  # Restore bucket contents from backup
+  my $result = system("mc mirror $backup $bucket >/dev/null 2>&1");
+  if ($result == 0) {
+    mtr_report("Successfully restored S3 bucket: $bucket from $backup");
+  } else {
+    mtr_warning("Failed to restore S3 bucket: $bucket from $backup");
+  }
+}
+
+sub backup_cloud_bucket {
+  my ($bucket_name, $backup_dir)= @_;
+
+  mtr_report("Backup cloud bucket...");
+
+  my $minio_server_alias = $ENV{'minio_server_alias'};
+  if (!$minio_server_alias) {
+    mtr_error("minio_server_alias environment variable is not set");
+    return;
+  }
+
+  # Check if mc command exists
+  my $mc_path = `which mc 2>/dev/null`;
+  chomp($mc_path);
+  if (!$mc_path || !-x $mc_path) {
+    mtr_error("mc command not found. Please install MinIO client (mc) to backup S3 buckets");
+    return;
+  }
+
+  # Create backup directory if it doesn't exist
+  mkpath($backup_dir) unless -d $backup_dir;
+
+  # Backup dss bucket
+  my $bucket = "$minio_server_alias/$bucket_name";
+  my $backup = "$backup_dir/$bucket_name";
+  my $result = system("mc mirror $bucket $backup >/dev/null 2>&1");
+  if ($result == 0) {
+    mtr_report("Successfully backed up S3 bucket: $bucket to $backup");
+  } else {
+    mtr_error("Failed to backup S3 bucket: $bucket");
+  }
+}
+
+sub clean_cloud_bucket {
+  my ($bucket_name)= @_;
+  mtr_report("Cleaning cloud bucket...");
+
+  if (started(all_servers()) != 0){
+    mtr_error("Trying to clean datadir before all servers stopped");
+  }
+
+  if (!$bucket_name) {
+    mtr_error("bucket_name environment variable is not set");
+    return;
+  }
+
+  my $minio_server_alias = $ENV{'minio_server_alias'};
+  if (!$minio_server_alias) {
+    mtr_error("minio_server_alias environment variable is not set");
+    return;
+  }
+
+  # Check if mc command exists
+  my $mc_path = `which mc 2>/dev/null`;
+  chomp($mc_path);
+  if (!$mc_path || !-x $mc_path) {
+    mtr_error("mc command not found. Please install MinIO client (mc) to clean S3 buckets");
+    return;
+  }
+
+  # Remove dss bucket
+  my $bucket = "$minio_server_alias/$bucket_name";
+  my $result = system("mc rb $bucket --force >/dev/null 2>&1");
+  if ($result == 0) {
+    mtr_report("Successfully removed S3 bucket: $bucket");
+  } else {
+    mtr_error("Failed to remove S3 bucket: $bucket");
+  }
+}
 
 #
 # Save datadir before it's removed
@@ -5777,6 +5933,10 @@ Options to control directories to use
                         variable MTR_MEM=[DIR]
   clean-vardir          Clean vardir if tests were successful and if
                         running in "memory". Otherwise this option is ignored
+  clean-cloud-bucket-restart
+                        Clean cloud buckets during server restarts when
+                        running tests (requires bucket_name and minio_server_alias
+                        environment variables to be set)
   client-bindir=PATH    Path to the directory where client binaries are located
   client-libdir=PATH    Path to the directory where client libraries are located
 
