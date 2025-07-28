@@ -36,9 +36,9 @@ using namespace txservice;
 
 struct RangeID
 {
-  RangeID(std::string name) : seq_name_(name){};
+  RangeID(std::string name) : seq_name_(name) {};
   RangeID(std::string name, uint64_t table_version)
-      : seq_name_(name), table_version_(table_version){};
+      : seq_name_(name), table_version_(table_version) {};
 
   // lock when insert a record and need to apply an id
   std::mutex mutex_id_;

@@ -2674,7 +2674,7 @@ static int eloq_init_func(void *p)
 
     bool enable_txlog_request_checkpoint=
         eloq_enable_txlog_request_checkpoint ? true : false;
-    uint64_t notify_checkpointer_threshold_size=
+    [[maybe_unused]] uint64_t notify_checkpointer_threshold_size=
         txlog::parse_size(eloq_notify_checkpointer_threshold_size);
     sql_print_information(
         "eloq_enable_txlog_request_checkpoint: %s",

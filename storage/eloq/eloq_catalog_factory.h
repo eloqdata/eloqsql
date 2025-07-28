@@ -106,8 +106,9 @@ public:
   const EloqRecordSchema *MysqlRecordSchema() const { return &record_schema_; }
 
   const std::unordered_map<
-      uint16_t, std::pair<txservice::TableName, txservice::SecondaryKeySchema>>
-      *GetIndexes() const
+      uint16_t,
+      std::pair<txservice::TableName, txservice::SecondaryKeySchema>> *
+  GetIndexes() const
   {
     return &indexes_;
   }
