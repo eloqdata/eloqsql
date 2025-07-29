@@ -624,3 +624,4 @@ win/packaging/ca/symlinks.cc
 .ignore
 .root
 .rgignore
+storage/eloq/eloq_log_service
