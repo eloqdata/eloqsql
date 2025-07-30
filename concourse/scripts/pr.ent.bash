@@ -171,7 +171,7 @@ echo "installing dss_server"
 cp dss_server /home/mono/workspace/eloqsql/install/bin/
 
 echo "building log_server"
-cd /home/mono/workspace/eloqsql/storage/eloq/log_service
+cd /home/mono/workspace/eloqsql/storage/eloq/eloq_log_service
 mkdir bld && cd bld
 cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DUSE_ROCKSDB_LOG_STATE=ON -DWITH_ROCKSDB_CLOUD=S3 ../
 cmake --build . --config Debug -j8
