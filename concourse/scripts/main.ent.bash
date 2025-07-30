@@ -35,11 +35,14 @@ git checkout main
 ln -s $WORKSPACE/raft_host_manager_src raft_host_manager
 
 # setup mc command
-mc alias set minio_server ${MINIO_ENDPOINT_URL} ${ELOQ_AWS_ACCESS_KEY_ID} ${ELOQ_AWS_SECRET_KEY}
+# minio_server_alias will be used by mtr script for clean up mimio bucket
+# in middle of server restart
+export minio_server_alias="minio_server"
+mc alias set ${minio_server_alias} ${MINIO_ENDPOINT_URL} ${ELOQ_AWS_ACCESS_KEY_ID} ${ELOQ_AWS_SECRET_KEY}
 
 # construct minio bucket
 timestamp=$(($(date +%s%N)/1000000))
-bucket_name="eloqsql-mtr-test-${timestamp}"
+export bucket_name="eloqsql-mtr-test-${timestamp}"
 echo "bucket name is ${bucket_name}"
 
 #config eloq_kv_storage.cnf
@@ -146,6 +149,7 @@ if [ ! -f "Makefile" ]; then
           -DSTATISTICS=ON \
           -DWITH_DATA_STORE=ELOQDSS_ROCKSDB_CLOUD_S3 \
           -DUSE_ROCKSDB_LOG_STATE=ON \
+	  -DWITH_ROCKSDB_CLOUD=S3 \
           -DOPEN_LOG_SERVICE=OFF \
           -DFORK_HM_PROCESS=ON \
           ../
@@ -202,8 +206,8 @@ echo "cleaning minio buckets"
 set +e
 pkill -9 dss_server
 rm -rf dss_data
-mc rb minio_server/dss-${bucket_name} --force; \
-mc rb minio_server/txlog-${bucket_name} --force
+mc rb ${minio_server_alias}/dss-${bucket_name} --force; \
+mc rb ${minio_server_alias}/txlog-${bucket_name} --force
 set -e
 
 echo "running eloq_test"
@@ -216,20 +220,20 @@ echo "cleaning minio buckets"
 set +e
 pkill -9 dss_server
 rm -rf dss_data
-mc rb minio_server/dss-${bucket_name} --force; \
-mc rb minio_server/txlog-${bucket_name} --force
+mc rb ${minio_server_alias}/dss-${bucket_name} --force; \
+mc rb ${minio_server_alias}/txlog-${bucket_name} --force
 set -e
 
 echo "running mono_main,mono_basic"
-./mtr --suite=mono_main,mono_basic --testcase-timeout=30 --bootstrap-defaults-file=$WORKSPACE/eloqsql_src/concourse/scripts/mtr_bootstrap.cnf
+./mtr --clean-txlog-bucket-restart --suite=mono_main,mono_basic --testcase-timeout=30 --bootstrap-defaults-file=$WORKSPACE/eloqsql_src/concourse/scripts/mtr_bootstrap.cnf
 
 # Clean up minio buckets
 echo "cleaning minio buckets"
 set +e
 pkill -9 dss_server
 rm -rf dss_data
-mc rb minio_server/dss-${bucket_name} --force; \
-mc rb minio_server/txlog-${bucket_name} --force
+mc rb ${minio_server_alias}/dss-${bucket_name} --force
+mc rb ${minio_server_alias}/txlog-${bucket_name} --force
 set -e
 
 # Config eloq_kv_dss.cnf for multi
@@ -245,7 +249,7 @@ nohup /home/mono/workspace/eloqsql/install/bin/dss_server --config=$WORKSPACE/el
 sleep 5
 
 echo "running mono_multi"
-./mtr --suite=mono_multi --force --bootstrap-defaults-file=$WORKSPACE/eloqsql_src/concourse/scripts/mtr_multi_bootstrap.cnf
+./mtr --clean-txlog-bucket-restart --suite=mono_multi --force --bootstrap-defaults-file=$WORKSPACE/eloqsql_src/concourse/scripts/mtr_multi_bootstrap.cnf
 
 # Clean up minio bucket
 # If mtr test failed, it would not be run.
@@ -253,6 +257,6 @@ echo "cleaning minio buckets"
 set +e
 pkill -9 dss_server
 rm -rf dss_data
-mc rb minio_server/dss-${bucket_name} --force; \
-mc rb minio_server/txlog-${bucket_name} --force
+mc rb ${minio_server_alias}/dss-${bucket_name} --force; \
+mc rb ${minio_server_alias}/txlog-${bucket_name} --force
 set -e
