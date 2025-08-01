@@ -2734,7 +2734,7 @@ sub mysql_server_start($) {
         copytree("$install_db/test", "$datadir/test") if -d $install_db;
         copytree("$install_db/performance_schema", "$datadir/performance_schema") if -d $install_db;
         copytree("$install_db/mtr", "$datadir/mtr") if -d $install_db;
-	if (!$ENV(bucket_name))
+	if (!$ENV{'bucket_name'})
 	{
 	   # Restore eloq_dss if this is DSS without rocksdb_cloud
 	   copytree("$install_db/eloq_dss", "$datadir/eloq_dss") if -d $install_db && -d "$install_db/eloq_dss";
