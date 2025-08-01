@@ -10,7 +10,8 @@ cd $WORKSPACE
 whoami
 pwd
 ls
-sudo chown -R mono $PWD
+current_user=$(whoami)
+sudo chown -R $(current_user) $PWD
 
 # make coredump dir writable.
 if [ ! -d "/var/crash" ]; then sudo mkdir -p /var/crash; fi
@@ -19,12 +20,12 @@ sudo chmod 777 /var/crash
 ulimit -c unlimited
 echo '/var/crash/core.%t.%e.%p' | sudo tee /proc/sys/kernel/core_pattern
 
-sudo chown -R mono /home/mono/workspace
-cd /home/mono/workspace
+sudo chown -R $(current_user) /home/$(current_user)/workspace
+cd /home/$(current_user)/workspace
 ln -s $WORKSPACE/eloqsql_src eloqsql
 ln -s $WORKSPACE/eloq_test_src eloq_test
 
-cd /home/mono/workspace/eloqsql
+cd /home/$(current_user)/workspace/eloqsql
 git submodule sync
 git submodule update --init --recursive
 
@@ -117,14 +118,14 @@ sed -i "s/rocksdb_cloud_bucket_prefix.*=.\+/rocksdb_cloud_bucket_prefix=dss-/g" 
 echo "dss_server.ini"
 cat $WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini
 
-cd /home/mono/workspace/eloqsql
+cd /home/$(current_user)/workspace/eloqsql
 
 echo "configuring"
 if [ ! -d "bld" ]; then mkdir bld; fi
 cd bld
 
 if [ ! -f "Makefile" ]; then
-    cmake -DCMAKE_INSTALL_PREFIX="/home/mono/workspace/eloqsql/install" \
+    cmake -DCMAKE_INSTALL_PREFIX="/home/$(current_user)/workspace/eloqsql/install" \
           -DPLUGIN_{HANDLERSOCKET,ROCKSDB,ARIA,ARCHIVE,CVS,FEDERATEDX,TOKUDB,MROONGA,OQGRAPH,CONNECT,SPIDER,SPHINX,HEAP,MYISAMMRG}=NO \
           -DCMAKE_BUILD_TYPE=Debug \
           -DINSTALL_MYSQLTESTDIR="" \
@@ -152,24 +153,24 @@ echo "installing"
 cmake --install . --config Debug
 
 echo "building dss_server"
-cd /home/mono/workspace/eloqsql/storage/eloq/store_handler/eloq_data_store_service
+cd /home/$(current_user)/workspace/eloqsql/storage/eloq/store_handler/eloq_data_store_service
 mkdir bld && cd bld
 cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DWITH_DATA_STORE=ELOQDSS_ROCKSDB_CLOUD_S3 ../
 cmake --build . --config Debug -j8
 echo "installing dss_server"
-cp dss_server /home/mono/workspace/eloqsql/install/bin/
+cp dss_server /home/$(current_user)/workspace/eloqsql/install/bin/
 
 echo "building log_server"
-cd /home/mono/workspace/eloqsql/storage/eloq/log_service
+cd /home/$(current_user)/workspace/eloqsql/storage/eloq/log_service
 mkdir bld && cd bld
 cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DUSE_ROCKSDB_LOG_STATE=ON ../
 cmake --build . --config Debug -j8
 echo "installing launch_sv"
-cp launch_sv /home/mono/workspace/eloqsql/install/bin/
+cp launch_sv /home/$(current_user)/workspace/eloqsql/install/bin/
 
 echo "build finished"
 
-cd /home/mono/workspace/eloq_test
+cd /home/$(current_user)/workspace/eloq_test
 ./setup
 sed -i "s/eloq_aws_access_key_id.*=.\+/eloq_aws_access_key_id=${ELOQ_AWS_ACCESS_KEY_ID}/g" ./bootstrap_cnf/*_s3.cnf
 sed -i "s/eloq_aws_secret_key.*=.\+/eloq_aws_secret_key=${ELOQ_AWS_SECRET_KEY}/g" ./bootstrap_cnf/*_s3.cnf
@@ -199,9 +200,9 @@ mc rb minio_server/txlog-${bucket_name} --force
 set -e
 
 echo "running eloq_test"
-# python run_tests.py --dbtype eloqsql --storage eloqdss-rocksdb-cloud-s3 --install_path /home/mono/workspace/eloqsql/install 
+# python run_tests.py --dbtype eloqsql --storage eloqdss-rocksdb-cloud-s3 --install_path /home/$(current_user)/workspace/eloqsql/install
 
-cd /home/mono/workspace/eloqsql/bld/mysql-test
+cd /home/$(current_user)/workspace/eloqsql/bld/mysql-test
 
 # Clean up minio buckets
 echo "cleaning minio buckets"
@@ -233,7 +234,7 @@ cat $WORKSPACE/eloqsql_src/mysql-test/include/eloq_kv_dss.cnf
 
 # Start dss_server
 echo "starting dss_server"
-nohup /home/mono/workspace/eloqsql/install/bin/dss_server --config=$WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini > dss_server.log 2>&1 &
+nohup /home/$(current_user)/workspace/eloqsql/install/bin/dss_server --config=$WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini > dss_server.log 2>&1 &
 sleep 5
 
 echo "running mono_multi"
