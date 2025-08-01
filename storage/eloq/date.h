@@ -4298,8 +4298,8 @@ CONSTCD11 inline string_literal<CharT, 2> msl(std::exa) NOEXCEPT
 }
 
 template <class CharT, class Period>
-CONSTCD11 inline auto get_units(Period p)
-    -> decltype(msl<CharT>(p) + string_literal<CharT, 2>{'s'})
+CONSTCD11 inline auto
+get_units(Period p) -> decltype(msl<CharT>(p) + string_literal<CharT, 2>{'s'})
 {
   return msl<CharT>(p) + string_literal<CharT, 2>{'s'};
 }
@@ -7691,10 +7691,10 @@ operator>>(std::basic_istream<CharT, Traits> &is,
 template <class Parsable, class CharT, class Traits, class Alloc>
 inline auto parse(const std::basic_string<CharT, Traits, Alloc> &format,
                   Parsable &tp)
-    -> decltype(
-        date::from_stream(std::declval<std::basic_istream<CharT, Traits> &>(),
-                          format.c_str(), tp),
-        parse_manip<Parsable, CharT, Traits, Alloc>{format, tp})
+    -> decltype(date::from_stream(
+                    std::declval<std::basic_istream<CharT, Traits> &>(),
+                    format.c_str(), tp),
+                parse_manip<Parsable, CharT, Traits, Alloc>{format, tp})
 {
   return {format, tp};
 }
@@ -7703,10 +7703,11 @@ template <class Parsable, class CharT, class Traits, class Alloc>
 inline auto parse(const std::basic_string<CharT, Traits, Alloc> &format,
                   Parsable &tp,
                   std::basic_string<CharT, Traits, Alloc> &abbrev)
-    -> decltype(
-        date::from_stream(std::declval<std::basic_istream<CharT, Traits> &>(),
-                          format.c_str(), tp, &abbrev),
-        parse_manip<Parsable, CharT, Traits, Alloc>{format, tp, &abbrev})
+    -> decltype(date::from_stream(
+                    std::declval<std::basic_istream<CharT, Traits> &>(),
+                    format.c_str(), tp, &abbrev),
+                parse_manip<Parsable, CharT, Traits, Alloc>{format, tp,
+                                                            &abbrev})
 {
   return {format, tp, &abbrev};
 }
@@ -7730,11 +7731,11 @@ inline auto parse(const std::basic_string<CharT, Traits, Alloc> &format,
                   Parsable &tp,
                   std::basic_string<CharT, Traits, Alloc> &abbrev,
                   std::chrono::minutes &offset)
-    -> decltype(
-        date::from_stream(std::declval<std::basic_istream<CharT, Traits> &>(),
-                          format.c_str(), tp, &abbrev, &offset),
-        parse_manip<Parsable, CharT, Traits, Alloc>{format, tp, &abbrev,
-                                                    &offset})
+    -> decltype(date::from_stream(
+                    std::declval<std::basic_istream<CharT, Traits> &>(),
+                    format.c_str(), tp, &abbrev, &offset),
+                parse_manip<Parsable, CharT, Traits, Alloc>{format, tp,
+                                                            &abbrev, &offset})
 {
   return {format, tp, &abbrev, &offset};
 }
@@ -7753,10 +7754,11 @@ inline auto parse(const CharT *format, Parsable &tp)
 template <class Parsable, class CharT, class Traits, class Alloc>
 inline auto parse(const CharT *format, Parsable &tp,
                   std::basic_string<CharT, Traits, Alloc> &abbrev)
-    -> decltype(
-        date::from_stream(std::declval<std::basic_istream<CharT, Traits> &>(),
-                          format, tp, &abbrev),
-        parse_manip<Parsable, CharT, Traits, Alloc>{format, tp, &abbrev})
+    -> decltype(date::from_stream(
+                    std::declval<std::basic_istream<CharT, Traits> &>(),
+                    format, tp, &abbrev),
+                parse_manip<Parsable, CharT, Traits, Alloc>{format, tp,
+                                                            &abbrev})
 {
   return {format, tp, &abbrev};
 }
@@ -7777,11 +7779,11 @@ template <class Parsable, class CharT, class Traits, class Alloc>
 inline auto parse(const CharT *format, Parsable &tp,
                   std::basic_string<CharT, Traits, Alloc> &abbrev,
                   std::chrono::minutes &offset)
-    -> decltype(
-        date::from_stream(std::declval<std::basic_istream<CharT, Traits> &>(),
-                          format, tp, &abbrev, &offset),
-        parse_manip<Parsable, CharT, Traits, Alloc>{format, tp, &abbrev,
-                                                    &offset})
+    -> decltype(date::from_stream(
+                    std::declval<std::basic_istream<CharT, Traits> &>(),
+                    format, tp, &abbrev, &offset),
+                parse_manip<Parsable, CharT, Traits, Alloc>{format, tp,
+                                                            &abbrev, &offset})
 {
   return {format, tp, &abbrev, &offset};
 }
