@@ -31,7 +31,6 @@ git submodule update --init --recursive
 cd /home/mono/workspace/eloqsql/storage/eloq
 ln -s $WORKSPACE/logservice_src eloq_log_service
 cd tx_service
-git checkout main
 ln -s $WORKSPACE/raft_host_manager_src raft_host_manager
 
 # setup mc command
