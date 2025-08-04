@@ -231,8 +231,6 @@ eloq_dss_rocksdb_cloud_endpoint_url=http://127.0.0.1:9000
 eloq_dss_rocksdb_cloud_bucket_name = eloqsql-mtr-test
 eloq_dss_rocksdb_cloud_bucket_prefix = dss-
 eloq_dss_rocksdb_cloud_region = ap-northeast-1
-eloq_dss_config_file_path =
-eloq_dss_peer_node =
 eloq_dss_rocksdb_cloud_sst_file_cache_size = 20GB
 
 ```
@@ -267,8 +265,7 @@ eloq_dss_rocksdb_cloud_endpoint_url=http://127.0.0.1:9000
 eloq_dss_rocksdb_cloud_bucket_name = eloqsql-mtr-test
 eloq_dss_rocksdb_cloud_bucket_prefix = dss-
 eloq_dss_rocksdb_cloud_region = ap-northeast-1
-eloq_dss_config_file_path=
-eloq_dss_peer_node=localhost:9100
+eloq_dss_peer_node=localhost:9100 # add this line for mono_multi
 
 ...
 
@@ -305,8 +302,7 @@ eloq_dss_rocksdb_cloud_endpoint_url=http://127.0.0.1:9000
 eloq_dss_rocksdb_cloud_bucket_name = eloqsql-mtr-test
 eloq_dss_rocksdb_cloud_bucket_prefix = dss-
 eloq_dss_rocksdb_cloud_region = ap-northeast-1
-eloq_dss_config_file_path = 
-eloq_dss_peer_node = localhost:9100
+eloq_dss_peer_node = localhost:9100 # add this line for mono_multi
 eloq_dss_rocksdb_cloud_sst_file_cache_size = 20GB
 
 ```
