@@ -9,7 +9,7 @@ cd $WORKSPACE
 whoami
 pwd
 ls
-current_user=$(who)
+current_user=$(whoami)
 sudo chown -R $current_user $PWD
 
 # make coredump dir writable.
