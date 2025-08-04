@@ -16,7 +16,7 @@ cmake_minimum_required(VERSION 3.8)
 project(eloq)
 
 set(WITH_DATA_STORE "CASSANDRA" CACHE STRING "Which key-value storage to use")
-set_property(CACHE WITH_DATA_STORE PROPERTY STRINGS "CASSANDRA" "DYNAMODB" "BIGTABLE" "ELOQDSS_ROCKSDB_CLOUD_S3" "ELOQDSS_ELOQSTORE")
+set_property(CACHE WITH_DATA_STORE PROPERTY STRINGS "CASSANDRA" "DYNAMODB" "BIGTABLE" "ELOQDSS_ROCKSDB_CLOUD_S3" "ELOQDSS_ELOQSTORE" "ELOQDSS_ROCKSDB")
 message(NOTICE "WITH_DATA_STORE" : ${WITH_DATA_STORE})
 
 set(METRICS_LIB "eloq-metrics" CACHE STRING "metrics library name.")
@@ -37,6 +37,9 @@ elseif(WITH_DATA_STORE STREQUAL "ELOQDSS_ROCKSDB_CLOUD_S3")
 	set(KV_STORAGE_VAL 3 CACHE STRING "eloq_ds" FORCE)
 	add_compile_definitions(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3)
 	add_compile_definitions(ROCKSDB_CLOUD_FS_TYPE=1)
+elseif(WITH_DATA_STORE STREQUAL "ELOQDSS_ROCKSDB")
+  set(KV_STORAGE_VAL 3 CACHE STRING "eloq_ds" FORCE)
+  add_compile_definitions(DATA_STORE_TYPE_ELOQDSS_ROCKSDB)
 elseif(WITH_DATA_STORE STREQUAL "ELOQDSS_ELOQSTORE")
   set(KV_STORAGE_VAL 3 CACHE STRING "eloq_ds" FORCE)
   add_compile_definitions(DATA_STORE_TYPE_ELOQDSS_ELOQSTORE)
@@ -47,7 +50,21 @@ else()
 	message(FATAL_ERROR "Unset WITH_DATA_STORE")
 endif()
 
+if (WITH_DATA_STORE STREQUAL "ELOQDSS_ROCKSDB")
+  find_path(ROCKSDB_INCLUDE_PATH NAMES rocksdb/db.h)
+  if (NOT ROCKSDB_INCLUDE_PATH)
+    message(FATAL_ERROR "Fail to find RocksDB include path")
+  endif()
+  message(STATUS "ROCKSDB_INCLUDE_PATH: ${ROCKSDB_INCLUDE_PATH}")
+  include_directories(${ROCKSDB_INCLUDE_PATH})
 
+  find_library(ROCKSDB_LIB NAMES rocksdb)
+  if (NOT ROCKSDB_LIB)
+    message(FATAL_ERROR "Fail to find RocksDB lib path")
+  endif()
+  message(STATUS "ROCKSDB_LIB: ${ROCKSDB_LIB}")
+  set(ROCKSDB_LIBRARIES ${ROCKSDB_LIBRARIES} ${ROCKSDB_LIB})
+endif()
 
 if ((WITH_DATA_STORE STREQUAL "ROCKSDB_CLOUD_S3") OR (WITH_DATA_STORE STREQUAL "ROCKSDB_CLOUD_GCS") 
           OR (WITH_DATA_STORE STREQUAL "ELOQDSS_ROCKSDB_CLOUD_S3") OR (WITH_DATA_STORE STREQUAL "ELOQDSS_ROCKSDB_CLOUD_GCS"))
@@ -150,7 +167,7 @@ if ((WITH_DATA_STORE STREQUAL "ROCKSDB_CLOUD_S3") OR (WITH_DATA_STORE STREQUAL "
     set(ROCKSDB_LIBRARIES ${ROCKSDB_LIBRARIES} ${ROCKSDB_CLOUD_LIB})
 endif()
 
-if ((WITH_DATA_STORE STREQUAL "ELOQDSS_ROCKSDB_CLOUD_S3") OR (WITH_DATA_STORE STREQUAL "ELOQDSS_ROCKSDB_CLOUD_GCS") OR (WITH_DATA_STORE STREQUAL "ELOQDSS_ELOQSTORE"))
+if ((WITH_DATA_STORE STREQUAL "ELOQDSS_ROCKSDB_CLOUD_S3") OR (WITH_DATA_STORE STREQUAL "ELOQDSS_ROCKSDB_CLOUD_GCS") OR (WITH_DATA_STORE STREQUAL "ELOQDSS_ROCKSDB") OR (WITH_DATA_STORE STREQUAL "ELOQDSS_ELOQSTORE"))
   # compile proto file
   set(DS_PROTO_DIR ${CMAKE_CURRENT_SOURCE_DIR}/store_handler/eloq_data_store_service)
   message(NOTICE "data store service proto dir: ${DS_PROTO_DIR}")
@@ -273,7 +290,7 @@ elseif(WITH_DATA_STORE STREQUAL "BIGTABLE")
 		store_handler/bigtable_scanner.h
 		store_handler/bigtable_scanner.cpp)
 	SET(MYELOQ_LIBRARY txservice google-cloud-cpp::bigtable)
-elseif(WITH_DATA_STORE STREQUAL "ELOQDSS_ROCKSDB_CLOUD_S3")
+elseif(WITH_DATA_STORE STREQUAL "ELOQDSS_ROCKSDB_CLOUD_S3" OR WITH_DATA_STORE STREQUAL "ELOQDSS_ROCKSDB")
 	SET(MYELOQ_SOURCES
 		${MYELOQ_SOURCES}    
     store_handler/data_store_service_client.h        
@@ -299,12 +316,25 @@ elseif(WITH_DATA_STORE STREQUAL "ELOQDSS_ROCKSDB_CLOUD_S3")
 		store_handler/eloq_data_store_service/data_store_service_config.cpp
 		store_handler/eloq_data_store_service/ds_request.pb.h
 		store_handler/eloq_data_store_service/ds_request.pb.cc
-
-		store_handler/eloq_data_store_service/rocksdb_cloud_data_store.h
-		store_handler/eloq_data_store_service/rocksdb_cloud_data_store.cpp
 		store_handler/eloq_data_store_service/rocksdb_config.h
 		store_handler/eloq_data_store_service/rocksdb_config.cpp
+                store_handler/eloq_data_store_service/rocksdb_data_store_common.h
+                store_handler/eloq_data_store_service/rocksdb_data_store_common.cpp
 	)
+
+  if (WITH_DATA_STORE STREQUAL "ELOQDSS_ROCKSDB_CLOUD_S3")
+    SET(MYELOQ_SOURCES
+      ${MYELOQ_SOURCES}
+		  store_handler/eloq_data_store_service/rocksdb_cloud_data_store.h
+		  store_handler/eloq_data_store_service/rocksdb_cloud_data_store.cpp
+    )
+  elseif (WITH_DATA_STORE STREQUAL "ELOQDSS_ROCKSDB")
+    SET(MYELOQ_SOURCES
+      ${MYELOQ_SOURCES}
+		  store_handler/eloq_data_store_service/rocksdb_data_store.h
+		  store_handler/eloq_data_store_service/rocksdb_data_store.cpp
+    )
+  endif()
 	SET(MYELOQ_LIBRARY ${MYELOQ_LIBRARY} txservice ${ROCKSDB_LIBRARIES})
 	
 	include_directories(${CMAKE_CURRENT_SOURCE_DIR}/store_handler/eloq_data_store_service)

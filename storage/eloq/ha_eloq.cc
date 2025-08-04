@@ -159,6 +159,7 @@
 
 #if (defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3) ||                     \
      defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_GCS) ||                    \
+     defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB) ||                    \
      defined(DATA_STORE_TYPE_ELOQDSS_ELOQSTORE))
 #define ELOQDS 1
 #endif
@@ -178,6 +179,9 @@
      (ROCKSDB_CLOUD_FS_TYPE == ROCKSDB_CLOUD_FS_TYPE_S3 ||                    \
       ROCKSDB_CLOUD_FS_TYPE == ROCKSDB_CLOUD_FS_TYPE_GCS))
 #include "store_handler/eloq_data_store_service/rocksdb_cloud_data_store_factory.h"
+#include "store_handler/eloq_data_store_service/rocksdb_config.h"
+#elif defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB)
+#include "store_handler/eloq_data_store_service/rocksdb_data_store_factory.h"
 #include "store_handler/eloq_data_store_service/rocksdb_config.h"
 #elif defined(DATA_STORE_TYPE_ELOQDSS_ELOQSTORE)
 #include "store_handler/eloq_data_store_service/eloq_store_data_store_factory.h"
@@ -2491,6 +2495,13 @@ static int eloq_init_func(void *p)
         "local", "enable_cache_replacement", false);
     auto ds_factory= std::make_unique<EloqDS::RocksDBCloudDataStoreFactory>(
         rocksdb_config, rocksdb_cloud_config, enable_cache_replacement_);
+#elif defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB)
+    INIReader fake_config_reader(nullptr, 0);
+    EloqDS::RocksDBConfig rocksdb_config(fake_config_reader, dss_data_path);
+    bool enable_cache_replacement_= fake_config_reader.GetBoolean(
+        "local", "enable_cache_replacement", false);
+    auto ds_factory= std::make_unique<EloqDS::RocksDBDataStoreFactory>(
+        rocksdb_config, enable_cache_replacement_);
 #elif defined(DATA_STORE_TYPE_ELOQDSS_ELOQSTORE)
     EloqDS::EloqStoreConfig eloq_store_config;
     eloq_store_config.worker_count_= eloq_eloqstore_worker_num;
@@ -2516,6 +2527,10 @@ static int eloq_init_func(void *p)
           rocksdb_cloud_config, rocksdb_config,
           (opt_bootstrap || is_single_node), enable_cache_replacement_,
           shard_id, data_store_service_.get());
+#elif defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB)
+    auto ds= std::make_unique<EloqDS::RocksDBDataStore>(
+        rocksdb_config, (opt_bootstrap || is_single_node), enable_cache_replacement_,
+        shard_id, data_store_service_.get());
 #elif defined(DATA_STORE_TYPE_ELOQDSS_ELOQSTORE)
       DLOG(INFO) << "worker: " << eloq_store_config.worker_count_
                  << ", path: " << eloq_store_config.storage_path_
