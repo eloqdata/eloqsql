@@ -159,7 +159,7 @@
 
 #if (defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3) ||                     \
      defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_GCS) ||                    \
-     defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB) ||                    \
+     defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB) ||                              \
      defined(DATA_STORE_TYPE_ELOQDSS_ELOQSTORE))
 #define ELOQDS 1
 #endif
@@ -2528,9 +2528,9 @@ static int eloq_init_func(void *p)
           (opt_bootstrap || is_single_node), enable_cache_replacement_,
           shard_id, data_store_service_.get());
 #elif defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB)
-    auto ds= std::make_unique<EloqDS::RocksDBDataStore>(
-        rocksdb_config, (opt_bootstrap || is_single_node), enable_cache_replacement_,
-        shard_id, data_store_service_.get());
+      auto ds= std::make_unique<EloqDS::RocksDBDataStore>(
+          rocksdb_config, (opt_bootstrap || is_single_node),
+          enable_cache_replacement_, shard_id, data_store_service_.get());
 #elif defined(DATA_STORE_TYPE_ELOQDSS_ELOQSTORE)
       DLOG(INFO) << "worker: " << eloq_store_config.worker_count_
                  << ", path: " << eloq_store_config.storage_path_
