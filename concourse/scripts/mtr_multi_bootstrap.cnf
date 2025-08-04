@@ -30,5 +30,5 @@ eloq_dss_rocksdb_cloud_endpoint_url=http://127.0.0.1:9900
 eloq_dss_rocksdb_cloud_bucket_name = eloqsql-mtr-test
 eloq_dss_rocksdb_cloud_bucket_prefix = dss-
 eloq_dss_rocksdb_cloud_region = ap-northeast-1
-eloq_dss_config_file_path = #/home/mono/workspace/mariadb/storage/eloq/concourse/scripts/dss_config.example.ini
-eloq_dss_peer_node = #127.0.0.1:9100 
+eloq_dss_config_file_path =
+eloq_dss_peer_node =
