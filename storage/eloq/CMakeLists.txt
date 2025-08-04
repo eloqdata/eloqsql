@@ -21,11 +21,7 @@ message(NOTICE "WITH_DATA_STORE" : ${WITH_DATA_STORE})
 
 set(METRICS_LIB "eloq-metrics" CACHE STRING "metrics library name.")
 
-if(WITH_DATA_STORE STREQUAL "CASSANDRA")
-	set(KV_STORAGE_VAL 0 CACHE STRING "cassandra" FORCE)
-	add_compile_definitions(DATA_STORE_TYPE_CASSANDRA)
-	INCLUDE(build_cass_driver.cmake)
-elseif(WITH_DATA_STORE STREQUAL "DYNAMODB")
+if(WITH_DATA_STORE STREQUAL "DYNAMODB")
 	set(KV_STORAGE_VAL 1 CACHE STRING "dynamodb" FORCE)
 	add_compile_definitions(DATA_STORE_TYPE_DYNAMODB)
 	find_package(AWSSDK REQUIRED COMPONENTS dynamodb)
@@ -230,9 +226,6 @@ endif()
 option(RANGE_PARTITION_ENABLED "Whether enable range partition" OFF)
 message(NOTICE "RANGE_PARTITION_ENABLED : ${RANGE_PARTITION_ENABLED}")
 
-option(USE_ONE_CASS_SHARD_ENABLED "Whether use one shard for kv store" ON)
-message(NOTICE "USE_ONE_CASS_SHARD_ENABLED : ${USE_ONE_CASS_SHARD_ENABLED}")
-
 option(SMALL_RANGE "Whether enable small range" OFF)
 message(NOTICE "SMALL_RANGE : ${SMALL_RANGE}")
 
@@ -264,18 +257,7 @@ SET(MYELOQ_SOURCES
 	store_handler/kv_store.h
 )
 
-if(WITH_DATA_STORE STREQUAL "CASSANDRA")
-	SET(MYELOQ_SOURCES
-		${MYELOQ_SOURCES}
-		store_handler/cass_scanner.h
-		store_handler/cass_scanner.cpp
-		store_handler/cass_handler.h
-		store_handler/cass_handler.cpp
-		store_handler/cass_big_number.h
-		store_handler/cass_big_number.cpp
-		)
-	SET(MYELOQ_LIBRARY txservice cassandra_static)
-elseif(WITH_DATA_STORE STREQUAL "DYNAMODB")
+if(WITH_DATA_STORE STREQUAL "DYNAMODB")
 	SET(MYELOQ_SOURCES ${MYELOQ_SOURCES}
 		store_handler/dynamo_handler.h
 		store_handler/dynamo_handler.cpp
@@ -318,8 +300,8 @@ elseif(WITH_DATA_STORE STREQUAL "ELOQDSS_ROCKSDB_CLOUD_S3" OR WITH_DATA_STORE ST
 		store_handler/eloq_data_store_service/ds_request.pb.cc
 		store_handler/eloq_data_store_service/rocksdb_config.h
 		store_handler/eloq_data_store_service/rocksdb_config.cpp
-                store_handler/eloq_data_store_service/rocksdb_data_store_common.h
-                store_handler/eloq_data_store_service/rocksdb_data_store_common.cpp
+    store_handler/eloq_data_store_service/rocksdb_data_store_common.h
+    store_handler/eloq_data_store_service/rocksdb_data_store_common.cpp
 	)
 
   if (WITH_DATA_STORE STREQUAL "ELOQDSS_ROCKSDB_CLOUD_S3")
@@ -367,9 +349,9 @@ endif()
 
 # add_compile_definitions(WITH_DATA_STORE=${KV_STORAGE_VAL})
 
-if(USE_ONE_CASS_SHARD_ENABLED)
-	# add preprocessor defition USE_ONE_CASS_SHARD
-	add_compile_definitions(USE_ONE_CASS_SHARD)
+if(USE_ONE_DATA_STORE_SHARD_ENABLED)
+	# add preprocessor defition USE_ONE_DATA_STORE_SHARD
+	add_compile_definitions(USE_ONE_DATA_STORE_SHARD)
 endif()
 
 SET(MYELOQ_SOURCES ${MYELOQ_SOURCES} metrics_registry_impl.h metrics_registry_impl.cpp)

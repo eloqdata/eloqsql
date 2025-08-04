@@ -189,13 +189,9 @@ std::unique_ptr<EloqKey> Sequences::GenKey(const std::string &seq_name)
 
 int16_t Sequences::GenHashPk1(const std::string &seq_name)
 {
-#ifdef USE_ONE_CASS_SHARD
-  return 0;
-#else
   std::unique_ptr<EloqKey> mkey= GenKey(seq_name);
   size_t hash= mkey->Hash();
   return (hash >> 10) & 0x3FF;
-#endif
 }
 
 int Sequences::ApplyRangeId(
