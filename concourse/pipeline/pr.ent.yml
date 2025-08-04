@@ -37,10 +37,10 @@ resources:
     uri: git@github.com:eloqdata/raft_host_manager.git
     private_key: ((git-key))
 
-- name: mono_ubuntu_2004
+- name: eloq_ubuntu_2404
   type: registry-image
   source:
-    repository: monographdb/monograph-dev-ci-ubuntu2004
+    repository: eloqdata/monograph-dev-ci-ubuntu2004
     username: monographdb
     password: ((docker-secret-key))
 
@@ -58,13 +58,13 @@ jobs:
       - get: eloqsql_pr
         trigger: true
         version: every
-      - get: mono_ubuntu_2004
+      - get: eloq_ubuntu_2404
   - put: eloqsql_pr
     params:
       path: eloqsql_pr
       status: pending
   - task: compile-test-task
-    image: mono_ubuntu_2004
+    image: eloq_ubuntu_2404
     file: eloqsql_pr/concourse/tasks/pr.ent.yml
     params:
       ELOQ_AWS_ACCESS_KEY_ID: ((minio-access-key))
