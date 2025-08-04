@@ -237,6 +237,9 @@ eloq_dss_rocksdb_cloud_sst_file_cache_size = 20GB
 
 Run mono_basic and mono_main test
 ```bash
+pkill -9 dss_server
+rm -rf dss_data
+
 export minio_server_alias="minio_server"
 mc alias set ${minio_server_alias} http://127.0.0.1:9000 minioadmin minioadmin
 
@@ -309,13 +312,16 @@ eloq_dss_rocksdb_cloud_sst_file_cache_size = 20GB
 
 Run mono_multi test
 ```bash
+pkill -9 dss_server
+rm -rf dss_data
+
 export minio_server_alias="minio_server"
 mc alias set ${minio_server_alias} http://127.0.0.1:9000 minioadmin minioadmin
 
 mc rb ${minio_server_alias}/dss-eloqsql-mtr-test --force
 mc rb ${minio_server_alias}/txlog-eloqsql-mtr-test --force
 
-nohup ${INSTALL_DIR}/bin/dss_server --config=concourse/scripts/dss_server.ini
+nohup ${INSTALL_DIR}/bin/dss_server --config=concourse/scripts/dss_server.ini &
 
 build/mysql-test/mtr --clean-txlog-bucket-restart --suite=mono_multi --bootstrap-defaults-file=concourse/scripts/mtr_multi_bootstrap.cnf
 
