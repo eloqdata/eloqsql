@@ -884,7 +884,7 @@ static MYSQL_SYSVAR_STR(txlog_rocksdb_cloud_object_path,
                         eloq_txlog_rocksdb_cloud_object_path,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
                         "TxLog RocksDB cloud object path", NULL, NULL,
-                        "rockdb_cloud");
+                        "rocksdb_cloud");
 static MYSQL_SYSVAR_STR(txlog_rocksdb_cloud_region,
                         eloq_txlog_rocksdb_cloud_region,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
@@ -992,7 +992,7 @@ static MYSQL_SYSVAR_STR(dss_rocksdb_cloud_object_path,
                         eloq_dss_rocksdb_cloud_object_path,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
                         "EloqDataStoreService RocksDB cloud object path", NULL,
-                        NULL, "rockdb_cloud");
+                        NULL, "rocksdb_cloud");
 static MYSQL_SYSVAR_STR(dss_rocksdb_cloud_region,
                         eloq_dss_rocksdb_cloud_region,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
