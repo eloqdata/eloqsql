@@ -1,2 +1,6 @@
 raft_host_manager=8733d935f93e3fff54709bd765656dc324cbc936
+<<<<<<< HEAD
 log_service=31679a2a3cc2222cbfb90a4625f3adb910783c6f
+=======
+log_service=62dee06a09e75e29bbcbd46ce8f5f5ab62da0ca2
+>>>>>>> 580d4457111 (update eloq_log_service)

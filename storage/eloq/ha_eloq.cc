@@ -337,6 +337,7 @@ static my_bool eloq_enable_log_service_metrics= false;
 // log server/rocksdb/cloud
 static char *eloq_txlog_rocksdb_cloud_bucket_name= nullptr;
 static char *eloq_txlog_rocksdb_cloud_bucket_prefix= nullptr;
+static char *eloq_txlog_rocksdb_cloud_object_path= nullptr;
 static char *eloq_txlog_rocksdb_cloud_region= nullptr;
 static char *eloq_txlog_rocksdb_cloud_endpoint_url= nullptr;
 static char *eloq_txlog_rocksdb_cloud_sst_file_cache_size= nullptr;
@@ -361,6 +362,7 @@ static char *eloq_dss_config_file_path= nullptr;
 static char *eloq_dss_peer_node= nullptr;
 static char *eloq_dss_rocksdb_cloud_bucket_name= nullptr;
 static char *eloq_dss_rocksdb_cloud_bucket_prefix= nullptr;
+static char *eloq_dss_rocksdb_cloud_object_path= nullptr;
 static char *eloq_dss_rocksdb_cloud_region= nullptr;
 static char *eloq_dss_rocksdb_cloud_endpoint_url= nullptr;
 static char *eloq_dss_rocksdb_cloud_sst_file_cache_size= nullptr;
@@ -878,6 +880,11 @@ static MYSQL_SYSVAR_STR(txlog_rocksdb_cloud_bucket_prefix,
                         eloq_txlog_rocksdb_cloud_bucket_prefix,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
                         "TxLog RocksDB cloud bucket prefix", NULL, NULL, "");
+static MYSQL_SYSVAR_STR(txlog_rocksdb_cloud_object_path,
+                        eloq_txlog_rocksdb_cloud_object_path,
+                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+                        "TxLog RocksDB cloud object path", NULL, NULL,
+                        "rockdb_cloud");
 static MYSQL_SYSVAR_STR(txlog_rocksdb_cloud_region,
                         eloq_txlog_rocksdb_cloud_region,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
@@ -981,6 +988,11 @@ static MYSQL_SYSVAR_STR(dss_rocksdb_cloud_bucket_prefix,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
                         "EloqDataStoreService RocksDB cloud bucket prefix",
                         NULL, NULL, "");
+static MYSQL_SYSVAR_STR(dss_rocksdb_cloud_object_path,
+                        eloq_dss_rocksdb_cloud_object_path,
+                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+                        "EloqDataStoreService RocksDB cloud object path", NULL,
+                        NULL, "rockdb_cloud");
 static MYSQL_SYSVAR_STR(dss_rocksdb_cloud_region,
                         eloq_dss_rocksdb_cloud_region,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
@@ -1111,6 +1123,7 @@ static struct st_mysql_sys_var *eloq_system_variables[]= {
     MYSQL_SYSVAR(enable_log_service_metrics),
     MYSQL_SYSVAR(txlog_rocksdb_cloud_bucket_name),
     MYSQL_SYSVAR(txlog_rocksdb_cloud_bucket_prefix),
+    MYSQL_SYSVAR(txlog_rocksdb_cloud_object_path),
     MYSQL_SYSVAR(txlog_rocksdb_cloud_region),
     MYSQL_SYSVAR(txlog_rocksdb_cloud_sst_file_cache_size),
     MYSQL_SYSVAR(txlog_rocksdb_cloud_sst_file_cache_num_shard_bits),
@@ -1137,6 +1150,7 @@ static struct st_mysql_sys_var *eloq_system_variables[]= {
     MYSQL_SYSVAR(dss_peer_node),
     MYSQL_SYSVAR(dss_rocksdb_cloud_bucket_name),
     MYSQL_SYSVAR(dss_rocksdb_cloud_bucket_prefix),
+    MYSQL_SYSVAR(dss_rocksdb_cloud_object_path),
     MYSQL_SYSVAR(dss_rocksdb_cloud_region),
     MYSQL_SYSVAR(dss_rocksdb_cloud_sst_file_cache_size),
     MYSQL_SYSVAR(dss_rocksdb_cloud_sst_file_cache_num_shard_bits),
@@ -2482,6 +2496,7 @@ static int eloq_init_func(void *p)
 #endif
     rocksdb_cloud_config.bucket_name_= eloq_dss_rocksdb_cloud_bucket_name;
     rocksdb_cloud_config.bucket_prefix_= eloq_dss_rocksdb_cloud_bucket_prefix;
+    rocksdb_cloud_config.object_path_= eloq_dss_rocksdb_cloud_object_path;
     rocksdb_cloud_config.region_= eloq_dss_rocksdb_cloud_region;
     rocksdb_cloud_config.s3_endpoint_url_= eloq_dss_rocksdb_cloud_endpoint_url;
     rocksdb_cloud_config.sst_file_cache_size_=
@@ -2714,6 +2729,7 @@ static int eloq_init_func(void *p)
     rocksdb_cloud_config.bucket_name_= eloq_txlog_rocksdb_cloud_bucket_name;
     rocksdb_cloud_config.bucket_prefix_=
         eloq_txlog_rocksdb_cloud_bucket_prefix;
+    rocksdb_cloud_config.object_path_= eloq_txlog_rocksdb_cloud_object_path;
     rocksdb_cloud_config.region_= eloq_txlog_rocksdb_cloud_region;
     rocksdb_cloud_config.endpoint_url_= eloq_txlog_rocksdb_cloud_endpoint_url;
     rocksdb_cloud_config.sst_file_cache_size_=
