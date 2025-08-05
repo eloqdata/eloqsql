@@ -71,6 +71,7 @@ jobs:
       ELOQ_AWS_REGION: ((aws-region))
       ELOQ_AWS_SECRET_KEY: ((minio-secret-key))
       MINIO_ENDPOINT_URL: ((minio-endpoint))
+      GIT_SSH_KEY: ((git-key))
     privileged: true
     on_failure:
       put: eloqsql_pr
