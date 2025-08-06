@@ -2738,6 +2738,15 @@ sub mysql_server_start($) {
 	{
 	   # Restore eloq_dss if this is DSS without rocksdb_cloud
 	   copytree("$install_db/eloq_dss", "$datadir/eloq_dss") if -d $install_db && -d "$install_db/eloq_dss";
+	   # delete dss_config.ini if exist
+	   my $dss_config_file = "$datadir/eloq_dss/dss_config.ini";
+	   if (-e $dss_config_file) 
+	   {
+	       unlink $dss_config_file or die "Could not delete $dss_config_file : $!";
+               print "File $dss_config_file deleted successfully.\n";
+           } else {
+               print "File $dss_config_file does not exist.\n";
+           }
 	}
         mtr_error("Failed to copy system db to '$datadir'") unless -d $datadir;
 
