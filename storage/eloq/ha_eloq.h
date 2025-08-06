@@ -663,13 +663,6 @@ private:
                                            EloqRecord &eloq_record,
                                            bool for_update, uint kid);
 
-  bool ReadSnapshotFromDataStore(const txservice::TableName &table_name,
-                                 const txservice::KVCatalogInfo *kv_info,
-                                 uint64_t read_ts, bool need_fetch_base,
-                                 const EloqKey &eloq_key,
-                                 EloqRecord &eloq_record,
-                                 txservice::RecordStatus &rec_status);
-
   void AddPushedDownCondition(Item *cond_item);
 
   std::string PushedConditionString(

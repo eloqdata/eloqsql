@@ -2527,7 +2527,7 @@ static int eloq_init_func(void *p)
 #endif
 
     data_store_service_= std::make_unique<EloqDS::DataStoreService>(
-        ds_config, eloq_dss_config_file_path, dss_data_path + "/DSMigrateLog",
+        ds_config, dss_config_file_path, dss_data_path + "/DSMigrateLog",
         std::move(ds_factory));
     std::vector<uint32_t> dss_shards= ds_config.GetShardsForThisNode();
     std::unordered_map<uint32_t, std::unique_ptr<EloqDS::DataStore>>
@@ -6046,7 +6046,6 @@ int ha_eloq::PkIndexScanNext(uchar *table_record)
   const EloqKey *result_key= nullptr;
   const EloqRecord *result_rec= nullptr;
   auto result_rec_status= txservice::RecordStatus::Deleted;
-  std::unique_ptr<EloqRecord> version_miss_rec= nullptr;
 
   txservice::TxKey store_tx_key;
   const EloqKey *store_key= nullptr;
@@ -6293,22 +6292,10 @@ int ha_eloq::PkIndexScanNext(uchar *table_record)
       }
       else
       {
-        if (version_miss_rec == nullptr)
-        {
-          version_miss_rec= std::make_unique<EloqRecord>();
-        }
-        bool res= ReadSnapshotFromDataStore(
-            *GetBaseTableNameFromTableSchema(), GetKVCatalogInfo(),
-            tx_start_ts, result_rec_status != RecordStatus::ArchiveVersionMiss,
-            *result_key, *version_miss_rec, result_rec_status);
-        if (!res || result_rec_status == RecordStatus::Deleted)
-        {
-          continue;
-        }
-        else
-        {
-          DecodeRecord(table_record, result_key, version_miss_rec.get());
-        }
+        LOG(ERROR)
+            << "PkInexScanNext miss an invalid status record, the status is "
+            << static_cast<int>(result_rec_status);
+        assert(false);
       }
 
       // DBUG_ASSERT(has_hidden_pk(table) || decode_flag_ > 0);
@@ -6421,7 +6408,6 @@ int ha_eloq::SkIndexScanNext(uchar *table_record)
   const EloqKey *result_key= nullptr;
   const EloqRecord *result_rec= nullptr;
   auto result_rec_status= txservice::RecordStatus::Deleted;
-  std::unique_ptr<EloqRecord> version_miss_rec= nullptr;
 
   txservice::TxKey store_tx_key;
   const EloqKey *store_key= nullptr;
@@ -6697,19 +6683,10 @@ int ha_eloq::SkIndexScanNext(uchar *table_record)
       }
       else if (result_rec_status != txservice::RecordStatus::Normal)
       {
-        if (version_miss_rec == nullptr)
-        {
-          version_miss_rec= std::make_unique<EloqRecord>();
-        }
-        bool res= ReadSnapshotFromDataStore(
-            scan_table_name, GetKVCatalogInfo(), tx_start_ts,
-            result_rec_status != RecordStatus::ArchiveVersionMiss, *result_key,
-            *version_miss_rec, result_rec_status);
-        if (!res || result_rec_status == RecordStatus::Deleted)
-        {
-          continue;
-        }
-        result_rec= version_miss_rec.get();
+        LOG(ERROR)
+            << "SkInexScanNext miss an invalid record status, the status is "
+            << static_cast<int>(result_rec_status);
+        assert(false);
       }
 
       bool is_require_keys= has_hidden_pk(table) || decode_flag_ > 0;
@@ -7139,73 +7116,8 @@ RecordStatus ha_eloq::PkRead(MyEloqTx *my_tx, const TxKey &pk_tx_key,
   }
 
   RecordStatus rec_status= read_req.Result().first;
-  if (rec_status == RecordStatus::Normal ||
-      rec_status == RecordStatus::Deleted)
-  {
-    return rec_status;
-  }
-
-  if (storage_hd == nullptr)
-  {
-    return RecordStatus::Deleted;
-  }
-
-  EloqRecord latest_rec;
-  RecordStatus latest_rec_status= RecordStatus::Unknown;
-  uint64_t latest_version_ts= 1U;
-
-  if (rec_status == RecordStatus::Unknown ||
-      rec_status == RecordStatus::VersionUnknown ||
-      rec_status == RecordStatus::BaseVersionMiss)
-  {
-    bool store_found= false;
-    bool success= storage_hd->Read(*GetBaseTableNameFromTableSchema(),
-                                   pk_tx_key, latest_rec, store_found,
-                                   latest_version_ts, table_schema_);
-    if (!success)
-    {
-      return RecordStatus::Deleted;
-    }
-    latest_rec_status=
-        store_found ? RecordStatus::Normal : RecordStatus::Deleted;
-
-    if (rec_status == RecordStatus::Unknown)
-    {
-      // A ReadOutside request brings a data store record into the cc map
-      //  for caching.
-      ReadOutsideTxRequest read_outside(
-          latest_rec, latest_rec_status == RecordStatus::Deleted,
-          latest_version_ts, nullptr, yield_func, resume_func, txm);
-      txm->Execute(&read_outside);
-      read_outside.Wait();
-    }
-  }
-
-  if (rec_status == RecordStatus::ArchiveVersionMiss ||
-      (!for_update && !for_share &&
-       txm->GetIsolationLevel() == IsolationLevel::Snapshot &&
-       latest_version_ts > txm->GetStartTs()))
-  {
-    EloqRecord visible_record;
-    uint64_t archive_version_ts= 1U;
-    bool success= storage_hd->FetchVisibleArchive(
-        *GetBaseTableNameFromTableSchema(), GetKVCatalogInfo(), pk_tx_key,
-        txm->GetStartTs(), visible_record, rec_status, archive_version_ts);
-    if (success)
-    {
-      eloq_record= std::move(visible_record);
-    }
-    else
-    {
-      my_tx->tx_err_code_= txservice::TxErrorCode::DATA_STORE_ERROR;
-      rec_status= RecordStatus::Unknown;
-    }
-  }
-  else
-  {
-    eloq_record= latest_rec;
-    rec_status= latest_rec_status;
-  }
+  assert(rec_status == RecordStatus::Normal ||
+         rec_status == RecordStatus::Deleted);
 
   return rec_status;
 }
@@ -7317,38 +7229,6 @@ std::pair<RecordStatus, uint64_t> ha_eloq::SkRead(MyEloqTx *my_tx,
   }
 
   return std::pair<RecordStatus, uint64_t>(rec_status, unique_sk_ts);
-}
-
-bool ha_eloq::ReadSnapshotFromDataStore(
-    const txservice::TableName &table_name,
-    const txservice::KVCatalogInfo *kv_info, uint64_t read_ts,
-    bool need_fetch_base, const EloqKey &eloq_key, EloqRecord &eloq_record,
-    txservice::RecordStatus &rec_status)
-{
-  bool success= true;
-  uint64_t commit_ts= 1U;
-  TxKey tx_key(&eloq_key);
-  if (need_fetch_base)
-  {
-    bool store_found= false;
-    success= storage_hd->Read(table_name, tx_key, eloq_record, store_found,
-                              commit_ts, table_schema_);
-    rec_status= store_found ? txservice::RecordStatus::Normal
-                            : txservice::RecordStatus::Deleted;
-    if (!success)
-    {
-      return false;
-    }
-    else if (commit_ts <= read_ts)
-    {
-      return true;
-    }
-  }
-
-  success=
-      storage_hd->FetchVisibleArchive(table_name, kv_info, tx_key, read_ts,
-                                      eloq_record, rec_status, commit_ts);
-  return success;
 }
 
 /*
@@ -9603,6 +9483,7 @@ int ha_eloq::batch_load_records(std::vector<uchar *> &vct_key)
     return 0;
   }
 
+#ifdef DEBUG
   // Here need to reconsider if to backfill records to memory or consider
   // Snapshot
   for (size_t i= 0; i < sk_pk_scan_batch_.size(); i++)
@@ -9614,21 +9495,13 @@ int ha_eloq::batch_load_records(std::vector<uchar *> &vct_key)
         rec_status == RecordStatus::VersionUnknown ||
         rec_status == RecordStatus::BaseVersionMiss)
     {
-      bool store_found= false;
-      bool success= storage_hd->Read(
-          *GetBaseTableNameFromTableSchema(), sk_pk_scan_batch_[i].key_,
-          *sk_pk_scan_batch_[i].record_, store_found, latest_version_ts,
-          table_schema_);
-      if (!success)
-      {
-        sk_pk_scan_batch_[i].status_= RecordStatus::Deleted;
-        continue;
-      }
-
-      sk_pk_scan_batch_[i].status_=
-          store_found ? RecordStatus::Normal : RecordStatus::Deleted;
+      DLOG(INFO) << "Record status is invalid, key: "
+                 << sk_pk_scan_batch_[i].key_.GetKey<EloqKey>().ToString()
+                 << ", status: " << static_cast<int>(rec_status);
+      assert(false);
     }
   }
+#endif
 
   return 0;
 }
