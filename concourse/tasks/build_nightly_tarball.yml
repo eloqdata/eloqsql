@@ -1,0 +1,13 @@
+platform: linux
+image_resource:
+  type: registry-image
+inputs:
+  - name: eloqsql_src
+  - name: logservice_src
+  - name: raft_host_manager_src
+outputs:
+  - name: the-output
+run:
+  path: /bin/bash
+  args:
+    - eloqsql_src/concourse/scripts/build_tarball.bash
