@@ -18,8 +18,6 @@ resources:
   type: registry-image
   source:
     repository: eloqdata/monograph-dev-ci-ubuntu2404
-    username: monographdb
-    password: ((docker_hub_pass))
 
 jobs:
 - name: compile-test

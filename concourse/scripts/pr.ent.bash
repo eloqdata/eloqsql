@@ -5,6 +5,11 @@ CWDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ls
 export WORKSPACE=$PWD
 
+mkdir -p ~/.ssh
+echo "$GIT_SSH_KEY" > ~/.ssh/id_rsa
+chmod 600 ~/.ssh/id_rsa
+ssh-keyscan github.com >> ~/.ssh/known_hosts
+
 cd $WORKSPACE
 whoami
 pwd
@@ -42,6 +47,13 @@ cd ..
 
 cd tx_service
 ln -s $WORKSPACE/raft_host_manager_src raft_host_manager
+cd raft_host_manager
+if [ -n "$pr_branch_name" ] && git ls-remote --exit-code --heads origin "$pr_branch_name" > /dev/null; then
+  git fetch origin '+refs/heads/*:refs/remotes/origin/*'
+  git checkout -b ${pr_branch_name} origin/${pr_branch_name}
+  git submodule update --init --recursive
+fi
+cd ..
 
 # setup mc command
 # minio_server_alias will be used by mtr script for clean up mimio bucket
