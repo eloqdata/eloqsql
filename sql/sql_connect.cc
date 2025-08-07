@@ -1656,7 +1656,7 @@ THD *CONNECT::create_thd(THD *thd)
   else
 #endif
   vio= mysql_socket_vio_new(sock, vio_type, vio_type == VIO_TYPE_SOCKET ?
-                                                        VIO_LOCALHOST : 0);
+    (VIO_LOCALHOST | VIO_BUFFERED_READ) : VIO_BUFFERED_READ);
   if (!vio)
   {
     if (!thd_reused)
