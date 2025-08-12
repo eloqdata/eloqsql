@@ -716,7 +716,6 @@ private:
 
   std::unique_ptr<EloqRecord> PackRecord(const uchar *buf);
 
-#ifdef RANGE_PARTITION_ENABLED
   uint32_t PrefetchSize()
   {
     std::array<uint32_t, 5> boundaries= {1, 4, 16, 64, 256};
@@ -733,7 +732,6 @@ private:
     return idx < boundaries.size() ? boundaries[idx] - 1
                                    : boundaries.back() - 1;
   }
-#endif
 
   void SetupDecodeFlagOnFirstRead();
 
@@ -794,9 +792,7 @@ private:
   bool is_ckpt_scan_;
   bool ccm_scan_open_;
   txservice::ScanDirection scan_direction_;
-#if RANGE_PARTITION_ENABLED
   uint64_t scan_batch_cnt_;
-#endif
   const EloqKey *ccm_scan_key_;
   const EloqRecord *ccm_scan_rec_;
   txservice::RecordStatus ccm_scan_rec_status_;
