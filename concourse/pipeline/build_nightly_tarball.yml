@@ -22,6 +22,7 @@ resources:
     password: ((docker-secret-key))
     repository: eloqdata/monograph-dev-ci-ubuntu2404
     username: eloqdata
+    tag: latest
 
 - name: image_centos7_main
   type: registry-image
@@ -61,6 +62,7 @@ jobs:
     file: eloqsql_src/concourse/tasks/build_nightly_tarball.yml
     image: image_ubuntu2004
     params:
+      GIT_SSH_KEY: ((git-key))
       AWS_ACCESS_KEY_ID: ((aws_access_key_id))
       AWS_DEFAULT_REGION: ((aws-region))
       AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
@@ -70,16 +72,31 @@ jobs:
       OUT_NAME: nightly
       CLOUDFRONT_DIST: ((cloudfront-dist))
 
-  - task: build-rocksdb-type
+  - task: build-eloqdss-rocksdb-type
     file: eloqsql_src/concourse/tasks/build_nightly_tarball.yml
     image: image_ubuntu2004
     params:
+      GIT_SSH_KEY: ((git-key))
       AWS_ACCESS_KEY_ID: ((aws_access_key_id))
       AWS_DEFAULT_REGION: ((aws-region))
       AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
       BUILD_LOG_SRV: "true"
       BUILD_TYPE: RelWithDebInfo
-      DATA_STORE_TYPE: ROCKSDB
+      DATA_STORE_TYPE: ELOQDSS_ROCKSDB
+      OUT_NAME: nightly
+      CLOUDFRONT_DIST: ((cloudfront-dist))
+
+  - task: build-eloqstore-type
+    file: eloqsql_src/concourse/tasks/build_nightly_tarball.yml
+    image: image_ubuntu2004
+    params:
+      GIT_SSH_KEY: ((git-key))
+      AWS_ACCESS_KEY_ID: ((aws_access_key_id))
+      AWS_DEFAULT_REGION: ((aws-region))
+      AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
+      BUILD_LOG_SRV: "true"
+      BUILD_TYPE: RelWithDebInfo
+      DATA_STORE_TYPE: ELOQDSS_ELOQSTORE
       OUT_NAME: nightly
       CLOUDFRONT_DIST: ((cloudfront-dist))
 
@@ -103,6 +120,7 @@ jobs:
     file: eloqsql_src/concourse/tasks/build_nightly_tarball.yml
     image: image_ubuntu2204
     params:
+      GIT_SSH_KEY: ((git-key))
       AWS_ACCESS_KEY_ID: ((aws_access_key_id))
       AWS_DEFAULT_REGION: ((aws-region))
       AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
@@ -112,16 +130,31 @@ jobs:
       OUT_NAME: nightly
       CLOUDFRONT_DIST: ((cloudfront-dist))
 
-  - task: build-rocksdb-type
+  - task: build-eloqdss-rocksdb-type
     file: eloqsql_src/concourse/tasks/build_nightly_tarball.yml
     image: image_ubuntu2204
     params:
+      GIT_SSH_KEY: ((git-key))
       AWS_ACCESS_KEY_ID: ((aws_access_key_id))
       AWS_DEFAULT_REGION: ((aws-region))
       AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
       BUILD_LOG_SRV: "true"
       BUILD_TYPE: RelWithDebInfo
-      DATA_STORE_TYPE: ROCKSDB
+      DATA_STORE_TYPE: ELOQDSS_ROCKSDB
+      OUT_NAME: nightly
+      CLOUDFRONT_DIST: ((cloudfront-dist))
+
+  - task: build-eloqstore-type
+    file: eloqsql_src/concourse/tasks/build_nightly_tarball.yml
+    image: image_ubuntu2204
+    params:
+      GIT_SSH_KEY: ((git-key))
+      AWS_ACCESS_KEY_ID: ((aws_access_key_id))
+      AWS_DEFAULT_REGION: ((aws-region))
+      AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
+      BUILD_LOG_SRV: "true"
+      BUILD_TYPE: RelWithDebInfo
+      DATA_STORE_TYPE: ELOQDSS_ELOQSTORE
       OUT_NAME: nightly
       CLOUDFRONT_DIST: ((cloudfront-dist))
 
@@ -145,6 +178,7 @@ jobs:
     file: eloqsql_src/concourse/tasks/build_nightly_tarball.yml
     image: image_ubuntu2404
     params:
+      GIT_SSH_KEY: ((git-key))
       AWS_ACCESS_KEY_ID: ((aws_access_key_id))
       AWS_DEFAULT_REGION: ((aws-region))
       AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
@@ -154,16 +188,31 @@ jobs:
       OUT_NAME: nightly
       CLOUDFRONT_DIST: ((cloudfront-dist))
 
-  - task: build-rocksdb-type
+  - task: build-eloqdss-rocksdb-type
     file: eloqsql_src/concourse/tasks/build_nightly_tarball.yml
     image: image_ubuntu2404
     params:
+      GIT_SSH_KEY: ((git-key))
       AWS_ACCESS_KEY_ID: ((aws_access_key_id))
       AWS_DEFAULT_REGION: ((aws-region))
       AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
       BUILD_LOG_SRV: "true"
       BUILD_TYPE: RelWithDebInfo
-      DATA_STORE_TYPE: ROCKSDB
+      DATA_STORE_TYPE: ELOQDSS_ROCKSDB
+      OUT_NAME: nightly
+      CLOUDFRONT_DIST: ((cloudfront-dist))
+
+  - task: build-eloqstore-type
+    file: eloqsql_src/concourse/tasks/build_nightly_tarball.yml
+    image: image_ubuntu2404
+    params:
+      GIT_SSH_KEY: ((git-key))
+      AWS_ACCESS_KEY_ID: ((aws_access_key_id))
+      AWS_DEFAULT_REGION: ((aws-region))
+      AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
+      BUILD_LOG_SRV: "true"
+      BUILD_TYPE: RelWithDebInfo
+      DATA_STORE_TYPE: ELOQDSS_ELOQSTORE
       OUT_NAME: nightly
       CLOUDFRONT_DIST: ((cloudfront-dist))
 
@@ -187,6 +236,7 @@ jobs:
     file: eloqsql_src/concourse/tasks/build_nightly_tarball.yml
     image: image_centos7
     params:
+      GIT_SSH_KEY: ((git-key))
       AWS_ACCESS_KEY_ID: ((aws_access_key_id))
       AWS_DEFAULT_REGION: ((aws-region))
       AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
@@ -196,16 +246,31 @@ jobs:
       OUT_NAME: nightly
       CLOUDFRONT_DIST: ((cloudfront-dist))
 
-  - task: build-rocksdb-type
+  - task: build-eloqdss-rocksdb-type
     file: eloqsql_src/concourse/tasks/build_nightly_tarball.yml
     image: image_centos7
     params:
+      GIT_SSH_KEY: ((git-key))
       AWS_ACCESS_KEY_ID: ((aws_access_key_id))
       AWS_DEFAULT_REGION: ((aws-region))
       AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
       BUILD_LOG_SRV: "true"
       BUILD_TYPE: RelWithDebInfo
-      DATA_STORE_TYPE: ROCKSDB
+      DATA_STORE_TYPE: ELOQDSS_ROCKSDB
+      OUT_NAME: nightly
+      CLOUDFRONT_DIST: ((cloudfront-dist))
+
+  - task: build-eloqstore-type
+    file: eloqsql_src/concourse/tasks/build_nightly_tarball.yml
+    image: image_centos7
+    params:
+      GIT_SSH_KEY: ((git-key))
+      AWS_ACCESS_KEY_ID: ((aws_access_key_id))
+      AWS_DEFAULT_REGION: ((aws-region))
+      AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
+      BUILD_LOG_SRV: "true"
+      BUILD_TYPE: RelWithDebInfo
+      DATA_STORE_TYPE: ELOQDSS_ELOQSTORE
       OUT_NAME: nightly
       CLOUDFRONT_DIST: ((cloudfront-dist))
 

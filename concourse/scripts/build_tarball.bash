@@ -8,6 +8,14 @@ export AWS_PAGER=""
 current_user=$(whoami)
 sudo chown -R $current_user $PWD
 
+# Setup SSH for accessing private repos/submodules if provided
+if [ -n "${GIT_SSH_KEY}" ]; then
+  mkdir -p ~/.ssh
+  echo "${GIT_SSH_KEY}" > ~/.ssh/id_rsa
+  chmod 600 ~/.ssh/id_rsa
+  ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null || true
+fi
+
 # make coredump dir writable for debugging
 if [ ! -d "/var/crash" ]; then sudo mkdir -p /var/crash; fi
 sudo chmod 777 /var/crash
@@ -69,7 +77,7 @@ fi
 case $(uname -m) in
 amd64 | x86_64) ARCH=amd64 ;;
 arm64 | aarch64) ARCH=arm64 ;;
-*) ARCH= $(uname -m) ;;
+*) ARCH=$(uname -m) ;;
 esac
 
 if [ -n "${TAGGED}" ]; then
@@ -93,12 +101,20 @@ copy_libraries() {
 S3_BUCKET="eloq-release"
 S3_PREFIX="s3://${S3_BUCKET}/eloqsql"
 DATA_STORE_ID=$(echo ${DATA_STORE_TYPE} | tr '[:upper:]' '[:lower:]')
-if [ "${DATA_STORE_TYPE}" = "ELOQDSS_ROCKSDB_CLOUD_S3" ]; then
+
+# Normalize behavior for supported DATA_STORE_TYPE values
+if [ "${DATA_STORE_TYPE}" = "ROCKSDB" ]; then
+    DATA_STORE_ID="rocksdb"
+elif [ "${DATA_STORE_TYPE}" = "ELOQDSS_ROCKSDB_CLOUD_S3" ]; then
     CMAKE_ARGS="${CMAKE_ARGS} -DUSE_ROCKSDB_LOG_STATE=ON -DWITH_ROCKSDB_CLOUD=S3 -DWITH_CLOUD_AZ_INFO=ON"
     DATA_STORE_ID="eloqdss_s3"
-elif [ "${DATA_STORE_TYPE}" = "ELOQDSS_ROCKSDB_CLOUD_GCS" ]; then
-    CMAKE_ARGS="${CMAKE_ARGS} -DUSE_ROCKSDB_LOG_STATE=ON -DWITH_ROCKSDB_CLOUD=GCS"
-    DATA_STORE_ID="eloqdss_gcs"
+elif [ "${DATA_STORE_TYPE}" = "ELOQDSS_ROCKSDB" ]; then
+    DATA_STORE_ID="eloqdss_rocksdb"
+elif [ "${DATA_STORE_TYPE}" = "ELOQDSS_ELOQSTORE" ]; then
+    DATA_STORE_ID="eloqdss_eloqstore"
+else
+    echo "Unsupported DATA_STORE_TYPE: ${DATA_STORE_TYPE}"
+    exit 1
 fi
 
 if [ "$ASAN" = "ON" ]; then
@@ -230,27 +246,23 @@ build_upload_log_srv() {
       exit 1
     fi
     local log_tarball=$1
-    local build_for_cloud=$2
+    local ds_type=$2
     log_sv_src=${ELOQSQL_SRC}/storage/eloq/eloq_log_service
     cd ${log_sv_src}
     mkdir -p LogService/bin
     mkdir build && cd build
-    if [ "$build_for_cloud" = true ]; then
-        cmake .. -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DWITH_ASAN=$ASAN -DDISABLE_CODE_LINE_IN_LOG=ON -DUSE_ROCKSDB_LOG_STATE=ON -DWITH_ROCKSDB_CLOUD=S3 -DWITH_CLOUD_AZ_INFO=ON
-    else
-        cmake .. -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DWITH_ASAN=$ASAN -DDISABLE_CODE_LINE_IN_LOG=ON
+    local cmake_args="-DCMAKE_BUILD_TYPE=$BUILD_TYPE -DWITH_ASAN=$ASAN -DDISABLE_CODE_LINE_IN_LOG=ON -DUSE_ROCKSDB_LOG_STATE=ON"
+    if [ "$ds_type" = "ELOQDSS_ROCKSDB_CLOUD_S3" ]; then
+        cmake_args="$cmake_args -DWITH_ROCKSDB_CLOUD=S3 -DWITH_CLOUD_AZ_INFO=ON"
     fi
+    cmake .. $cmake_args
     # build and copy log_server
     cmake --build . --config $BUILD_TYPE -j${NCORE}
     mv ${log_sv_src}/build/launch_sv ${log_sv_src}/LogService/bin
     copy_libraries ${log_sv_src}/LogService/bin/launch_sv ${log_sv_src}/LogService/lib
     cd ${HOME}
     tar -czvf log_service.tar.gz -C ${log_sv_src} LogService
-    if [ "$build_for_cloud" = true ]; then
-        aws s3 cp log_service.tar.gz ${S3_PREFIX}/logservice/cloud/${log_tarball}
-    else
-        aws s3 cp log_service.tar.gz ${S3_PREFIX}/logservice/${log_tarball}
-    fi
+    aws s3 cp log_service.tar.gz ${S3_PREFIX}/logservice/${DATA_STORE_ID}/${log_tarball}
     #clean up
     rm -rf log_service.tar.gz
     cd "${log_sv_src}"
@@ -265,10 +277,9 @@ if [ "${BUILD_LOG_SRV}" = true ]; then
     else
         LOG_TARBALL="log-service-${OUT_NAME}-${OS_ID}-${ARCH}.tar.gz"
     fi
-    build_upload_log_srv "${LOG_TARBALL}" false
-    build_upload_log_srv "${LOG_TARBALL}" true
+    build_upload_log_srv "${LOG_TARBALL}" "${DATA_STORE_TYPE}"
 
     if [ -n "${CLOUDFRONT_DIST}" ]; then
-        aws cloudfront create-invalidation --distribution-id ${CLOUDFRONT_DIST} --paths "/eloqsql/logservice/${LOG_TARBALL}"
+        aws cloudfront create-invalidation --distribution-id ${CLOUDFRONT_DIST} --paths "/eloqsql/logservice/${DATA_STORE_ID}/${LOG_TARBALL}"
     fi
 fi

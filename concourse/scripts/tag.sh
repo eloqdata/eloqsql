@@ -3,6 +3,14 @@ set -exuo pipefail
 
 export WORKSPACE=$PWD
 sudo chown -R $USER $PWD
+
+# Configure git to use SSH key if provided
+if [ -n "${GIT_SSH_KEY:-}" ]; then
+  mkdir -p ~/.ssh
+  echo "$GIT_SSH_KEY" > ~/.ssh/id_rsa
+  chmod 600 ~/.ssh/id_rsa
+  ssh-keyscan github.com >> ~/.ssh/known_hosts || true
+fi
 cd $HOME
 ln -s ${WORKSPACE}/eloqsql_src eloqsql
 cd eloqsql
@@ -13,8 +21,10 @@ popd
 
 git config --global user.email "concourse@noreply.com"
 git config --global user.name "concourse-ci"
-# exit detach mode
+# exit detach mode if possible
+set +e
 git checkout -
+set -e
 git fetch --tags
 
 latest=$(git tag --sort=-version:refname | head -n 1)
