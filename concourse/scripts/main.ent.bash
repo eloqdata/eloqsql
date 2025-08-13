@@ -141,7 +141,6 @@ if [ ! -f "Makefile" ]; then
           -DMYSQL_MAINTAINER_MODE=OFF \
           -DWITH_SSL=system \
           -DWITH_ASAN=OFF \
-          -DRANGE_PARTITION_ENABLED=ON \
           -DSMALL_RANGE=ON \
           -DCOROUTINE_ENABLED=ON \
           -DEXT_TX_PROC_ENABLED=ON \

@@ -655,7 +655,6 @@ std::unique_ptr<txservice::CcScanner>
 MariaCatalogFactory::CreatePkCcmScanner(txservice::ScanDirection direction,
                                         const txservice::KeySchema *key_schema)
 {
-#ifdef RANGE_PARTITION_ENABLED
   if (direction == txservice::ScanDirection::Forward)
   {
     return std::make_unique<
@@ -668,17 +667,12 @@ MariaCatalogFactory::CreatePkCcmScanner(txservice::ScanDirection direction,
         txservice::RangePartitionedCcmScanner<EloqKey, EloqRecord, false>>(
         direction, txservice::ScanIndexType::Primary, key_schema);
   }
-#else
-  return std::make_unique<txservice::TemplateCcScanner<EloqKey, EloqRecord>>(
-      direction, txservice::ScanIndexType::Primary, key_schema);
-#endif
 }
 
 std::unique_ptr<txservice::CcScanner> MariaCatalogFactory::CreateSkCcmScanner(
     txservice::ScanDirection direction,
     const txservice::KeySchema *compound_key_schema)
 {
-#ifdef RANGE_PARTITION_ENABLED
   if (direction == txservice::ScanDirection::Forward)
   {
     return std::make_unique<
@@ -691,10 +685,6 @@ std::unique_ptr<txservice::CcScanner> MariaCatalogFactory::CreateSkCcmScanner(
         txservice::RangePartitionedCcmScanner<EloqKey, EloqRecord, false>>(
         direction, txservice::ScanIndexType::Secondary, compound_key_schema);
   }
-#else
-  return std::make_unique<txservice::TemplateCcScanner<EloqKey, EloqRecord>>(
-      direction, txservice::ScanIndexType::Secondary, compound_key_schema);
-#endif
 }
 
 std::unique_ptr<txservice::CcScanner>
