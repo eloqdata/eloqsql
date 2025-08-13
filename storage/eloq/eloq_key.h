@@ -302,6 +302,19 @@ public:
     offset+= len_val;
   }
 
+  std::string_view KVSerialize() const
+  {
+    // should not be called
+    assert(false);
+    return "";
+  }
+
+  void KVDeserialize(const char *buf, size_t len)
+  {
+    // should not be called
+    assert(false);
+  }
+
   txservice::TxKey CloneTxKey() const
   {
     if (this == NegativeInfinity())
