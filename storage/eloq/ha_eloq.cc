@@ -2119,15 +2119,9 @@ static void PrintEloqConfig()
             << std::setw(PRINT_ELOQ_CONFIG_COLUMN_WIDTH) << "OFF" << std::endl;
 #endif
 
-#if defined(RANGE_PARTITION_ENABLED)
   std::cout << std::left << std::setw(PRINT_ELOQ_CONFIG_COLUMN_WIDTH)
             << "Range partition" << std::left
             << std::setw(PRINT_ELOQ_CONFIG_COLUMN_WIDTH) << "ON" << std::endl;
-#else
-  std::cout << std::left << std::setw(PRINT_ELOQ_CONFIG_COLUMN_WIDTH)
-            << "Range partition" << std::left
-            << std::setw(PRINT_ELOQ_CONFIG_COLUMN_WIDTH) << "OFF" << std::endl;
-#endif
 
 #if !defined(TX_TRACE_DISABLED)
   std::cout << std::left << std::setw(PRINT_ELOQ_CONFIG_COLUMN_WIDTH)
@@ -3106,11 +3100,7 @@ static int eloq_init_func(void *p)
   sql_print_information(
       "Number of cores allocated for transaction service: %u", eloq_core_num);
 
-#ifdef RANGE_PARTITION_ENABLED
   eloq_partition_type= 1;
-#else
-  eloq_partition_type= 0;
-#endif
   // tx_service is a distributed service, should wait for all the tx_service
   // nodes to finish the log recovery process and setup the cc_stream_sender.
   tx_service->WaitClusterReady();
@@ -3298,9 +3288,6 @@ ulonglong ha_eloq::table_flags() const
       HA_TABLE_SCAN_ON_INDEX | HA_REQUIRES_KEY_COLUMNS_FOR_DELETE |
       HA_CAN_VIRTUAL_COLUMNS | HA_BATCH_ROWID;
 
-#ifndef RANGE_PARTITION_ENABLED
-  flags|= HA_CAN_TABLE_CONDITION_PUSHDOWN;
-#endif
   DBUG_RETURN(flags);
 }
 
@@ -4707,7 +4694,6 @@ int ha_eloq::analyze(THD *thd, HA_CHECK_OPT *check_opt)
 
   int ret= 0;
 
-#ifdef RANGE_PARTITION_ENABLED
   MyEloqTx *my_tx= get_myeloq_tx(thd);
   DBUG_ASSERT(my_tx != nullptr);
 
@@ -4787,7 +4773,6 @@ int ha_eloq::analyze(THD *thd, HA_CHECK_OPT *check_opt)
       break;
     }
   }
-#endif
 
   // A call to ::info is needed to repopulate some SQL level structs. This is
   // necessary for online analyze because we cannot rely on another ::open
@@ -5539,47 +5524,6 @@ int ha_eloq::BulkUniqueCheck(size_t bulk_size)
         dup_index= idx;
         return HA_ERR_FOUND_DUPP_KEY;
       }
-#ifndef RANGE_PARTITION_ENABLED
-      else if (rec_status == RecordStatus::Unknown)
-      {
-        // For hash, should retrieve the key from the data store.
-        if (storage_hd == nullptr)
-        {
-          rec_status= RecordStatus::Deleted;
-          continue;
-        }
-
-        EloqRecord latest_rec;
-        uint64_t latest_version_ts= 1U;
-        bool store_found= false;
-        bool success=
-            storage_hd->Read(table_name, batch_tuples[idx].key_, latest_rec,
-                             store_found, latest_version_ts, table_schema);
-        if (!success)
-        {
-          rec_status= RecordStatus::Deleted;
-          continue;
-        }
-
-        if (store_found)
-        {
-          if (table_name.Type() == TableType::Primary)
-          {
-            // Pk already exsits.
-            err_key= table_share_ptr->primary_key;
-          }
-          else
-          {
-            // key already exsits.
-            err_key= table_schema->IndexId(table_name);
-          }
-          dup_errkey= err_key;
-          dup_index= idx;
-          return HA_ERR_FOUND_DUPP_KEY;
-        }
-        rec_status= RecordStatus::Deleted;
-      }
-#endif
       else
       {
         DBUG_ASSERT(rec_status == RecordStatus::Deleted);
@@ -5840,7 +5784,6 @@ int ha_eloq::PkIndexScanOpen(const txservice::TxKey *start_key,
 
   uint64_t key_version= table_schema_->KeySchema()->SchemaTs();
 
-#ifdef RANGE_PARTITION_ENABLED
   scan_open_tx_req_.Reset(scan_table_name, key_version, ScanIndexType::Primary,
                           start_key, start_inclusive, end_key, end_inclusive,
                           direction, false, for_update, for_share, false,
@@ -5849,21 +5792,6 @@ int ha_eloq::PkIndexScanOpen(const txservice::TxKey *start_key,
   scan_alias_= txm->OpenTxScan(scan_open_tx_req_);
   assert(scan_alias_ != UINT64_MAX);
   scan_batch_cnt_= 0;
-#else
-  ScanOpenTxRequest scan_open(
-      scan_table_name, key_version, ScanIndexType::Primary, start_key,
-      start_inclusive, end_key, end_inclusive, direction, false, for_update,
-      for_share, false, false, yield_func, resume_func, txm);
-  txm->Execute(&scan_open);
-  scan_open.Wait();
-
-  if (scan_open.IsError())
-  {
-    DBUG_RETURN(convert_tx_error(scan_open.ErrorCode()));
-  }
-
-  scan_alias_= scan_open.Result();
-#endif
 
   scan_index_= active_index;
   ccm_scan_open_= true;
@@ -5877,46 +5805,8 @@ int ha_eloq::PkIndexScanOpen(const txservice::TxKey *start_key,
   sk_pk_scan_batch_.clear();
   sk_pk_scan_batch_idx_= UINT64_MAX;
 
-#ifdef RANGE_PARTITION_ENABLED
   storage_scanner_= nullptr;
   advance_storage_scanner_= false;
-#else
-  if (storage_hd != nullptr)
-  {
-    // skip access kv store for scan request, used to speedup testcase only.
-    // server startup stage need to read catalog tables which still requires
-    // access kv store.
-    if (eloq_scan_skip_kv && mysqld_server_started == 1)
-    {
-      storage_scanner_= nullptr;
-      DBUG_RETURN(0);
-    }
-
-    auto pushed_cond= BindPushedCond();
-    storage_scanner_= storage_hd->ScanForward(
-        *scan_table_name, UINT32_MAX, *start_key, start_inclusive,
-        used_key_parts, pushed_cond, GetKeySchema(), GetRecordSchema(),
-        GetKVCatalogInfo(), scan_direction_ == ScanDirection::Forward);
-
-    advance_storage_scanner_= false;
-
-    REPORT_DEBUG_INFO("scan_table_name: %s, "
-                      "scan_start_key: %s, "
-                      "inclusive: %d, "
-                      "used_key_parts: %d, "
-                      "pushed_cond: %s, "
-                      "scan_direction: %d",
-                      scan_table_name->String().c_str(),
-                      start_key->GetKey<EloqKey>()->ToString().c_str(),
-                      start_inclusive, used_key_parts,
-                      PushedConditionString(pushed_cond).c_str(),
-                      scan_direction_);
-  }
-  else
-  {
-    storage_scanner_= nullptr;
-  }
-#endif
 
   DBUG_RETURN(0);
 }
@@ -5954,7 +5844,6 @@ int ha_eloq::SkIndexScanOpen(const txservice::TxKey *start_index_key,
   uint64_t key_version=
       table_schema_->IndexNameSchema(active_index).second.SchemaTs();
 
-#ifdef RANGE_PARTITION_ENABLED
   scan_open_tx_req_.Reset(
       &index_table_name, key_version, ScanIndexType::Secondary,
       start_index_key, start_inclusive, end_index_key, end_inclusive,
@@ -5963,24 +5852,6 @@ int ha_eloq::SkIndexScanOpen(const txservice::TxKey *start_index_key,
   scan_alias_= txm->OpenTxScan(scan_open_tx_req_);
   assert(scan_alias_ != UINT64_MAX);
   scan_batch_cnt_= 0;
-#else
-  ScanOpenTxRequest scan_open(&index_table_name, key_version,
-                              ScanIndexType::Secondary, start_index_key,
-                              start_inclusive, end_index_key, end_inclusive,
-                              direction, false, false, false, is_covering_keys,
-                              false, yield_func, resume_func, my_tx->Txm());
-
-  txm->Execute(&scan_open);
-  scan_open.Wait();
-
-  if (scan_open.IsError())
-  {
-    DBUG_RETURN(convert_tx_error(scan_open.ErrorCode()));
-  }
-
-  scan_alias_= scan_open.Result();
-  assert(scan_alias_ != UINT64_MAX);
-#endif
 
   scan_index_= active_index;
   ccm_scan_open_= true;
@@ -5991,48 +5862,8 @@ int ha_eloq::SkIndexScanOpen(const txservice::TxKey *start_index_key,
   scan_batch_idx_= UINT64_MAX;
   is_last_scan_batch_= false;
 
-#ifdef RANGE_PARTITION_ENABLED
   storage_scanner_= nullptr;
   advance_storage_scanner_= false;
-#else
-  if (storage_hd != nullptr)
-  {
-    // skip access kv store for scan request, used to speedup testcase only.
-    // server startup stage need to read catalog tables which still requires
-    // access kv store.
-    if (eloq_scan_skip_kv && mysqld_server_started == 1)
-    {
-      storage_scanner_= nullptr;
-      DBUG_RETURN(0);
-    }
-
-    const EloqKeySchema *sk_sch= reinterpret_cast<const EloqKeySchema *>(
-        table_schema_->IndexNameSchema(active_index).second.sk_schema_.get());
-    auto pushed_cond= BindPushedCond();
-    storage_scanner_= storage_hd->ScanForward(
-        index_table_name, UINT32_MAX, *start_index_key, start_inclusive,
-        used_key_parts, pushed_cond, sk_sch, GetRecordSchema(),
-        GetKVCatalogInfo(), scan_direction_ == ScanDirection::Forward);
-
-    advance_storage_scanner_= false;
-
-    REPORT_DEBUG_INFO("scan_table_name: %s, "
-                      "scan_start_key: %s, "
-                      "inclusive: %d, "
-                      "used_key_parts: %d, "
-                      "pushed_cond: %s, "
-                      "scan_direction: %d",
-                      index_table_name.String().c_str(),
-                      start_index_key->GetKey<EloqKey>()->ToString().c_str(),
-                      start_inclusive, used_key_parts,
-                      PushedConditionString(pushed_cond).c_str(),
-                      scan_direction_);
-  }
-  else
-  {
-    storage_scanner_= nullptr;
-  }
-#endif
 
   DBUG_RETURN(0);
 }
@@ -6120,10 +5951,8 @@ int ha_eloq::PkIndexScanNext(uchar *table_record)
           ScanBatchTxRequest scan_batch_req(scan_alias_, *table_name,
                                             &scan_batch_, yield_func,
                                             resume_func, txm);
-#ifdef RANGE_PARTITION_ENABLED
           scan_batch_req.prefetch_slice_cnt_= PrefetchSize();
           ++scan_batch_cnt_;
-#endif
           txm->Execute(&scan_batch_req);
           scan_batch_req.Wait();
 
@@ -6493,10 +6322,8 @@ int ha_eloq::SkIndexScanNext(uchar *table_record)
           ScanBatchTxRequest scan_batch_req(scan_alias_, scan_table_name,
                                             &scan_batch_, yield_func,
                                             resume_func, txm);
-#ifdef RANGE_PARTITION_ENABLED
           scan_batch_req.prefetch_slice_cnt_= PrefetchSize();
           ++scan_batch_cnt_;
-#endif
           txm->Execute(&scan_batch_req);
           scan_batch_req.Wait();
 
@@ -7001,12 +6828,10 @@ int ha_eloq::IndexScanClose()
 
     txm->CloseTxScan(scan_alias_, *scan_table_name, unlock_batch_);
 
-#ifdef RANGE_PARTITION_ENABLED
     if (!scan_open_tx_req_.IsFinished())
     {
       scan_open_tx_req_.Wait();
     }
-#endif
   }
   scan_alias_= UINT64_MAX;
   scan_index_= MAX_INDEXES;
@@ -8111,9 +7936,6 @@ int ha_eloq::PrepareScan(const uchar *mysql_start_key,
 // If the index scan is a prefix-match scan, keeps the start key in
 // the handler so as to match it against every scanned record.
 // Unmatched records are not returned to the upper execution engine.
-#ifndef RANGE_PARTITION_ENABLED
-    prefix_match_key_= std::make_unique<EloqKey>(search_key_);
-#endif
 
     end_specified= true;
     end_inclusive= true;
@@ -8766,13 +8588,6 @@ ha_eloq::check_if_supported_inplace_alter(TABLE *altered_table,
         DBUG_RETURN(HA_ALTER_ERROR);
       }
       break;
-#ifndef RANGE_PARTITION_ENABLED
-    case SQLCOM_CREATE_INDEX:
-      my_error(ER_CHECK_NOT_IMPLEMENTED, MYF(0),
-               "CREATE INDEX on HASH partition");
-      DBUG_RETURN(HA_ALTER_ERROR);
-      break;
-#endif
     default:
       break;
     }

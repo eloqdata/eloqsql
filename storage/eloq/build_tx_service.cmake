@@ -6,9 +6,6 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DFAULT_INJECTOR")
 
 option(BRPC_WITH_GLOG "With glog" ON)
 
-option(RANGE_PARTITION_ENABLED "Whether enable range partition" ON)
-message(NOTICE "RANGE_PARTITION_ENABLED : ${RANGE_PARTITION_ENABLED}")
-
 option(EXT_TX_PROC_ENABLED "Allows external threads to move forward the tx service." ON)
 
 if(EXT_TX_PROC_ENABLED)
@@ -51,10 +48,6 @@ if(${GFLAGS_NS} STREQUAL "GFLAGS_NAMESPACE")
     )
 else()
     add_compile_definitions(OVERRIDE_GFLAGS_NAMESPACE)
-endif()
-
-if(RANGE_PARTITION_ENABLED)
-    add_compile_definitions(RANGE_PARTITION_ENABLED)
 endif()
 
 if(SMALL_RANGE)

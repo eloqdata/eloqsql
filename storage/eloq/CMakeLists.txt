@@ -223,9 +223,6 @@ if(WITH_LOG_SERVICE)
     endif ()
 endif()
 
-option(RANGE_PARTITION_ENABLED "Whether enable range partition" OFF)
-message(NOTICE "RANGE_PARTITION_ENABLED : ${RANGE_PARTITION_ENABLED}")
-
 option(SMALL_RANGE "Whether enable small range" OFF)
 message(NOTICE "SMALL_RANGE : ${SMALL_RANGE}")
 
@@ -253,7 +250,6 @@ SET(MYELOQ_SOURCES
 	slice.cc
 
 	# eloq_tests.hpp
-	store_handler/partition.h
 	store_handler/kv_store.h
 )
 
