@@ -375,6 +375,8 @@ static unsigned int eloq_dss_rocksdb_max_background_jobs= 8;
 static unsigned int eloq_eloqstore_worker_num= 1;
 static char *eloq_eloqstore_data_path= nullptr;
 static unsigned int eloq_eloqstore_open_files_limit= 1024;
+static char *eloq_eloqstore_cloud_store_path= nullptr;
+static unsigned int eloq_eloqstore_gc_threads= 1;
 #endif
 
 const char *enum_var_names[]= {"e1", "e2", NullS};
@@ -1052,6 +1054,16 @@ static MYSQL_SYSVAR_UINT(eloqstore_open_files_limit,
                          PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
                          "EloqStore server max open files.", NULL, NULL, 1024,
                          1, UINT_MAX, 1);
+static MYSQL_SYSVAR_STR(
+    eloqstore_cloud_store_path, eloq_eloqstore_cloud_store_path,
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+    "EloqStore cloud store path (disable cloud store if empty)", NULL, NULL,
+    "");
+static MYSQL_SYSVAR_UINT(eloqstore_gc_threads, eloq_eloqstore_gc_threads,
+                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+                         "EloqStore server gc threads count (Must be 0 when "
+                         "cloud store is enabled).",
+                         NULL, NULL, 1, 0, UINT_MAX, 1);
 #endif
 
 static struct st_mysql_sys_var *eloq_system_variables[]= {
@@ -1163,6 +1175,8 @@ static struct st_mysql_sys_var *eloq_system_variables[]= {
     MYSQL_SYSVAR(eloqstore_worker_num),
     MYSQL_SYSVAR(eloqstore_data_path),
     MYSQL_SYSVAR(eloqstore_open_files_limit),
+    MYSQL_SYSVAR(eloqstore_cloud_store_path),
+    MYSQL_SYSVAR(eloqstore_gc_threads),
 #endif
     NULL};
 
@@ -2515,7 +2529,19 @@ static int eloq_init_func(void *p)
     EloqDS::EloqStoreConfig eloq_store_config;
     eloq_store_config.worker_count_= eloq_eloqstore_worker_num;
     eloq_store_config.storage_path_= eloq_eloqstore_data_path;
+    if (eloq_store_config.storage_path_.empty())
+    {
+      eloq_store_config.storage_path_.append(dss_data_path)
+          .append("/eloqstore");
+    }
+
     eloq_store_config.open_files_limit_= eloq_eloqstore_open_files_limit;
+    eloq_store_config.cloud_store_path_= eloq_eloqstore_cloud_store_path;
+    eloq_store_config.gc_threads_= !eloq_store_config.cloud_store_path_.empty()
+                                       ? 0
+                                       : eloq_eloqstore_gc_threads;
+    LOG_IF(INFO, !eloq_store_config.cloud_store_path_.empty())
+        << "EloqStore cloud store enabled.";
     auto ds_factory=
         std::make_unique<EloqDS::EloqStoreDataStoreFactory>(eloq_store_config);
 #endif
@@ -2543,9 +2569,11 @@ static int eloq_init_func(void *p)
 #elif defined(DATA_STORE_TYPE_ELOQDSS_ELOQSTORE)
       DLOG(INFO) << "worker: " << eloq_store_config.worker_count_
                  << ", path: " << eloq_store_config.storage_path_
-                 << ", max open files: "
-                 << eloq_store_config.open_files_limit_;
-      ::kvstore::KvOptions store_config;
+                 << ", max open files: " << eloq_store_config.open_files_limit_
+                 << ", cloud store path: "
+                 << eloq_store_config.cloud_store_path_
+                 << ", gc threads: " << eloq_store_config.gc_threads_;
+      ::eloqstore::KvOptions store_config;
       store_config.num_threads= eloq_store_config.worker_count_;
       store_config.store_path.emplace_back()
           .append(eloq_store_config.storage_path_)
@@ -2553,6 +2581,14 @@ static int eloq_init_func(void *p)
           .append(std::to_string(shard_id));
       store_config.fd_limit= eloq_store_config.open_files_limit_ /
                              eloq_store_config.worker_count_;
+      if (!eloq_store_config.cloud_store_path_.empty())
+      {
+        store_config.cloud_store_path
+            .append(eloq_store_config.cloud_store_path_)
+            .append("/ds_")
+            .append(std::to_string(shard_id));
+      }
+      store_config.num_gc_threads= eloq_store_config.gc_threads_;
       auto ds= std::make_unique<EloqDS::EloqStoreDataStore>(
           shard_id, data_store_service_.get(), store_config);
 #endif
@@ -7933,9 +7969,9 @@ int ha_eloq::PrepareScan(const uchar *mysql_start_key,
 
   if (prefix_match)
   {
-// If the index scan is a prefix-match scan, keeps the start key in
-// the handler so as to match it against every scanned record.
-// Unmatched records are not returned to the upper execution engine.
+    // If the index scan is a prefix-match scan, keeps the start key in
+    // the handler so as to match it against every scanned record.
+    // Unmatched records are not returned to the upper execution engine.
 
     end_specified= true;
     end_inclusive= true;
