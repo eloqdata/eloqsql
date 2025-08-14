@@ -18,6 +18,7 @@ resources:
   type: registry-image
   source:
     repository: eloqdata/monograph-dev-ci-ubuntu2404
+    tag: latest
 
 jobs:
 - name: compile-test

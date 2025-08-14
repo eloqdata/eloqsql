@@ -21,6 +21,7 @@ resources:
   type: registry-image
   source:
     repository: eloqdata/monograph-dev-ci-ubuntu2404
+    tag: latest
 
 - name: image_centos7_main
   type: registry-image
@@ -61,25 +62,41 @@ jobs:
     image: image_ubuntu2004
     params:
       TAGGED: "true"
+      GIT_SSH_KEY: ((git-key))
       AWS_ACCESS_KEY_ID: ((aws_access_key_id))
       AWS_DEFAULT_REGION: ((aws-region))
       AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
       BUILD_LOG_SRV: "true"
       BUILD_TYPE: RelWithDebInfo
-      KV_TYPE: ELOQDSS_ROCKSDB_CLOUD_S3
+      DATA_STORE_TYPE: ELOQDSS_ROCKSDB_CLOUD_S3
       CLOUDFRONT_DIST: ((cloudfront-dist))
 
-  - task: build-rocksdb-type
+  - task: build-eloqdss-rocksdb-type
     file: eloqsql_src/concourse/tasks/build_release_tarball.yml
     image: image_ubuntu2004
     params:
       TAGGED: "true"
+      GIT_SSH_KEY: ((git-key))
       AWS_ACCESS_KEY_ID: ((aws_access_key_id))
       AWS_DEFAULT_REGION: ((aws-region))
       AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
       BUILD_LOG_SRV: "true"
       BUILD_TYPE: RelWithDebInfo
-      KV_TYPE: ROCKSDB
+      DATA_STORE_TYPE: ELOQDSS_ROCKSDB
+      CLOUDFRONT_DIST: ((cloudfront-dist))
+
+  - task: build-eloqstore-type
+    file: eloqsql_src/concourse/tasks/build_release_tarball.yml
+    image: image_ubuntu2004
+    params:
+      TAGGED: "true"
+      GIT_SSH_KEY: ((git-key))
+      AWS_ACCESS_KEY_ID: ((aws_access_key_id))
+      AWS_DEFAULT_REGION: ((aws-region))
+      AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
+      BUILD_LOG_SRV: "true"
+      BUILD_TYPE: RelWithDebInfo
+      DATA_STORE_TYPE: ELOQDSS_ELOQSTORE
       CLOUDFRONT_DIST: ((cloudfront-dist))
 
   serial: true
@@ -103,25 +120,41 @@ jobs:
     image: image_ubuntu2204
     params:
       TAGGED: "true"
+      GIT_SSH_KEY: ((git-key))
       AWS_ACCESS_KEY_ID: ((aws_access_key_id))
       AWS_DEFAULT_REGION: ((aws-region))
       AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
       BUILD_LOG_SRV: "true"
       BUILD_TYPE: RelWithDebInfo
-      KV_TYPE: ELOQDSS_ROCKSDB_CLOUD_S3
+      DATA_STORE_TYPE: ELOQDSS_ROCKSDB_CLOUD_S3
       CLOUDFRONT_DIST: ((cloudfront-dist))
 
-  - task: build-rocksdb-type
+  - task: build-eloqdss-rocksdb-type
     file: eloqsql_src/concourse/tasks/build_release_tarball.yml
     image: image_ubuntu2204
     params:
       TAGGED: "true"
+      GIT_SSH_KEY: ((git-key))
       AWS_ACCESS_KEY_ID: ((aws_access_key_id))
       AWS_DEFAULT_REGION: ((aws-region))
       AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
       BUILD_LOG_SRV: "true"
       BUILD_TYPE: RelWithDebInfo
-      KV_TYPE: ROCKSDB
+      DATA_STORE_TYPE: ELOQDSS_ROCKSDB
+      CLOUDFRONT_DIST: ((cloudfront-dist))
+
+  - task: build-eloqstore-type
+    file: eloqsql_src/concourse/tasks/build_release_tarball.yml
+    image: image_ubuntu2204
+    params:
+      TAGGED: "true"
+      GIT_SSH_KEY: ((git-key))
+      AWS_ACCESS_KEY_ID: ((aws_access_key_id))
+      AWS_DEFAULT_REGION: ((aws-region))
+      AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
+      BUILD_LOG_SRV: "true"
+      BUILD_TYPE: RelWithDebInfo
+      DATA_STORE_TYPE: ELOQDSS_ELOQSTORE
       CLOUDFRONT_DIST: ((cloudfront-dist))
 
   serial: true
@@ -145,25 +178,41 @@ jobs:
     image: image_ubuntu2404
     params:
       TAGGED: "true"
+      GIT_SSH_KEY: ((git-key))
       AWS_ACCESS_KEY_ID: ((aws_access_key_id))
       AWS_DEFAULT_REGION: ((aws-region))
       AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
       BUILD_LOG_SRV: "true"
       BUILD_TYPE: RelWithDebInfo
-      KV_TYPE: ELOQDSS_ROCKSDB_CLOUD_S3
+      DATA_STORE_TYPE: ELOQDSS_ROCKSDB_CLOUD_S3
       CLOUDFRONT_DIST: ((cloudfront-dist))
 
-  - task: build-rocksdb-type
+  - task: build-eloqdss-rocksdb-type
     file: eloqsql_src/concourse/tasks/build_release_tarball.yml
     image: image_ubuntu2404
     params:
       TAGGED: "true"
+      GIT_SSH_KEY: ((git-key))
       AWS_ACCESS_KEY_ID: ((aws_access_key_id))
       AWS_DEFAULT_REGION: ((aws-region))
       AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
       BUILD_LOG_SRV: "true"
       BUILD_TYPE: RelWithDebInfo
-      KV_TYPE: ROCKSDB
+      DATA_STORE_TYPE: ELOQDSS_ROCKSDB
+      CLOUDFRONT_DIST: ((cloudfront-dist))
+
+  - task: build-eloqstore-type
+    file: eloqsql_src/concourse/tasks/build_release_tarball.yml
+    image: image_ubuntu2404
+    params:
+      TAGGED: "true"
+      GIT_SSH_KEY: ((git-key))
+      AWS_ACCESS_KEY_ID: ((aws_access_key_id))
+      AWS_DEFAULT_REGION: ((aws-region))
+      AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
+      BUILD_LOG_SRV: "true"
+      BUILD_TYPE: RelWithDebInfo
+      DATA_STORE_TYPE: ELOQDSS_ELOQSTORE
       CLOUDFRONT_DIST: ((cloudfront-dist))
 
   serial: true
@@ -187,25 +236,41 @@ jobs:
     image: image_centos7
     params:
       TAGGED: "true"
+      GIT_SSH_KEY: ((git-key))
       AWS_ACCESS_KEY_ID: ((aws_access_key_id))
       AWS_DEFAULT_REGION: ((aws-region))
       AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
       BUILD_LOG_SRV: "true"
       BUILD_TYPE: RelWithDebInfo
-      KV_TYPE: ELOQDSS_ROCKSDB_CLOUD_S3
+      DATA_STORE_TYPE: ELOQDSS_ROCKSDB_CLOUD_S3
       CLOUDFRONT_DIST: ((cloudfront-dist))
 
-  - task: build-rocksdb-type
+  - task: build-eloqdss-rocksdb-type
     file: eloqsql_src/concourse/tasks/build_release_tarball.yml
     image: image_centos7
     params:
       TAGGED: "true"
+      GIT_SSH_KEY: ((git-key))
       AWS_ACCESS_KEY_ID: ((aws_access_key_id))
       AWS_DEFAULT_REGION: ((aws-region))
       AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
       BUILD_LOG_SRV: "true"
       BUILD_TYPE: RelWithDebInfo
-      KV_TYPE: ROCKSDB
+      DATA_STORE_TYPE: ELOQDSS_ROCKSDB
+      CLOUDFRONT_DIST: ((cloudfront-dist))
+
+  - task: build-eloqstore-type
+    file: eloqsql_src/concourse/tasks/build_release_tarball.yml
+    image: image_centos7
+    params:
+      TAGGED: "true"
+      GIT_SSH_KEY: ((git-key))
+      AWS_ACCESS_KEY_ID: ((aws_access_key_id))
+      AWS_DEFAULT_REGION: ((aws-region))
+      AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
+      BUILD_LOG_SRV: "true"
+      BUILD_TYPE: RelWithDebInfo
+      DATA_STORE_TYPE: ELOQDSS_ELOQSTORE
       CLOUDFRONT_DIST: ((cloudfront-dist))
 
   serial: true
