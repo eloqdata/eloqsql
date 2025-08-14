@@ -377,6 +377,7 @@ static char *eloq_eloqstore_data_path= nullptr;
 static unsigned int eloq_eloqstore_open_files_limit= 1024;
 static char *eloq_eloqstore_cloud_store_path= nullptr;
 static unsigned int eloq_eloqstore_gc_threads= 1;
+static unsigned int eloq_eloqstore_cloud_worker_count= 1;
 #endif
 
 const char *enum_var_names[]= {"e1", "e2", NullS};
@@ -1064,6 +1065,11 @@ static MYSQL_SYSVAR_UINT(eloqstore_gc_threads, eloq_eloqstore_gc_threads,
                          "EloqStore server gc threads count (Must be 0 when "
                          "cloud store is enabled).",
                          NULL, NULL, 1, 0, UINT_MAX, 1);
+static MYSQL_SYSVAR_UINT(eloqstore_cloud_worker_count,
+                         eloq_eloqstore_cloud_worker_count,
+                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+                         "EloqStore server cloud worker count", NULL, NULL, 1,
+                         1, UINT_MAX, 1);
 #endif
 
 static struct st_mysql_sys_var *eloq_system_variables[]= {
@@ -1177,6 +1183,7 @@ static struct st_mysql_sys_var *eloq_system_variables[]= {
     MYSQL_SYSVAR(eloqstore_open_files_limit),
     MYSQL_SYSVAR(eloqstore_cloud_store_path),
     MYSQL_SYSVAR(eloqstore_gc_threads),
+    MYSQL_SYSVAR(eloqstore_cloud_worker_count),
 #endif
     NULL};
 
@@ -2540,6 +2547,7 @@ static int eloq_init_func(void *p)
     eloq_store_config.gc_threads_= !eloq_store_config.cloud_store_path_.empty()
                                        ? 0
                                        : eloq_eloqstore_gc_threads;
+    eloq_store_config.cloud_worker_count_= eloq_eloqstore_cloud_worker_count;
     LOG_IF(INFO, !eloq_store_config.cloud_store_path_.empty())
         << "EloqStore cloud store enabled.";
     auto ds_factory=
@@ -2572,7 +2580,9 @@ static int eloq_init_func(void *p)
                  << ", max open files: " << eloq_store_config.open_files_limit_
                  << ", cloud store path: "
                  << eloq_store_config.cloud_store_path_
-                 << ", gc threads: " << eloq_store_config.gc_threads_;
+                 << ", gc threads: " << eloq_store_config.gc_threads_
+                 << ", cloud worker count: "
+                 << eloq_store_config.cloud_worker_count_;
       ::eloqstore::KvOptions store_config;
       store_config.num_threads= eloq_store_config.worker_count_;
       store_config.store_path.emplace_back()
@@ -2589,6 +2599,7 @@ static int eloq_init_func(void *p)
             .append(std::to_string(shard_id));
       }
       store_config.num_gc_threads= eloq_store_config.gc_threads_;
+      store_config.rclone_threads= eloq_store_config.cloud_worker_count_;
       auto ds= std::make_unique<EloqDS::EloqStoreDataStore>(
           shard_id, data_store_service_.get(), store_config);
 #endif
