@@ -13,8 +13,6 @@ plugin_load_add=ha_eloq
 eloq
 skip-log-bin
 eloq_core_num=1
-eloq_cass_user=cassandra
-eloq_cass_password=cassandra
 eloq_enable_mvcc=on
 eloq_cc_protocol=OccRead
 eloq_hm_bin_path = @ENV.MYSQLTEST_VARDIR/../../storage/eloq/host_manager

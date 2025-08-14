@@ -19,8 +19,6 @@ table_open_cache_instances=20
 eloq
 skip-log-bin
 eloq_core_num=2
-eloq_cass_user=cassandra
-eloq_cass_password=cassandra
 eloq_cc_protocol=OCC
 eloq_enable_mvcc=off
 use_stat_tables=complementary

@@ -14,8 +14,6 @@ thread_pool_dedicated_listener=1
 eloq
 skip-log-bin
 eloq_core_num=1
-eloq_cass_user=cassandra
-eloq_cass_password=cassandra
 default-storage-engine=eloq
 default-tmp-storage-engine=eloq
 collation-server=latin1_bin

@@ -26,8 +26,6 @@
 #if defined(DATA_STORE_TYPE_DYNAMODB)
 #include <aws/dynamodb/model/PutRequest.h>
 #include <aws/dynamodb/model/AttributeValue.h>
-#elif defined(DATA_STORE_TYPE_CASSANDRA)
-#include "cass/include/cassandra.h"
 #elif defined(DATA_STORE_TYPE_BIGTABLE)
 #include <google/cloud/bigtable/table.h>
 #endif
@@ -124,9 +122,7 @@ public:
 
   static EloqFieldType Convert(const mysql::Field *field,
                                uint16_t key_length= 0);
-#if defined(DATA_STORE_TYPE_CASSANDRA)
-  static std::string GetCassTypeName(const EloqFieldType &field_type);
-#endif
+
   std::string field_name_;
   EloqDataType data_type_;
   // For fixed-length data types, len_ represents the number of bytes of the
@@ -185,12 +181,7 @@ public:
   {
     return key_def_;
   }
-#if defined(DATA_STORE_TYPE_CASSANDRA)
-  virtual void EncodeFromBaseTable(const CassRow *row,
-                                   std::vector<char> &buf) const;
-  virtual void EncodeFromIndexTable(const CassRow *row, std::vector<char> &buf,
-                                    size_t offset) const;
-#endif
+
   /**
    * @brief Encode key. Only use for tests.
    *
@@ -206,11 +197,6 @@ public:
 
   void ColumnList(std::string &cql, bool trim,
                   const std::vector<size_t> *pk_only_col= nullptr) const;
-#if defined(DATA_STORE_TYPE_CASSANDRA)
-  void
-  ColumnListWithType(std::string &cql, bool trim,
-                     const std::vector<size_t> *pk_only_col= nullptr) const;
-#endif
 
   std::vector<std::pair<std::string, int8_t>>
   ScanStartFromConditions(std::string &orig_cql, bool inclusive= true,
@@ -285,13 +271,6 @@ public:
   {
   }
 
-#if defined(DATA_STORE_TYPE_CASSANDRA)
-  void EncodeFromBaseTable(const CassRow *row,
-                           std::vector<char> &key_buf) const override;
-  void EncodeFromIndexTable(const CassRow *row, std::vector<char> &key_buf,
-                            size_t offset) const override;
-#endif
-
 private:
   /**
    * @brief Number of columns of a table without the primary key.
@@ -353,26 +332,10 @@ public:
               mysql::Field **field_head, uchar *table_record_0,
               const std::vector<char> &buf, bool is_ckpt_delta= false,
               bool is_deleted= false) const;
-#if defined(DATA_STORE_TYPE_CASSANDRA)
-  void EncodeToSerializeFormat(txservice::TableType table_type,
-                               const void *row,
-                               std::string &buf) const override;
-  void EncodeToTxRecord(const txservice::TableName &table_name,
-                        const void *row,
-                        txservice::TxRecord &tx_record) const override;
-  static void BindCassStatement(const std::vector<char> &rec_buf,
-                                const EloqRecordSchema *rec_schema,
-                                CassStatement *statem);
-#endif
 
   void ColumnList(std::string &col_list) const;
 
   void NonPkColumnList(std::string &col_list) const;
-#if defined(DATA_STORE_TYPE_CASSANDRA)
-  void ColumnListWithType(std::string &col_list) const;
-
-  void NonPkColumnListWithType(std::string &col_list) const;
-#endif
 
   uint16_t ColumnCount() const;
 
@@ -428,25 +391,12 @@ public:
   static void DecodeFloat(float &val, const std::vector<char> &buf,
                           size_t &offset);
 
-#if defined(DATA_STORE_TYPE_CASSANDRA)
-  static void EncodeCassValue(const CassValue *cass_val,
-                              std::vector<char> &buf,
-                              const EloqFieldType &field_type,
-                              bool is_key_field);
-#endif
-
   static void EncodePlainValue(const std::string &plain_val,
                                std::vector<char> &buf,
                                const EloqFieldType &field_type,
                                bool is_key_field);
 
-#if defined(DATA_STORE_TYPE_CASSANDRA)
-  static void BindCassStatement(const std::vector<char> &buf, size_t &offset,
-                                const EloqFieldType &field_type,
-                                bool is_key_field, CassStatement *statem,
-                                size_t parameter_index);
-
-#elif defined(DATA_STORE_TYPE_DYNAMODB)
+#if defined(DATA_STORE_TYPE_DYNAMODB)
   void BindDynamoRequest(const std::vector<char> &rec_buf,
                          Aws::DynamoDB::Model::PutRequest *req) const;
 

@@ -3,9 +3,6 @@
 [mysqld]
 eloq_random_scan_sort=on
 eloq_keyspace_name=mono_test
-eloq_cass_hosts=127.0.0.1
-eloq_cass_user=cassandra
-eloq_cass_password=cassandra
 eloq_dynamodb_endpoint=http://127.0.0.1:9100
 eloq_bigtable_project_id=XXXXXXXX
 eloq_bigtable_instance_id=XXXXXXXX

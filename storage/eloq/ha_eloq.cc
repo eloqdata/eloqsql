@@ -164,9 +164,7 @@
 #define ELOQDS 1
 #endif
 
-#if defined(DATA_STORE_TYPE_CASSANDRA)
-#include "store_handler/cass_handler.h"
-#elif defined(DATA_STORE_TYPE_DYNAMODB)
+#if defined(DATA_STORE_TYPE_DYNAMODB)
 #include "store_handler/dynamo_handler.h"
 #elif defined(DATA_STORE_TYPE_BIGTABLE)
 #include "store_handler/bigtable_handler.h"
@@ -256,15 +254,7 @@ static char *eloq_voter_ip_list= nullptr;
 static char *eloq_hm_ip= nullptr;
 static char *eloq_hm_bin_path= nullptr;
 static char *eloq_cluster_config_file= nullptr;
-static char *eloq_cass_hosts= nullptr;
-static int eloq_cass_port= 9042;
-static int eloq_cass_queue_size_io= 300000;
-static char *eloq_cass_user= nullptr;
-static char *eloq_cass_password= nullptr;
 static char *eloq_keyspace_name= nullptr;
-static char *eloq_cass_keyspace_class= nullptr;
-static char *eloq_cass_replication_factor= nullptr;
-static my_bool eloq_high_compression_ratio= false;
 static char *eloq_dynamodb_endpoint= nullptr;
 static char *eloq_aws_access_key_id= nullptr;
 static char *eloq_aws_secret_key= nullptr;
@@ -381,14 +371,13 @@ static unsigned int eloq_eloqstore_cloud_worker_count= 1;
 #endif
 
 const char *enum_var_names[]= {"e1", "e2", NullS};
-const char *kv_storage_names[]= {"cass", "dynamo", "bigtable", "eloqds",
+const char *kv_storage_names[]= { "dynamo", "bigtable", "eloqds",
                                  NullS};
 const char *partition_names[]= {"Hash", "Range", NullS};
 
-#define KV_CASS 0
-#define KV_DYNAMO 1
-#define KV_BIGTABLE 2
-#define KV_ELOQDS 3
+#define KV_DYNAMO 0
+#define KV_BIGTABLE 1
+#define KV_ELOQDS 2
 
 static my_bool eloq_enable_heap_defragment= false;
 static my_bool eloq_kickout_data_for_test= false;
@@ -426,47 +415,9 @@ static MYSQL_SYSVAR_STR(cluster_config_file, eloq_cluster_config_file,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
                         "Path to cluster config file.", nullptr, nullptr, "");
 
-static MYSQL_SYSVAR_STR(cass_hosts, eloq_cass_hosts,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "Contact points of Cassandra", nullptr, nullptr,
-                        "127.0.0.1");
-
-static MYSQL_SYSVAR_INT(cass_port, eloq_cass_port, PLUGIN_VAR_RQCMDARG,
-                        "Port of Cassandra", nullptr, nullptr, 9042, 0,
-                        INT_MAX, 0);
-
-static MYSQL_SYSVAR_INT(cass_queue_size_io, eloq_cass_queue_size_io,
-                        PLUGIN_VAR_RQCMDARG,
-                        "Queue_size_io of Cassandra client", nullptr, nullptr,
-                        300000, 0, INT_MAX, 0);
-
 static MYSQL_SYSVAR_STR(keyspace_name, eloq_keyspace_name,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
                         "Keyspace of KV Storage", nullptr, nullptr, "mono");
-
-static MYSQL_SYSVAR_STR(cass_keyspace_class, eloq_cass_keyspace_class,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "Keyspace class of Cassandra", nullptr, nullptr,
-                        "SimpleStrategy");
-
-static MYSQL_SYSVAR_STR(cass_replication_factor, eloq_cass_replication_factor,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "Keyspace replication factor of Cassandra", nullptr,
-                        nullptr, "1");
-
-static MYSQL_SYSVAR_STR(cass_user, eloq_cass_user,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "Cassandra username", nullptr, nullptr, "cassandra");
-
-static MYSQL_SYSVAR_STR(cass_password, eloq_cass_password,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "Cassandra password", nullptr, nullptr, "cassandra");
-
-static MYSQL_SYSVAR_BOOL(high_compression_ratio, eloq_high_compression_ratio,
-                         PLUGIN_VAR_RQCMDARG,
-                         "Cassandra enable high compression ratio", nullptr,
-                         nullptr, FALSE);
-
 static MYSQL_SYSVAR_UINT(core_num, eloq_core_num, PLUGIN_VAR_RQCMDARG,
                          "Number of CPU cores", NULL, NULL, 1, 1, 1024, 1);
 
@@ -1078,15 +1029,7 @@ static struct st_mysql_sys_var *eloq_system_variables[]= {
     MYSQL_SYSVAR(standby_ip_list),
     MYSQL_SYSVAR(voter_ip_list),
     MYSQL_SYSVAR(hm_ip),
-    MYSQL_SYSVAR(cass_hosts),
-    MYSQL_SYSVAR(cass_port),
-    MYSQL_SYSVAR(cass_queue_size_io),
     MYSQL_SYSVAR(keyspace_name),
-    MYSQL_SYSVAR(cass_keyspace_class),
-    MYSQL_SYSVAR(cass_replication_factor),
-    MYSQL_SYSVAR(cass_user),
-    MYSQL_SYSVAR(cass_password),
-    MYSQL_SYSVAR(high_compression_ratio),
     MYSQL_SYSVAR(dynamodb_endpoint),
     MYSQL_SYSVAR(core_num),
     MYSQL_SYSVAR(cc_protocol),
@@ -2358,41 +2301,7 @@ static int eloq_init_func(void *p)
 
   switch (eloq_kv_storage)
   {
-#if defined(DATA_STORE_TYPE_CASSANDRA)
-  case KV_CASS: {
-    // initialize Cassandra handler.
-    std::string store_host(eloq_cass_hosts);
-    int store_port(eloq_cass_port);
-    int store_queue_size_io(eloq_cass_queue_size_io);
-    std::string keyspace_class(eloq_cass_keyspace_class);
-    std::string replication_factor(eloq_cass_replication_factor);
-
-    if (store_host.size() > 0)
-    {
-      std::string user(eloq_cass_user);
-      std::string password(eloq_cass_password);
-
-      storage_hd= std::make_unique<EloqDS::CassHandler>(
-          store_host, store_port, user, password, store_keyspace_name,
-          keyspace_class, replication_factor, eloq_high_compression_ratio,
-          store_queue_size_io, opt_bootstrap, eloq_ddl_skip_kv);
-      if (!storage_hd->Connect())
-      {
-        // connect Cassandra error
-        sql_print_error(
-            "!!!!!!!! Failed to connect to Cassandra server, EloqDB "
-            "startup is terminated !!!!!!!!");
-        DBUG_RETURN(eloq_init_abort());
-      }
-    }
-    else
-    {
-      // connect Cassandra error due to empty address.
-      DBUG_RETURN(eloq_init_abort());
-    }
-    break;
-  }
-#elif defined(DATA_STORE_TYPE_DYNAMODB)
+#if defined(DATA_STORE_TYPE_DYNAMODB)
   case KV_DYNAMO: {
     // initialize DynamoDB handler.
     std::string endpoint(eloq_dynamodb_endpoint);
@@ -3096,12 +3005,13 @@ static int eloq_init_func(void *p)
       tx_service_common_labels["node_port"]= std::to_string(mysqld_port);
       tx_service_common_labels["node_id"]= std::to_string(node_id);
 
-      CatalogFactory *catalog_factory[3]{&maria_catalog_factory, nullptr, nullptr};
+      CatalogFactory *catalog_factory[3]{&maria_catalog_factory, nullptr,
+                                         nullptr};
       tx_service= std::make_unique<TxService>(
-          catalog_factory, &MariaSystemHandler::Instance(),
-          tx_service_conf, node_id, native_ng_id, &ng_configs,
-          cluster_config_version, storage_hd.get(), log_agent.get(),
-          eloq_enable_mvcc, eloq_skip_redo_log, false /*skip kv*/,
+          catalog_factory, &MariaSystemHandler::Instance(), tx_service_conf,
+          node_id, native_ng_id, &ng_configs, cluster_config_version,
+          storage_hd.get(), log_agent.get(), eloq_enable_mvcc,
+          eloq_skip_redo_log, false /*skip kv*/,
           true /*enable cache replacement*/, true /*auto redirect */,
           metrics_registry.get(), tx_service_common_labels);
 
@@ -3115,11 +3025,11 @@ static int eloq_init_func(void *p)
   }
   else
   {
-    CatalogFactory *catalog_factory[3]{&maria_catalog_factory, nullptr, nullptr};
+    CatalogFactory *catalog_factory[3]{&maria_catalog_factory, nullptr,
+                                       nullptr};
     tx_service= std::make_unique<TxService>(
-        catalog_factory, &MariaSystemHandler::Instance(),
-        tx_service_conf, node_id, native_ng_id, &ng_configs,
-        cluster_config_version,
+        catalog_factory, &MariaSystemHandler::Instance(), tx_service_conf,
+        node_id, native_ng_id, &ng_configs, cluster_config_version,
         storage_hd != nullptr ? storage_hd.get() : nullptr, log_agent.get(),
         eloq_enable_mvcc, eloq_skip_redo_log, false);
 
@@ -7106,8 +7016,8 @@ std::pair<RecordStatus, uint64_t> ha_eloq::SkRead(MyEloqTx *my_tx,
 
 /*
  * eloq store data in kv store, hence the supported collations
- * of ICP are limited by the kv store. Currently both Cassandra
- * and DynamoDB only support binary collations for index condition pushdown.
+ * of ICP are limited by the kv store. Currently only support binary collations
+ * for index condition pushdown.
  */
 static const std::set<uint> MONO_ICP_COLLATIONS= {
     COLLATION_BINARY, COLLATION_UTF8_BIN, COLLATION_LATIN1_BIN,
