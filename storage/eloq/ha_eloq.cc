@@ -3096,8 +3096,9 @@ static int eloq_init_func(void *p)
       tx_service_common_labels["node_port"]= std::to_string(mysqld_port);
       tx_service_common_labels["node_id"]= std::to_string(node_id);
 
+      CatalogFactory *catalog_factory[3]{&maria_catalog_factory, nullptr, nullptr};
       tx_service= std::make_unique<TxService>(
-          &maria_catalog_factory, &MariaSystemHandler::Instance(),
+          catalog_factory, &MariaSystemHandler::Instance(),
           tx_service_conf, node_id, native_ng_id, &ng_configs,
           cluster_config_version, storage_hd.get(), log_agent.get(),
           eloq_enable_mvcc, eloq_skip_redo_log, false /*skip kv*/,
@@ -3114,8 +3115,9 @@ static int eloq_init_func(void *p)
   }
   else
   {
+    CatalogFactory *catalog_factory[3]{&maria_catalog_factory, nullptr, nullptr};
     tx_service= std::make_unique<TxService>(
-        &maria_catalog_factory, &MariaSystemHandler::Instance(),
+        catalog_factory, &MariaSystemHandler::Instance(),
         tx_service_conf, node_id, native_ng_id, &ng_configs,
         cluster_config_version,
         storage_hd != nullptr ? storage_hd.get() : nullptr, log_agent.get(),
