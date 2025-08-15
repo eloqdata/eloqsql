@@ -1,0 +1,53 @@
+resources:
+  - name: eloqsql_src_main
+    type: git
+    source:
+      branch: eloq-10.6.10
+      uri: git@github.com:eloqdata/eloqsql.git
+      private_key: ((git-key))
+
+  - name: image_ubuntu2204_main
+    type: registry-image
+    source:
+      repository: eloqdata/eloq-build-ubuntu2204
+
+  - name: logservice_src_main
+    type: git
+    source:
+      branch: main
+      private_key: ((git-key))
+      uri: git@github.com:eloqdata/log_service.git
+
+  - name: raft_host_manager_src_main
+    type: git
+    source:
+      branch: main
+      private_key: ((git-key))
+      uri: git@github.com:eloqdata/raft_host_manager.git
+
+jobs:
+  - name: ubuntu2204-debug-openlog
+    plan:
+      - in_parallel:
+          limit: 2
+          steps:
+            - get: eloqsql_src
+              resource: eloqsql_src_main
+            - get: logservice_src
+              resource: logservice_src_main
+            - get: raft_host_manager_src
+              resource: raft_host_manager_src_main
+            - get: image_ubuntu2204
+              resource: image_ubuntu2204_main
+
+      - task: build-debug-openlog
+        file: eloqsql_src/concourse/tasks/build_tarball_open.yml
+        image: image_ubuntu2204
+        params:
+          GIT_SSH_KEY: ((git-key))
+          BUILD_TYPE: Debug
+          OUT_NAME: debug-openlog
+
+    serial: true
+
+
