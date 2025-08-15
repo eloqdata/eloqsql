@@ -40,7 +40,6 @@ while [[ ${#digits[@]} -lt 3 ]]; do
     digits+=(0)
 done
 
-IFS='.' read -ra digits <<<"$latest"
 case "$TAG_LEVEL" in
 "major")
     ((++digits[0])) && digits[1]=0 && digits[2]=0
