@@ -73,7 +73,7 @@ arm64 | aarch64) ARCH=arm64 ;;
 *) ARCH=$(uname -m) ;;
 esac
 
-if [ -n "${TAGGED}" ]; then
+if [ "${TAGGED}" = "true" ]; then
     TAGGED=$(git tag --sort=-v:refname | head -n 1)
     if [ -z "${TAGGED}" ]; then
         exit 1
@@ -210,7 +210,7 @@ mv launch_sv ${DEST_DIR}/bin/
 cd ${HOME}
 tar -czvf eloqsql.tar.gz -C ${HOME} EloqSQL
 
-if [ -n "${TAGGED}" ]; then
+if [ "${TAGGED}" = "true" ]; then
     SQL_TARBALL="eloqsql-${TAGGED}-${OS_ID}-${ARCH}.tar.gz"
     eval ${INSTALL_PSQL}
     SQL="INSERT INTO tx_release VALUES ('eloqsql', '${ARCH}', '${OS_ID}', '${DATA_STORE_ID}', $(echo ${TAGGED} | tr '.' ',')) ON CONFLICT DO NOTHING"
@@ -263,7 +263,7 @@ build_upload_log_srv() {
 
 if [ "${BUILD_LOG_SRV}" = true ]; then
     # make and build log_service
-    if [ -n "${TAGGED}" ]; then
+    if [ "${TAGGED}" = "true" ]; then
         LOG_TARBALL="log-service-${TAGGED}-${OS_ID}-${ARCH}.tar.gz"
     else
         LOG_TARBALL="log-service-${OUT_NAME}-${OS_ID}-${ARCH}.tar.gz"
