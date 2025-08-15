@@ -36,11 +36,15 @@ ln -sfn "${WORKSPACE}/raft_host_manager_src" eloqsql/storage/eloq/tx_service/raf
 
 ELOQSQL_SRC="${HOME}/eloqsql"
 
-# Basic packages needed per platform (image should contain most deps)
+# Install all dependencies using Ubuntu 24.04 script
 source /etc/os-release
 if [[ "$ID" == ubuntu* ]]; then
-  sudo apt update -y
-  sudo apt install -y rsync
+  echo "Installing dependencies for Ubuntu ${VERSION_ID}..."
+  cd "$ELOQSQL_SRC"
+  bash scripts/install_dependency_ubuntu2404.sh
+  
+  # Activate the Python virtual environment created by the dependency script
+  source $HOME/venv/bin/activate
 fi
 
 # Initialize submodules per README
