@@ -2,7 +2,8 @@ resources:
 - name: eloqsql_src_main
   type: git
   source:
-    branch: eloq-10.6.10
+    # TODO(ZX)
+    branch: rel_0_4_15_eloqsql
     uri: git@github.com:eloqdata/eloqsql.git
     private_key: ((git-key))
     tag_regex: '^[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+$'
@@ -70,6 +71,7 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB_CLOUD_S3
       CLOUDFRONT_DIST: ((cloudfront-dist))
+      PG_CONN: ((pg-conn))
     privileged: true
 
   - task: build-eloqdss-rocksdb-type
@@ -85,6 +87,7 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB
       CLOUDFRONT_DIST: ((cloudfront-dist))
+      PG_CONN: ((pg-conn))
     privileged: true
 
   - task: build-eloqstore-type
@@ -100,7 +103,9 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ELOQSTORE
       CLOUDFRONT_DIST: ((cloudfront-dist))
+      PG_CONN: ((pg-conn))
     privileged: true
+
 
   serial: true
 
@@ -131,6 +136,7 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB_CLOUD_S3
       CLOUDFRONT_DIST: ((cloudfront-dist))
+      PG_CONN: ((pg-conn))
     privileged: true
 
   - task: build-eloqdss-rocksdb-type
@@ -146,6 +152,7 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB
       CLOUDFRONT_DIST: ((cloudfront-dist))
+      PG_CONN: ((pg-conn))
     privileged: true
 
   - task: build-eloqstore-type
@@ -161,6 +168,7 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ELOQSTORE
       CLOUDFRONT_DIST: ((cloudfront-dist))
+      PG_CONN: ((pg-conn))
     privileged: true
 
   serial: true
@@ -192,6 +200,7 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB_CLOUD_S3
       CLOUDFRONT_DIST: ((cloudfront-dist))
+      PG_CONN: ((pg-conn))
     privileged: true
 
   - task: build-eloqdss-rocksdb-type
@@ -207,6 +216,7 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB
       CLOUDFRONT_DIST: ((cloudfront-dist))
+      PG_CONN: ((pg-conn))
     privileged: true
 
   - task: build-eloqstore-type
@@ -222,7 +232,9 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ELOQSTORE
       CLOUDFRONT_DIST: ((cloudfront-dist))
+      PG_CONN: ((pg-conn))
     privileged: true
+
 
   serial: true
 
@@ -253,6 +265,7 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB_CLOUD_S3
       CLOUDFRONT_DIST: ((cloudfront-dist))
+      PG_CONN: ((pg-conn))
     privileged: true
 
   - task: build-eloqdss-rocksdb-type
@@ -268,6 +281,7 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB
       CLOUDFRONT_DIST: ((cloudfront-dist))
+      PG_CONN: ((pg-conn))
     privileged: true
 
   - task: build-eloqstore-type
@@ -283,6 +297,8 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ELOQSTORE
       CLOUDFRONT_DIST: ((cloudfront-dist))
+      PG_CONN: ((pg-conn))
     privileged: true
+
 
   serial: true
