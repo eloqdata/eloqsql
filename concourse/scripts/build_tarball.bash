@@ -96,11 +96,9 @@ S3_PREFIX="s3://${S3_BUCKET}/eloqsql"
 DATA_STORE_ID=$(echo ${DATA_STORE_TYPE} | tr '[:upper:]' '[:lower:]')
 
 # Normalize behavior for supported DATA_STORE_TYPE values
-if [ "${DATA_STORE_TYPE}" = "ROCKSDB" ]; then
-    DATA_STORE_ID="rocksdb"
-elif [ "${DATA_STORE_TYPE}" = "ELOQDSS_ROCKSDB_CLOUD_S3" ]; then
+if [ "${DATA_STORE_TYPE}" = "ELOQDSS_ROCKSDB_CLOUD_S3" ]; then
     CMAKE_ARGS="${CMAKE_ARGS} -DUSE_ROCKSDB_LOG_STATE=ON -DWITH_ROCKSDB_CLOUD=S3 -DWITH_CLOUD_AZ_INFO=ON"
-    DATA_STORE_ID="eloqdss_s3"
+    DATA_STORE_ID="rocks_s3"
 elif [ "${DATA_STORE_TYPE}" = "ELOQDSS_ROCKSDB" ]; then
     DATA_STORE_ID="eloqdss_rocksdb"
 elif [ "${DATA_STORE_TYPE}" = "ELOQDSS_ELOQSTORE" ]; then
