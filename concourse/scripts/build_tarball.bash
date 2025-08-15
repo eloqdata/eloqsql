@@ -224,7 +224,7 @@ tar -czvf eloqsql.tar.gz -C ${HOME} EloqSQL
 if [ -n "${TAGGED}" ]; then
     SQL_TARBALL="eloqsql-${TAGGED}-${OS_ID}-${ARCH}.tar.gz"
     eval ${INSTALL_PSQL}
-    SQL="INSERT INTO sql_release VALUES ('eloqsql', '${ARCH}', '${OS_ID}', '${DATA_STORE_ID}', $(echo ${TAGGED} | tr '.' ',')) ON CONFLICT DO NOTHING"
+    SQL="INSERT INTO tx_release VALUES ('eloqsql', '${ARCH}', '${OS_ID}', '${DATA_STORE_ID}', $(echo ${TAGGED} | tr '.' ',')) ON CONFLICT DO NOTHING"
     psql postgresql://${PG_CONN}/eloq_release?sslmode=require -c "${SQL}"
 else
     SQL_TARBALL="eloqsql-${OUT_NAME}-${OS_ID}-${ARCH}.tar.gz"
