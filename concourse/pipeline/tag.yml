@@ -74,7 +74,7 @@ resources:
 
   - name: eloqsql_src
     source:
-      branch: main
+      branch: eloq-10.6.10
       private_key: ((git-key))
       uri: git@github.com:eloqdata/eloqsql.git
     type: git
