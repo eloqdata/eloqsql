@@ -20,14 +20,14 @@ resources:
   type: registry-image
   source:
     password: ((docker-secret-key))
-    repository: eloqdata/monograph-dev-ci-ubuntu2404
+    repository: eloqdata/eloq-dev-ci-ubuntu2404
     username: eloqdata
     tag: latest
 
 - name: image_centos7_main
   type: registry-image
   source:
-    repository: eloqdata/monograph-dev-ci-centos7
+    repository: eloqdata/eloq-dev-ci-centos7
 
 - name: logservice_src_main
   type: git
