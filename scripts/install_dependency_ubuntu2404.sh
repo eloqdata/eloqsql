@@ -6,6 +6,12 @@ set -ex
 export DEBIAN_FRONTEND=noninteractive
 export TZ=UTC
 
+# Preconfigure tzdata to avoid interactive prompts
+echo 'tzdata tzdata/Areas select Etc' | sudo debconf-set-selections
+echo 'tzdata tzdata/Zones/Etc select UTC' | sudo debconf-set-selections
+sudo ln -sf /usr/share/zoneinfo/Etc/UTC /etc/localtime || true
+echo 'Etc/UTC' | sudo tee /etc/timezone >/dev/null
+
 # Install system packages
 DEBIAN_FRONTEND=noninteractive sudo apt-get update
 DEBIAN_FRONTEND=noninteractive sudo apt-get install -y --no-install-recommends \
