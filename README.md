@@ -72,7 +72,7 @@ Follow these steps to build and run EloqSQL from source.
 We recommend using our Docker image with pre-installed dependencies for a quick build and run of EloqSQL.
 
 ```bash
-docker pull eloqdata/eloq-build-ubuntu2404:latest
+docker pull eloqdata/eloq-dev-ci-ubuntu2404:latest
 ```
 
 Or, you can manually run the following script to install dependencies on your local machine (Ubuntu 24.04 example).
