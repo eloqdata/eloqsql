@@ -3025,8 +3025,9 @@ static int eloq_init_func(void *p)
   }
   else
   {
-    CatalogFactory *catalog_factory[3]{&maria_catalog_factory, nullptr,
-                                       nullptr};
+    // Sequence table will use the same catalog factory as elosql table.
+    CatalogFactory *catalog_factory[4]{&maria_catalog_factory, nullptr,
+                                       nullptr, &maria_catalog_factory};
     tx_service= std::make_unique<TxService>(
         catalog_factory, &MariaSystemHandler::Instance(), tx_service_conf,
         node_id, native_ng_id, &ng_configs, cluster_config_version,

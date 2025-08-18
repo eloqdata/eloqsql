@@ -20,9 +20,6 @@
 [submodule "storage/eloq/eloq_metrics"]
 	path = storage/eloq/eloq_metrics
 	url = https://github.com/eloqdata/eloq-metrics.git
-[submodule "storage/eloq/cass"]
-	path = storage/eloq/cass
-	url = https://github.com/eloqdata/cpp-driver.git
 [submodule "storage/eloq/tx_service"]
 	path = storage/eloq/tx_service
 	url = https://github.com/eloqdata/tx_service.git
