@@ -273,7 +273,7 @@ cd ../ && rm -rf FakeIt
 # Install RocksDB-Cloud
 git clone https://github.com/eloqdata/rocksdb-cloud.git
 cd rocksdb-cloud
-git checkout monographdb_main
+git checkout main
 LIBNAME=librocksdb-cloud-aws USE_RTTI=1 USE_AWS=1 ROCKSDB_DISABLE_TCMALLOC=1 ROCKSDB_DISABLE_JEMALLOC=1 make shared_lib -j8
 LIBNAME=librocksdb-cloud-aws PREFIX=$(pwd)/output make install-shared
 sudo mkdir -p /usr/local/include/rocksdb_cloud_header
