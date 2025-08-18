@@ -2,8 +2,27 @@
 
 set -ex
 
+# Ensure noninteractive apt; keep TZ default
+export DEBIAN_FRONTEND=noninteractive
+export TZ=${TZ:-UTC}
+
+needs_tz_config=false
+if [ ! -f /etc/timezone ] || ! grep -qE '^(Etc/UTC|UTC)$' /etc/timezone; then
+  needs_tz_config=true
+fi
+if [ ! -L /etc/localtime ] || [ "$(readlink -f /etc/localtime)" != "/usr/share/zoneinfo/Etc/UTC" ]; then
+  needs_tz_config=true
+fi
+
+if $needs_tz_config; then
+  echo 'tzdata tzdata/Areas select Etc' | sudo debconf-set-selections || true
+  echo 'tzdata tzdata/Zones/Etc select UTC' | sudo debconf-set-selections || true
+  echo 'Etc/UTC' | sudo tee /etc/timezone >/dev/null
+  sudo ln -sf /usr/share/zoneinfo/Etc/UTC /etc/localtime
+fi
+
 # Install system packages
-sudo apt-get update
+DEBIAN_FRONTEND=noninteractive sudo apt-get update
 DEBIAN_FRONTEND=noninteractive sudo apt-get install -y --no-install-recommends \
     jq sudo vim wget curl apt-utils python3 python3-dev python3-pip python3-venv \
     python3-venv gdb libcurl4-openssl-dev build-essential libncurses5-dev \
@@ -49,7 +68,7 @@ sudo ldconfig
 cd ../ && rm -rf protobuf
 
 # Install glog
-git clone https://github.com/monographdb/glog.git glog
+git clone https://github.com/eloqdata/glog.git glog
 cd glog
 cmake -S . -B build -G "Unix Makefiles"
 cmake --build build -j6
@@ -65,7 +84,7 @@ make -j4 && sudo make install
 cd .. && rm -rf liburing
 
 # Install brpc
-git clone https://github.com/monographdb/brpc.git brpc
+git clone https://github.com/eloqdata/brpc.git brpc
 cd brpc
 mkdir build && cd build
 cmake .. \
@@ -78,7 +97,7 @@ sudo cp ./output/lib/* /usr/lib/
 cd ../../ && rm -rf brpc
 
 # Install braft
-git clone https://github.com/monographdb/braft.git braft
+git clone https://github.com/eloqdata/braft.git braft
 cd braft
 sed -i 's/libbrpc.a//g' CMakeLists.txt
 mkdir bld && cd bld
@@ -89,7 +108,7 @@ sudo cp ./output/lib/* /usr/lib/
 cd ../../ && rm -rf braft
 
 # Install mimalloc
-git clone https://github.com/monographdb/mimalloc.git mimalloc
+git clone https://github.com/eloqdata/mimalloc.git mimalloc
 cd mimalloc
 git checkout eloq-v2.1.2
 mkdir bld && cd bld
@@ -97,7 +116,7 @@ cmake .. && make && sudo make install
 cd ../../ && rm -rf mimalloc
 
 # Install cuckoo filter
-git clone https://github.com/monographdb/cuckoofilter.git cuckoofilter
+git clone https://github.com/eloqdata/cuckoofilter.git cuckoofilter
 cd cuckoofilter
 sudo make install
 cd .. && rm -rf cuckoofilter
@@ -239,10 +258,10 @@ sudo cmake --build cmake-out --target install
 cd ../ && rm -rf google-cloud-cpp
 
 # Install Google Cloud CLI
-sudo apt-get install -y apt-transport-https ca-certificates gnupg curl sudo
+DEBIAN_FRONTEND=noninteractive sudo apt-get install -y apt-transport-https ca-certificates gnupg curl sudo
 echo "deb https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
 curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
-sudo apt-get update && sudo apt-get install -y google-cloud-cli
+DEBIAN_FRONTEND=noninteractive sudo apt-get update && DEBIAN_FRONTEND=noninteractive sudo apt-get install -y google-cloud-cli
 
 # Install FakeIt
 git clone https://github.com/eranpeer/FakeIt.git
@@ -251,9 +270,9 @@ sudo cp single_header/catch/fakeit.hpp /usr/include/catch2/fakeit.hpp
 cd ../ && rm -rf FakeIt
 
 # Install RocksDB-Cloud
-git clone https://github.com/monographdb/rocksdb-cloud.git
+git clone https://github.com/eloqdata/rocksdb-cloud.git
 cd rocksdb-cloud
-git checkout monographdb_main
+git checkout main
 LIBNAME=librocksdb-cloud-aws USE_RTTI=1 USE_AWS=1 ROCKSDB_DISABLE_TCMALLOC=1 ROCKSDB_DISABLE_JEMALLOC=1 make shared_lib -j8
 LIBNAME=librocksdb-cloud-aws PREFIX=$(pwd)/output make install-shared
 sudo mkdir -p /usr/local/include/rocksdb_cloud_header
