@@ -2,7 +2,6 @@
 
 set -ex
 
-# Q? to be checked
 # Ensure noninteractive apt; keep TZ default
 export DEBIAN_FRONTEND=noninteractive
 export TZ=${TZ:-UTC}
