@@ -368,6 +368,7 @@ static char *eloq_dss_rocksdb_cloud_endpoint_url= nullptr;
 static char *eloq_dss_rocksdb_cloud_sst_file_cache_size= nullptr;
 static int eloq_dss_rocksdb_cloud_sst_file_cache_num_shard_bits= 5;
 static char *eloq_dss_rocksdb_target_file_size_base= nullptr;
+static unsigned int eloq_dss_rocksdb_cloud_purger_periodicity_secs= 600; // 10 minutes
 static unsigned int eloq_dss_rocksdb_cloud_file_deletion_delay= 3600;
 static unsigned int eloq_dss_rocksdb_max_write_buffer_number= 8;
 static unsigned int eloq_dss_rocksdb_max_background_jobs= 8;
@@ -1024,6 +1025,13 @@ static MYSQL_SYSVAR_STR(dss_rocksdb_target_file_size_base,
                         "EloqDataStoreService RocksDB target file size", NULL,
                         NULL, "64MB");
 static MYSQL_SYSVAR_UINT(
+    dss_rocksdb_cloud_purger_periodcity_secs,
+    eloq_dss_rocksdb_cloud_purger_periodicity_secs,
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+    "EloqDataStoreService RocksDB Cloud purger periodcity seconds", NULL, NULL,
+    600, 1, UINT_MAX32, 1);
+
+static MYSQL_SYSVAR_UINT(
     dss_rocksdb_cloud_file_deletion_delay,
     eloq_dss_rocksdb_cloud_file_deletion_delay,
     PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
@@ -1174,6 +1182,7 @@ static struct st_mysql_sys_var *eloq_system_variables[]= {
     MYSQL_SYSVAR(dss_rocksdb_cloud_sst_file_cache_num_shard_bits),
     MYSQL_SYSVAR(dss_rocksdb_cloud_endpoint_url),
     MYSQL_SYSVAR(dss_rocksdb_target_file_size_base),
+    MYSQL_SYSVAR(dss_rocksdb_cloud_purger_periodcity_secs),
     MYSQL_SYSVAR(dss_rocksdb_cloud_file_deletion_delay),
     MYSQL_SYSVAR(dss_rocksdb_max_write_buffer_number),
     MYSQL_SYSVAR(dss_rocksdb_max_background_jobs),
@@ -2520,6 +2529,8 @@ static int eloq_init_func(void *p)
         eloq_dss_rocksdb_cloud_sst_file_cache_num_shard_bits;
     rocksdb_cloud_config.db_file_deletion_delay_=
         eloq_dss_rocksdb_cloud_file_deletion_delay;
+    rocksdb_cloud_config.purger_periodicity_millis_ =
+        eloq_dss_rocksdb_cloud_purger_periodicity_secs * 1000;
 
     bool enable_cache_replacement_= fake_config_reader.GetBoolean(
         "local", "enable_cache_replacement", false);
