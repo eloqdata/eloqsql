@@ -6,6 +6,8 @@ set -exo pipefail
 
 export WORKSPACE=$PWD
 export AWS_PAGER=""
+export DEBIAN_FRONTEND=noninteractive
+export TZ=UTC
 
 apt-get update && apt-get install -y sudo openssh-client
 
