@@ -21,7 +21,7 @@ i	j
 1	2
 Begin;
 update t2 set j=3;
-connection serv_3;
+connection serv_2;
 # restart
 connection serv_1;
 commit;
