@@ -16,9 +16,9 @@ insert into t2 values(1,1);
 select * from t2;
 
 # The row(2,2) will be located on server3(ng2). 
-SET SESSION debug_dbug="+d,eloq;remote_acquire_before_sendmessage;node_id=2;action=panic";
+SET SESSION debug_dbug="+d,eloq;remote_acquire_before_sendmessage;node_id=1;action=panic";
 # Write file to make mysql-test-run.pl expect crash
---exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.3.expect
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.2.expect
 
 # insert transaction will timeout when waiting for the acquire write response.
 --error 199

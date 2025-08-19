@@ -6,7 +6,7 @@ insert into t2 values(1,1);
 select * from t2;
 i	j
 1	1
-SET SESSION debug_dbug="+d,eloq;remote_acquire_before_sendmessage;node_id=2;action=panic";
+SET SESSION debug_dbug="+d,eloq;remote_acquire_before_sendmessage;node_id=1;action=panic";
 insert into t2 values(2,2);
 ERROR HY000: Eloq: failed to commit transaction. try restarting transaction. Transaction failed due to internal request timeout.
 select * from t2;

@@ -38,14 +38,14 @@ select * from t2;
 Begin;
 update t2 set j=3;
 
-# The row(1,1) is located on server-3, then restart it to trigger changing node term. 
-# Here will restart server 3. It will decide which node to restart
+# The row(1,1) is located on server-2, then restart it to trigger changing node term. 
+# Here will restart server 2. It will decide which node to restart
 # according to the current connection.
---connection serv_3
+--connection serv_2
 --source include/restart_mysqld.inc
 
 --connection serv_1
-# The record is located on server 3, validation will be failed for node term changed after server being restarted.
+# The record is located on server 2, validation will be failed for node term changed after server being restarted.
 # see codes at cc_stream_receiver.cpp:694
 --error 199
 commit;
