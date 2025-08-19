@@ -40,14 +40,14 @@ resources:
 - name: eloq_ubuntu_2404
   type: registry-image
   source:
-    repository: eloqdata/monograph-dev-ci-ubuntu2404
+    repository: eloqdata/eloq-dev-ci-ubuntu2404
     tag: latest
 
 jobs:
 - name: compile-test
   build_log_retention:
     builds: 500
-  serial: true
+  max_in_flight: 2
   plan:
   - in_parallel:
       steps:
