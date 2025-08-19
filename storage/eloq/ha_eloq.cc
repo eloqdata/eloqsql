@@ -1025,11 +1025,11 @@ static MYSQL_SYSVAR_STR(dss_rocksdb_target_file_size_base,
                         "EloqDataStoreService RocksDB target file size", NULL,
                         NULL, "64MB");
 static MYSQL_SYSVAR_UINT(
-    dss_rocksdb_cloud_purger_periodcity_secs,
+    dss_rocksdb_cloud_purger_periodicity_secs,
     eloq_dss_rocksdb_cloud_purger_periodicity_secs,
-    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
     "EloqDataStoreService RocksDB Cloud purger periodcity seconds", NULL, NULL,
-    600, 1, UINT_MAX32, 1);
+    600, 1, UINT_MAX, 1);
 
 static MYSQL_SYSVAR_UINT(
     dss_rocksdb_cloud_file_deletion_delay,
@@ -1182,7 +1182,7 @@ static struct st_mysql_sys_var *eloq_system_variables[]= {
     MYSQL_SYSVAR(dss_rocksdb_cloud_sst_file_cache_num_shard_bits),
     MYSQL_SYSVAR(dss_rocksdb_cloud_endpoint_url),
     MYSQL_SYSVAR(dss_rocksdb_target_file_size_base),
-    MYSQL_SYSVAR(dss_rocksdb_cloud_purger_periodcity_secs),
+    MYSQL_SYSVAR(dss_rocksdb_cloud_purger_periodicity_secs),
     MYSQL_SYSVAR(dss_rocksdb_cloud_file_deletion_delay),
     MYSQL_SYSVAR(dss_rocksdb_max_write_buffer_number),
     MYSQL_SYSVAR(dss_rocksdb_max_background_jobs),
