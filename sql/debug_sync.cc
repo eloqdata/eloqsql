@@ -1474,11 +1474,9 @@ static void debug_sync_execute(THD *thd, st_debug_sync_action *action)
       while (stringcmp(&debug_sync_global.ds_signal, &action->wait_for) &&
              !thd->killed && opt_debug_sync_timeout)
       {
-        thd_wait_begin(thd, THD_WAIT_SLEEP);
         error= mysql_cond_timedwait(&debug_sync_global.ds_cond,
                                     &debug_sync_global.ds_mutex,
                                     &abstime);
-        thd_wait_end(thd);
         DBUG_EXECUTE("debug_sync", {
             /* Functions as DBUG_PRINT args can change keyword and line nr. */
             const char *sig_glob= debug_sync_global.ds_signal.c_ptr();

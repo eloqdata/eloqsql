@@ -38,7 +38,7 @@
 #include <liburing.h>
 #endif
 #ifdef ELOQ_MODULE_ENABLED
-#include "bthread/brpc_module.h"
+#include "bthread/eloq_module.h"
 #endif
 
 #endif
@@ -107,8 +107,11 @@ struct TP_connection_generic :public TP_connection
   bool bound_to_poll_descriptor;
   int waiting;
   bool fix_group;
-  bool wait_from_sql_thd_{true};
-  LIST *acquired_mutexes{0};
+  // Whether or not the connection needs to be processed by a SQL thread. A
+  // connection needs to be processed by a SQL thread when it enters
+  // wait_begin() and is about to be blocked.
+  bool need_sql_thd_{false};
+  LIST acquired_mutexes{NULL, NULL, NULL};
 #ifdef _WIN32
   win_aiosocket win_sock{};
   void init_vio(st_vio *vio) override
@@ -156,9 +159,9 @@ struct CoroutineInfo
   txservice::ConcurrentQueueWSize<TP_connection_generic *> resume_queue_;
   txservice::ConcurrentQueueWSize<TP_connection_generic *> req_queue_;
 #ifdef ELOQ_MODULE_ENABLED
-  // A collection of coroutines that must be processed by SQL native threads. A
-  // coroutine must be processed by a SQL native thread when the coroutine
-  // enters wait_begin() and is about to be blocked.
+  // A collection of coroutines that must be processed by SQL threads. A
+  // coroutine must be processed by a SQL thread when the coroutine enters
+  // wait_begin() and is about to be blocked.
   txservice::ConcurrentQueueWSize<TP_connection_generic *> sql_native_queue_;
 #endif
   std::atomic<uint16_t> coro_cnt_{0};
@@ -172,9 +175,10 @@ struct CoroutineInfo
 
   bool IsEmpty() const
   {
-    return req_queue_.IsEmpty() && resume_queue_.IsEmpty()
 #ifdef ELOQ_MODULE_ENABLED
-           && sql_native_queue_.IsEmpty()
+    return sql_native_queue_.IsEmpty()
+#else
+    return req_queue_.IsEmpty() && resume_queue_.IsEmpty()
 #endif
         ;
   }
@@ -219,7 +223,9 @@ struct thread_group_t
 #else
   bool stalled;
 #endif
+#ifdef ELOQ_MODULE_ENABLED
   std::atomic<bool> ext_worker_active_{false};
+#endif
   thread_group_counters_t counters;
 #ifdef COROUTINE_ENABLED
   std::unique_ptr<CoroutineInfo> coroutine_info_;

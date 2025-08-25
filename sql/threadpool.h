@@ -41,7 +41,9 @@ struct st_vio;
 
 extern void tp_callback(TP_connection *c);
 extern void tp_timeout_handler(TP_connection *c);
-
+#ifdef COROUTINE_ENABLED
+extern void ClearCoroutineVarInC();
+#endif
 
 
 /*

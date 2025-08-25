@@ -1530,10 +1530,10 @@ void get_event_bulk(worker_thread_t *current_thread,
       thread_group->queue_event_count.fetch_add(1, std::memory_order_relaxed);
 
 #ifdef ELOQ_MODULE_ENABLED
-      if (!coro_info->sql_native_queue_.IsEmpty())
+      bool success= coro_info->sql_native_queue_.TryDequeue(local_conns[0]);
+      if (success)
       {
-        conns_cnt= coro_info->sql_native_queue_.TryDequeueBulk(
-            local_conns.begin(), local_conns.size());
+        conns_cnt= 1;
         coro_info->empty_run_cnt_= 0;
         break;
       }
@@ -1635,6 +1635,12 @@ void get_event_bulk(worker_thread_t *current_thread,
     if (prev_active_cnt == 1)
     {
 #if ELOQ_MODULE_ENABLED
+      if (!coro_info->sql_native_queue_.IsEmpty())
+      {
+        thread_group->active_thread_count.fetch_add(1,
+                                                    std::memory_order_relaxed);
+        continue;
+      }
       // This is the last SQL thread to sleep. Ensures the external worker
       // thread is active.
       eloq::EloqModule::NotifyWorker(coro_info->group_id_);
@@ -1700,11 +1706,15 @@ void get_event_bulk(worker_thread_t *current_thread,
       // (because we expect there is only SQL thread unless there are stalls),
       // or (2) this is the last thread and there is no request to process, or
       // (3) there is an active external worker thread.
-      if (thread_group->ext_worker_active_.load(std::memory_order_relaxed))
+#ifdef ELOQ_MODULE_ENABLED
+      if (thread_group->ext_worker_active_.load(std::memory_order_relaxed) &&
+          !coro_info->sql_native_queue_.IsEmpty())
       {
         break;
       }
-      else if (prev_active_cnt > 0 || coro_info->IsEmpty())
+      else
+#endif
+          if (prev_active_cnt > 0 || coro_info->IsEmpty())
       {
         // Ready to exit. Decreases the active thread count.
         prev_active_cnt= thread_group->active_thread_count.fetch_sub(
@@ -1720,8 +1730,8 @@ void get_event_bulk(worker_thread_t *current_thread,
         {
           if (prev_active_cnt == 1)
           {
-            // This is the last thread going to exit. Wakes up the listener
-            // thread.
+            // This is the last thread that is going to exit. Wakes up the
+            // listener thread.
             std::unique_lock<std::mutex> lk(thread_group->listener_mux_);
             thread_group->listener_cv_.notify_one();
           }
@@ -1759,45 +1769,46 @@ void wait_begin(thread_group_t *thread_group, TP_connection_generic *conn)
 {
   DBUG_ENTER("wait_begin");
   mysql_mutex_lock(&thread_group->mutex);
-  if (is_sql_thd)
+  conn->need_sql_thd_= true;
+  bool is_sql_thread= GetIsSqlThd();
+  if (is_sql_thread)
   {
-    conn->wait_from_sql_thd_= true;
   #ifdef COROUTINE_ENABLED
     thread_group->active_thread_count.fetch_sub(1, std::memory_order_relaxed);
   #else
     thread_group->active_thread_count--;
   #endif
   }
-  else
-  {
-    conn->wait_from_sql_thd_= false;
-  }
+
 #ifdef COROUTINE_ENABLED
-  CoroutineInfo *coro_info = thread_group->coroutine_info_.get();
-
-  // Before entering the wait mode, re-enqueues to-be-processed commands
-  // into the group to allow other threads in the group to process.
-  if (conns_offset + 1 < conns_cnt)
+  CoroutineInfo *coro_info= thread_group->coroutine_info_.get();
+  if (is_sql_thread)
   {
-    THD *first_thd = local_conns[conns_offset + 1]->thd;
-    // The local cached commands are either resumed coroutines or new commands.
-    // Get the status from the first cached command.
-    bool is_ongoing_coro = first_thd == nullptr ||
-                           first_thd->coro_status_ == THD::CoroStatus::Ongoing;
-    uint8_t remaining = conns_cnt - conns_offset - 1;
-
-    if (is_ongoing_coro)
+    // Before entering the wait mode, re-enqueues to-be-processed commands
+    // into the group to allow other threads in the group to process.
+    if (conns_offset + 1 < conns_cnt)
     {
-      coro_info->resume_queue_.EnqueueBulk(
-        local_conns.begin() + conns_offset + 1, remaining);
-    }
-    else
-    {
-      coro_info->req_queue_.EnqueueBulk(
-        local_conns.begin() + conns_offset + 1, remaining);
-    }
+      THD *first_thd= local_conns[conns_offset + 1]->thd;
+      // The local cached commands are either resumed coroutines or new
+      // commands. Get the status from the first cached command.
+      bool is_ongoing_coro=
+          first_thd == nullptr ||
+          first_thd->coro_status_ == THD::CoroStatus::Ongoing;
+      uint8_t remaining= conns_cnt - conns_offset - 1;
 
-    conns_cnt = conns_offset + 1;
+      if (is_ongoing_coro)
+      {
+        coro_info->resume_queue_.EnqueueBulk(
+            local_conns.begin() + conns_offset + 1, remaining);
+      }
+      else
+      {
+        coro_info->req_queue_.EnqueueBulk(
+            local_conns.begin() + conns_offset + 1, remaining);
+      }
+
+      conns_cnt= conns_offset + 1;
+    }
   }
 #endif
 
@@ -1805,9 +1816,10 @@ void wait_begin(thread_group_t *thread_group, TP_connection_generic *conn)
   DBUG_ASSERT(thread_group->connection_count > 0);
 
 #ifdef COROUTINE_ENABLED
-  if ((thread_group->active_thread_count.load(std::memory_order_relaxed) == 0) &&
-      (!is_sql_thd || !coro_info->IsEmpty() || !thread_group->listener || 
-      coro_info->coro_cnt_.load(std::memory_order_relaxed) > 0))
+  if ((thread_group->active_thread_count.load(std::memory_order_relaxed) ==
+       0) &&
+      (!is_sql_thread || !coro_info->IsEmpty() || !thread_group->listener ||
+       coro_info->coro_cnt_.load(std::memory_order_relaxed) > 0))
 #else
   if ((thread_group->active_thread_count == 0) &&
       (!is_queue_empty(thread_group) || !thread_group->listener))
@@ -1825,7 +1837,7 @@ void wait_begin(thread_group_t *thread_group, TP_connection_generic *conn)
 #endif
 
 #if defined(COROUTINE_ENABLED) & defined (ELOQ_MODULE_ENABLED)
-  if (!is_sql_thd)
+  if (!is_sql_thread)
   {
     // A SQL command entering the waiting section can only be processed by SQL
     // threads. If this is the external worker thread, enqueus the coroutine
@@ -1834,7 +1846,19 @@ void wait_begin(thread_group_t *thread_group, TP_connection_generic *conn)
     mysql_mutex_unlock(&thread_group->mutex);
     conn->thd->yield_func_();
     // When the coroutine resumes, it can only be SQL threads.
-    assert(is_sql_thd);
+    assert(GetIsSqlThd());
+
+    int prev_active_cnt= thread_group->active_thread_count.fetch_sub(
+        1, std::memory_order_relaxed);
+    if (prev_active_cnt == 1 && !coro_info->IsEmpty())
+    {
+      mysql_mutex_lock(&thread_group->mutex);
+      if (!coro_info->IsEmpty())
+      {
+        wake_or_create_thread(thread_group, false, true);
+      }
+      mysql_mutex_unlock(&thread_group->mutex);
+    }
     DBUG_VOID_RETURN;
   }
 #endif
@@ -1850,16 +1874,9 @@ void wait_end(thread_group_t *thread_group, TP_connection_generic *conn)
 {
   DBUG_ENTER("wait_end");
   mysql_mutex_lock(&thread_group->mutex);
-  assert(is_sql_thd);
-  if (conn->wait_from_sql_thd_)
-  {
-#ifdef COROUTINE_ENABLED
-    thread_group->active_thread_count.fetch_add(1, std::memory_order_relaxed);
-#else
-    thread_group->active_thread_count++;
-#endif
-  }
-  conn->wait_from_sql_thd_ = true;
+  assert(GetIsSqlThd());
+  conn->need_sql_thd_= false;
+  thread_group->active_thread_count++;
 #ifdef COROUTINE_ENABLED
 #if defined (EXT_TX_PROC_ENABLED) && !defined (ELOQ_MODULE_ENABLED)
   CoroutineInfo *coro_info = thread_group->coroutine_info_.get();
@@ -1914,7 +1931,9 @@ void TP_connection_generic::wait_begin(int type)
 {
   DBUG_ENTER("wait_begin");
 
+#ifndef COROUTINE_ENABLED
   DBUG_ASSERT(!waiting);
+#endif
   waiting++;
   if (waiting == 1)
     ::wait_begin(thread_group, this);
@@ -2134,7 +2153,7 @@ static void *worker_main(void *param)
   my_thread_init();
 
   DBUG_ENTER("worker_main");
-  is_sql_thd = true;
+  SetIsSqlThd(true);
 
   thread_group_t *thread_group = (thread_group_t *)param;
 
@@ -2189,10 +2208,16 @@ static void *worker_main(void *param)
         // connection has been scheduled to resume and is picked up by a separate
         // physical thread. Re-enqueus the connection for re-execution, until the
         // prior execution of coroutine has fully returned.
-        // mysql_mutex_lock(&thread_group->mutex);
-        // thread_group->coroutine_info_->coroutine_queue_.emplace_back(conn);
-        // mysql_mutex_unlock(&thread_group->mutex);
-        thread_group->coroutine_info_->resume_queue_.Enqueue(conn);
+#ifdef ELOQ_MODULE_ENABLED
+        if (conn->need_sql_thd_)
+        {
+          thread_group->coroutine_info_->sql_native_queue_.Enqueue(conn);
+        }
+        else
+#endif
+        {
+          thread_group->coroutine_info_->resume_queue_.Enqueue(conn);
+        }
         continue;
       }
 
@@ -2203,6 +2228,7 @@ static void *worker_main(void *param)
       }
 
       tp_callback(conn);
+      ClearCoroutineVarInC();
     }
 
 #ifdef IOURING_ENABLED
@@ -2503,8 +2529,11 @@ int thread_group_t::WakeOrCreateThread()
 
 bool thread_group_t::HasActiveWorker() const
 {
-  return ext_worker_active_.load(std::memory_order_relaxed) ||
-         active_thread_count.load(std::memory_order_relaxed) > 0;
+  return active_thread_count.load(std::memory_order_relaxed) > 0
+#ifdef ELOQ_MODULE_ENABLED
+         || ext_worker_active_.load(std::memory_order_relaxed)
+#endif
+      ;
 }
 
 #ifdef ELOQ_MODULE_ENABLED
@@ -2515,7 +2544,7 @@ void MariaModule::ExtThdStart(int thd_id)
     return;
   }
 
-  is_sql_thd = false;
+  SetIsSqlThd(false);
   groups_[thd_id]->ext_worker_active_.store(true, std::memory_order_relaxed);
 }
 
@@ -2528,9 +2557,20 @@ void MariaModule::ExtThdEnd(int thd_id)
   thread_group_t *group = groups_[thd_id];
   group->ext_worker_active_.store(false, std::memory_order_relaxed);
 
-  // Wakes up the listener thread.
-  std::unique_lock<std::mutex> lk(group->listener_mux_);
-  group->listener_cv_.notify_one();
+  mysql_mutex_lock(&group->mutex);
+
+  if (group->listener != nullptr)
+  {
+    mysql_mutex_unlock(&group->mutex);
+    // Wakes up the listener thread.
+    std::unique_lock<std::mutex> lk(group->listener_mux_);
+    group->listener_cv_.notify_one();
+  }
+  else
+  {
+    wake_or_create_thread(group, false, true);
+    mysql_mutex_unlock(&group->mutex);
+  }
 }
 
 void MariaModule::Process(int thd_id)
@@ -2570,11 +2610,13 @@ void MariaModule::Process(int thd_id)
       // connection has been scheduled to resume and is picked up by a separate
       // physical thread. Re-enqueus the connection for re-execution, until the
       // prior execution of coroutine has fully returned.
+      assert(!conn->need_sql_thd_);
       group->coroutine_info_->resume_queue_.Enqueue(conn);
       continue;
     }
 
     tp_callback(conn);
+    ClearCoroutineVarInC();
   }
 
 #ifdef IOURING_ENABLED
@@ -2639,6 +2681,7 @@ bool MariaModule::HasTask(int thd_id) const
   thread_group_t *group= groups_[thd_id];
   CoroutineInfo *coro_info= group->coroutine_info_.get();
   return !coro_info->req_queue_.IsEmpty() ||
+         !coro_info->resume_queue_.IsEmpty() ||
          coro_info->coro_cnt_.load(std::memory_order_relaxed) > 0;
 }
 #endif
@@ -2757,245 +2800,5 @@ ssize_t iouring_socket_send(
 }
 #endif
 
-int coro_mutex_trylock(
-  mysql_mutex_t *that
-#if defined(SAFE_MUTEX) || defined (HAVE_PSI_MUTEX_INTERFACE)
-  , const char *src_file, uint src_line
-#endif
-  )
-{
-  // Check pthread mutex condition first.
-#if defined(SAFE_MUTEX) || defined (HAVE_PSI_MUTEX_INTERFACE)
-  int res= inline_mysql_mutex_trylock(that, src_file, src_line);
-#else
-  int res= inline_mysql_mutex_trylock(that);
-#endif
-
-  if (res == 0)
-  {
-    // Check if this mutex is held by a coroutine process.
-    if (that->l.prev != 0 || that->l.next != 0)
-    {
-      // Already held by another coroutine process
-      res= EBUSY;
-      inline_mysql_mutex_unlock(that 
-#if defined (SAFE_MUTEX)
-    , src_file, src_line
-#endif
-      );
-    }
-    else if (current_thd && current_thd->ThdGroupId() >= 0){
-      // Put this lock into thread local acquired mutex list
-      TP_connection *c= get_TP_connection(current_thd);
-      TP_connection_generic *connection=(TP_connection_generic *)c;
-      connection->acquired_mutexes= list_add(connection->acquired_mutexes, &that->l);
-    }
-  }
-  
-  return res;
-}
-
-int coro_mutex_lock(
-  mysql_mutex_t *that
-#if defined(SAFE_MUTEX) || defined (HAVE_PSI_MUTEX_INTERFACE)
-  , const char *src_file, uint src_line
-#endif
-  )
-{
-  int res= -1;
-  THD *thd= current_thd;
-  bool is_coro_thd = thd && thd->ThdGroupId() >= 0;
-
-  const std::function<void()> *long_resume_fp= nullptr;
-  const std::function<void()> *yield_fp= nullptr;
-  // Since we release the acquired mutexes when a coroutine yields away,
-  // we need to verify if the mutex is held by a yielded coroutine. If the
-  // mutex is on a threadpool connection acquired mutex list, we need to keep
-  // retrying until the mutex is released by the coroutine.
-  while (true)
-  {
-    res= inline_mysql_mutex_lock(that
-#if defined(SAFE_MUTEX) || defined (HAVE_PSI_MUTEX_INTERFACE)
-    ,src_file, src_line
-#endif
-    );
-    // If lock is acquired by other coroutine, busy loop until the lock is released.
-    if (res == 0 && (that->l.prev || that->l.next))
-    {
-      inline_mysql_mutex_unlock(that 
-#if defined (SAFE_MUTEX) 
-    , src_file, src_line
-#endif
-      );
-      if (is_coro_thd)
-      {
-        if (!long_resume_fp)
-        {
-          long_resume_fp= thd->CoroLongResumeFunctor();
-          if (!*long_resume_fp)
-          {
-            // If long resume fp is not set then this is not a coroutine. We can safely
-            // busy loop here without worrying about deadlock.
-            is_coro_thd= false;
-            continue;
-          }
-          yield_fp= thd->CoroFunctors().first;
-        }
-
-        // Yield this coroutine process so that it won't block others.
-        (*long_resume_fp)();
-        (*yield_fp)();
-      }
-    }
-    else
-    {
-      break;
-    }
-  }
-
-  if (res == 0 && thd && thd->ThdGroupId() >= 0)
-  {
-    // Put this lock into thread local acquired mutex list
-    TP_connection *c= get_TP_connection(current_thd);
-    TP_connection_generic *connection=(TP_connection_generic *)c;
-    connection->acquired_mutexes= list_add(connection->acquired_mutexes, &that->l);
-  }
-
-  return res;
-}
-
-int coro_mutex_unlock(
-  mysql_mutex_t *that
-#ifdef SAFE_MUTEX
-  , const char *src_file, uint src_line
-#endif
-  )
-{
-#ifdef SAFE_MUTEX
-    int result= inline_mysql_mutex_unlock(that, src_file, src_line);
-#else
-    int result= inline_mysql_mutex_unlock(that);
-#endif
-
-  if (result == 0 && current_thd && current_thd->ThdGroupId() >= 0)
-  {
-    // remove mutex from thd acquired mutex list.
-    TP_connection *c= get_TP_connection(current_thd);
-    TP_connection_generic *connection=(TP_connection_generic *)c;
-    connection->acquired_mutexes= list_delete(connection->acquired_mutexes, &that->l);
-    that->l.prev = NULL;
-    that->l.next = NULL;
-    DBUG_ASSERT(that->l.prev == 0 && that->l.next == 0);
-  }
-
-  return result;
-}
-
-int coro_cond_timedwait(
-  mysql_cond_t *that,
-  mysql_mutex_t *mutex,
-  const struct timespec *abstime
-#if defined(SAFE_MUTEX) || defined(HAVE_PSI_COND_INTERFACE)
-  , const char *src_file, uint src_line
-#endif
-  )
-{
-  // mutex will be released in cond wait, remove it from thd mutex list
-  if (current_thd && current_thd->ThdGroupId() >= 0)
-  {
-    TP_connection *c= get_TP_connection(current_thd);
-    TP_connection_generic *connection=(TP_connection_generic *)c;
-    connection->acquired_mutexes= list_delete(connection->acquired_mutexes, &mutex->l);
-    mutex->l.prev = NULL;
-    mutex->l.next = NULL;
-    DBUG_ASSERT(mutex->l.prev == 0 && mutex->l.next == 0);
-  }
-  int res= inline_mysql_cond_timedwait(that, mutex, abstime
-#if defined(SAFE_MUTEX) || defined(HAVE_PSI_COND_INTERFACE)
-  , src_file, src_line
-#endif
-  );
-
-  
-    // If mutex is held by any other coroutine, busy loop until
-    // it is released
-    while (mutex->l.prev || mutex->l.next)
-    {
-#ifdef SAFE_MUTEX
-      inline_mysql_mutex_unlock(mutex, __FILE__, __LINE__);
-#else
-      inline_mysql_mutex_unlock(mutex);
-#endif
-#if defined(SAFE_MUTEX) || defined(HAVE_PSI_MUTEX_INTERFACE)
-      inline_mysql_mutex_lock(mutex, __FILE__, __LINE__);
-#else
-      inline_mysql_mutex_lock(mutex);
-#endif
-    }
-    if (current_thd && current_thd->ThdGroupId() >= 0)
-    {
-      // Put this lock into thread local acquired mutex list
-      TP_connection *c= get_TP_connection(current_thd);
-      TP_connection_generic *connection= (TP_connection_generic *) c;
-      DBUG_ASSERT(mutex->l.prev == 0 && mutex->l.next == 0);
-      connection->acquired_mutexes=
-          list_add(connection->acquired_mutexes, &mutex->l);
-    }
-  
-  return res;
-}
-
-int coro_cond_wait(
-  mysql_cond_t *that,
-  mysql_mutex_t *mutex
-#if defined(SAFE_MUTEX) || defined(HAVE_PSI_COND_INTERFACE)
-  , const char *src_file, uint src_line
-#endif
-  )
-{
-  // mutex will be released in cond wait, remove it from thd mutex list
-  if (current_thd && current_thd->ThdGroupId() >= 0)
-  {
-    TP_connection *c= get_TP_connection(current_thd);
-    TP_connection_generic *connection=(TP_connection_generic *)c;
-    connection->acquired_mutexes= list_delete(connection->acquired_mutexes, &mutex->l);
-    mutex->l.prev = NULL;
-    mutex->l.next = NULL;
-    DBUG_ASSERT(mutex->l.prev == 0 && mutex->l.next == 0);
-  }
-  int res= inline_mysql_cond_wait(that, mutex
-#if defined(SAFE_MUTEX) || defined(HAVE_PSI_COND_INTERFACE)
-  , src_file, src_line
-#endif
-  );
-
-  
-    // If mutex is held by any other coroutine, busy loop until
-    // it is released
-    while (mutex->l.prev || mutex->l.next)
-    {
-#ifdef SAFE_MUTEX
-      inline_mysql_mutex_unlock(mutex, __FILE__, __LINE__);
-#else
-      inline_mysql_mutex_unlock(mutex);
-#endif
-#if defined(SAFE_MUTEX) || defined(HAVE_PSI_MUTEX_INTERFACE)
-      inline_mysql_mutex_lock(mutex, __FILE__, __LINE__);
-#else
-      inline_mysql_mutex_lock(mutex);
-#endif
-    }
-    if (current_thd && current_thd->ThdGroupId() >= 0)
-    {
-      // Put this lock into thread local acquired mutex list
-      TP_connection *c= get_TP_connection(current_thd);
-      TP_connection_generic *connection= (TP_connection_generic *) c;
-      DBUG_ASSERT(mutex->l.prev == 0 && mutex->l.next == 0);
-      connection->acquired_mutexes=
-          list_add(connection->acquired_mutexes, &mutex->l);
-    }
-  
-  return res;
-}
 #endif
 #endif /* HAVE_POOL_OF_THREADS */

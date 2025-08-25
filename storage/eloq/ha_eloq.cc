@@ -142,6 +142,7 @@
 #include "my_bitmap.h"
 #include "log.h"
 #include "key.h"
+#include "mysql/service_thd_wait.h"
 
 #include "log_wrapper.h"
 #include "eloq_i_s.h"
