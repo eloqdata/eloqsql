@@ -2597,9 +2597,7 @@ static int eloq_init_func(void *p)
         rocksdb_config, enable_cache_replacement_);
 #elif defined(DATA_STORE_TYPE_ELOQDSS_ELOQSTORE)
     EloqDS::EloqStoreConfig eloq_store_config;
-    eloq_store_config.worker_count_= eloq_eloqstore_worker_num;
-    eloq_store_config.worker_count_=
-        std::max(eloq_store_config.worker_count_, uint16_t(1));
+    eloq_store_config.worker_count_= std::max(eloq_eloqstore_worker_num, 1U);
     eloq_store_config.storage_path_= eloq_eloqstore_data_path;
     if (eloq_store_config.storage_path_.empty())
     {
