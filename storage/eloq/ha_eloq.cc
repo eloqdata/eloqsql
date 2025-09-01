@@ -2951,16 +2951,6 @@ static int eloq_init_func(void *p)
     size_t rocksdb_sst_files_size_limit_val=
         txlog::parse_size(eloq_txlog_rocksdb_sst_files_size_limit);
 
-#ifdef ELOQ_MODULE_ENABLED
-    GFLAGS_NAMESPACE::SetCommandLineOption(
-        "bthread_concurrency", std::to_string(eloq_core_num).c_str());
-    GFLAGS_NAMESPACE::SetCommandLineOption("use_pthread_event_dispatcher",
-                                           "true");
-    int busy_time= 10000;
-    GFLAGS_NAMESPACE::SetCommandLineOption("worker_polling_time_us",
-                                           std::to_string(busy_time).c_str());
-#endif
-
     if (opt_bootstrap)
     {
 #if defined(OPEN_LOG_SERVICE)
