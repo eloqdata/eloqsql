@@ -667,7 +667,7 @@ int mysql_coro_cond_wait(mysql_cond_t *that, mysql_mutex_t *mutex
   while (mutex->l.prev || mutex->l.next)
   {
     inline_mysql_mutex_unlock(mutex
-#if defined(SAFE_MUTEX) || defined(HAVE_PSI_MUTEX_INTERFACE)
+#if defined(SAFE_MUTEX)
                               ,
                               src_file, src_line
 #endif
@@ -732,7 +732,7 @@ int mysql_coro_cond_timedwait(mysql_cond_t *that, mysql_mutex_t *mutex,
   while (mutex->l.prev || mutex->l.next)
   {
     inline_mysql_mutex_unlock(mutex
-#if defined(SAFE_MUTEX) || defined(HAVE_PSI_MUTEX_INTERFACE)
+#if defined(SAFE_MUTEX)
                               ,
                               src_file, src_line
 #endif

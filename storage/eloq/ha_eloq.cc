@@ -2535,6 +2535,16 @@ static int eloq_init_func(void *p)
     eloq_skip_redo_log= true;
   }
 
+#ifdef ELOQ_MODULE_ENABLED
+  GFLAGS_NAMESPACE::SetCommandLineOption(
+      "bthread_concurrency", std::to_string(eloq_core_num).c_str());
+  GFLAGS_NAMESPACE::SetCommandLineOption("use_pthread_event_dispatcher",
+                                         "true");
+  int busy_time= 10000;
+  GFLAGS_NAMESPACE::SetCommandLineOption("worker_polling_time_us",
+                                         std::to_string(busy_time).c_str());
+#endif
+
   std::unordered_map<uint32_t, std::vector<NodeConfig>> ng_configs;
   uint64_t cluster_config_version= 2;
 
