@@ -2310,6 +2310,94 @@ static void RegisterFactory()
   txservice::TxRecordFactory::RegisterCreateTxRecordFunc(EloqRecord::Create);
 }
 
+#if defined(DATA_STORE_TYPE_ELOQDSS_ELOQSTORE)
+/**
+ * Configure EloqStore settings for the data store service
+ * @param eloq_store_config Reference to EloqStoreConfig to be configured
+ * @param dss_data_path Base data path for the data store service
+ */
+static void configure_eloq_store(EloqDS::EloqStoreConfig &eloq_store_config,
+                                 const std::string &dss_data_path)
+{
+  eloq_store_config.eloqstore_configs_.num_threads=
+      std::max(eloq_eloqstore_worker_num, 1U);
+
+  std::string storage_path_list(eloq_eloqstore_data_path_list);
+  if (!storage_path_list.empty())
+  {
+    EloqDS::EloqStoreConfig::ParseStoragePath(
+        storage_path_list, eloq_store_config.eloqstore_configs_.store_path);
+  }
+  else
+  {
+    eloq_store_config.eloqstore_configs_.store_path.emplace_back()
+        .append(dss_data_path)
+        .append("/eloqstore");
+  }
+
+  eloq_store_config.eloqstore_configs_.fd_limit=
+      eloq_eloqstore_open_files_limit;
+  eloq_store_config.eloqstore_configs_.cloud_store_path=
+      eloq_eloqstore_cloud_store_path;
+  eloq_store_config.eloqstore_configs_.num_gc_threads=
+      !eloq_store_config.eloqstore_configs_.cloud_store_path.empty()
+          ? 0
+          : eloq_eloqstore_gc_threads;
+  eloq_store_config.eloqstore_configs_.rclone_threads=
+      eloq_eloqstore_cloud_worker_count;
+
+  LOG_IF(INFO, !eloq_store_config.eloqstore_configs_.cloud_store_path.empty())
+      << "EloqStore cloud store enabled.";
+
+  eloq_store_config.eloqstore_configs_.data_page_restart_interval=
+      eloq_eloqstore_data_page_restart_interval;
+  eloq_store_config.eloqstore_configs_.index_page_restart_interval=
+      eloq_eloqstore_index_page_restart_interval;
+  eloq_store_config.eloqstore_configs_.init_page_count=
+      eloq_eloqstore_init_page_count;
+  eloq_store_config.eloqstore_configs_.skip_verify_checksum=
+      eloq_eloqstore_skip_verify_checksum;
+  eloq_store_config.eloqstore_configs_.index_buffer_pool_size=
+      eloq_eloqstore_index_buffer_pool_size /
+      eloq_store_config.eloqstore_configs_.num_threads;
+  eloq_store_config.eloqstore_configs_.manifest_limit=
+      eloq_eloqstore_manifest_limit;
+  eloq_store_config.eloqstore_configs_.io_queue_size=
+      eloq_eloqstore_io_queue_size /
+      eloq_store_config.eloqstore_configs_.num_threads;
+  eloq_store_config.eloqstore_configs_.max_inflight_write=
+      eloq_eloqstore_max_inflight_write /
+      eloq_store_config.eloqstore_configs_.num_threads;
+  eloq_store_config.eloqstore_configs_.max_write_batch_pages=
+      eloq_eloqstore_max_write_batch_pages;
+  eloq_store_config.eloqstore_configs_.buf_ring_size=
+      eloq_eloqstore_buf_ring_size;
+  eloq_store_config.eloqstore_configs_.coroutine_stack_size=
+      eloq_eloqstore_coroutine_stack_size;
+  eloq_store_config.eloqstore_configs_.num_retained_archives=
+      eloq_eloqstore_num_retained_archives;
+  eloq_store_config.eloqstore_configs_.archive_interval_secs=
+      eloq_eloqstore_archive_interval_secs;
+  eloq_store_config.eloqstore_configs_.max_archive_tasks=
+      eloq_eloqstore_max_archive_tasks;
+  eloq_store_config.eloqstore_configs_.file_amplify_factor=
+      eloq_eloqstore_file_amplify_factor;
+  eloq_store_config.eloqstore_configs_.local_space_limit=
+      eloq_eloqstore_local_space_limit /
+      eloq_store_config.eloqstore_configs_.num_threads;
+  eloq_store_config.eloqstore_configs_.reserve_space_ratio=
+      eloq_eloqstore_reserve_space_ratio;
+  eloq_store_config.eloqstore_configs_.data_page_size=
+      eloq_eloqstore_data_page_size;
+  eloq_store_config.eloqstore_configs_.pages_per_file_shift=
+      eloq_eloqstore_pages_per_file_shift;
+  eloq_store_config.eloqstore_configs_.overflow_pointers=
+      eloq_eloqstore_overflow_pointers;
+  eloq_store_config.eloqstore_configs_.data_append_mode=
+      eloq_eloqstore_data_append_mode;
+}
+#endif
+
 static int eloq_init_func(void *p)
 {
   DBUG_ENTER_FUNC();
@@ -2597,80 +2685,7 @@ static int eloq_init_func(void *p)
         rocksdb_config, enable_cache_replacement_);
 #elif defined(DATA_STORE_TYPE_ELOQDSS_ELOQSTORE)
     EloqDS::EloqStoreConfig eloq_store_config;
-    eloq_store_config.eloqstore_configs_.num_threads=
-        std::max(eloq_eloqstore_worker_num, 1U);
-    std::string storage_path_list(eloq_eloqstore_data_path_list);
-    if (!storage_path_list.empty())
-    {
-      EloqDS::EloqStoreConfig::ParseStoragePath(
-          storage_path_list, eloq_store_config.eloqstore_configs_.store_path);
-    }
-    else
-    {
-      eloq_store_config.eloqstore_configs_.store_path.emplace_back()
-          .append(dss_data_path)
-          .append("/eloqstore");
-    }
-
-    eloq_store_config.eloqstore_configs_.fd_limit=
-        eloq_eloqstore_open_files_limit;
-    eloq_store_config.eloqstore_configs_.cloud_store_path=
-        eloq_eloqstore_cloud_store_path;
-    eloq_store_config.eloqstore_configs_.num_gc_threads=
-        !eloq_store_config.eloqstore_configs_.cloud_store_path.empty()
-            ? 0
-            : eloq_eloqstore_gc_threads;
-    eloq_store_config.eloqstore_configs_.rclone_threads=
-        eloq_eloqstore_cloud_worker_count;
-    LOG_IF(INFO,
-           !eloq_store_config.eloqstore_configs_.cloud_store_path.empty())
-        << "EloqStore cloud store enabled.";
-    eloq_store_config.eloqstore_configs_.data_page_restart_interval=
-        eloq_eloqstore_data_page_restart_interval;
-    eloq_store_config.eloqstore_configs_.index_page_restart_interval=
-        eloq_eloqstore_index_page_restart_interval;
-    eloq_store_config.eloqstore_configs_.init_page_count=
-        eloq_eloqstore_init_page_count;
-    eloq_store_config.eloqstore_configs_.skip_verify_checksum=
-        eloq_eloqstore_skip_verify_checksum;
-    eloq_store_config.eloqstore_configs_.index_buffer_pool_size=
-        eloq_eloqstore_index_buffer_pool_size /
-        eloq_store_config.eloqstore_configs_.num_threads;
-    eloq_store_config.eloqstore_configs_.manifest_limit=
-        eloq_eloqstore_manifest_limit;
-    eloq_store_config.eloqstore_configs_.io_queue_size=
-        eloq_eloqstore_io_queue_size /
-        eloq_store_config.eloqstore_configs_.num_threads;
-    eloq_store_config.eloqstore_configs_.max_inflight_write=
-        eloq_eloqstore_max_inflight_write /
-        eloq_store_config.eloqstore_configs_.num_threads;
-    eloq_store_config.eloqstore_configs_.max_write_batch_pages=
-        eloq_eloqstore_max_write_batch_pages;
-    eloq_store_config.eloqstore_configs_.buf_ring_size=
-        eloq_eloqstore_buf_ring_size;
-    eloq_store_config.eloqstore_configs_.coroutine_stack_size=
-        eloq_eloqstore_coroutine_stack_size;
-    eloq_store_config.eloqstore_configs_.num_retained_archives=
-        eloq_eloqstore_num_retained_archives;
-    eloq_store_config.eloqstore_configs_.archive_interval_secs=
-        eloq_eloqstore_archive_interval_secs;
-    eloq_store_config.eloqstore_configs_.max_archive_tasks=
-        eloq_eloqstore_max_archive_tasks;
-    eloq_store_config.eloqstore_configs_.file_amplify_factor=
-        eloq_eloqstore_file_amplify_factor;
-    eloq_store_config.eloqstore_configs_.local_space_limit=
-        eloq_eloqstore_local_space_limit /
-        eloq_store_config.eloqstore_configs_.num_threads;
-    eloq_store_config.eloqstore_configs_.reserve_space_ratio=
-        eloq_eloqstore_reserve_space_ratio;
-    eloq_store_config.eloqstore_configs_.data_page_size=
-        eloq_eloqstore_data_page_size;
-    eloq_store_config.eloqstore_configs_.pages_per_file_shift=
-        eloq_eloqstore_pages_per_file_shift;
-    eloq_store_config.eloqstore_configs_.overflow_pointers=
-        eloq_eloqstore_overflow_pointers;
-    eloq_store_config.eloqstore_configs_.data_append_mode=
-        eloq_eloqstore_data_append_mode;
+    configure_eloq_store(eloq_store_config, dss_data_path);
     auto ds_factory= std::make_unique<EloqDS::EloqStoreDataStoreFactory>(
         std::move(eloq_store_config));
 #endif
