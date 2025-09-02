@@ -35,6 +35,8 @@ ln -s $WORKSPACE/raft_host_manager_src raft_host_manager
 popd
 ELOQSQL_SRC=${PWD}
 
+export LD_LIBRARY_PATH=/usr/local/lib:/usr/local/lib64:$LD_LIBRARY_PATH
+
 # Get OS information from /etc/os-release
 source /etc/os-release
 if [[ "$ID" == "centos" ]] || [[ "$ID" == "rocky" ]]; then
@@ -117,6 +119,12 @@ else
     exit 1
 fi
 
+if [ "$ID" == "centos" ];then
+    IOURING_ENABLED="OFF"
+else
+    IOURING_ENABLED="ON"
+fi
+
 if [ "$ASAN" = "ON" ]; then
     export ASAN_OPTIONS=abort_on_error=1:detect_container_overflow=0:leak_check_at_exit=0
 fi
@@ -189,6 +197,7 @@ cmake -DCMAKE_INSTALL_PREFIX="${DEST_DIR}" \
       -DSTATISTICS=ON \
       -DWITH_DATA_STORE=${DATA_STORE_TYPE} \
       ${CMAKE_ARGS} \
+      -DIOURING_ENABLED=${IOURING_ENABLED} \
       -DOPEN_LOG_SERVICE=OFF \
       -DFORK_HM_PROCESS=ON \
       ../
