@@ -466,3 +466,294 @@ size_t my_setstacksize(pthread_attr_t *attr, size_t stacksize)
 #endif
   return stacksize;
 }
+
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+_Thread_local LIST *tls_mutex_head= NULL;
+_Thread_local CoroFn tls_coro_fn= NULL;
+_Thread_local void *tls_sql_conn= NULL;
+#else
+__thread LIST *tls_mutex_head= NULL;
+__thread CoroFn tls_coro_fn= NULL;
+__thread void *tls_sql_conn= NULL;
+#endif
+
+void set_tls_mutex_head(LIST *head) { tls_mutex_head= head; }
+
+LIST *get_tls_mutex_head() { return tls_mutex_head; }
+
+void set_coro_fn(void (*fn)(void *, CoroFnType)) { tls_coro_fn= fn; }
+
+void set_tls_sql_conn(void *conn) { tls_sql_conn= conn; }
+
+void *get_tls_sql_conn() { return tls_sql_conn; }
+
+void add_mutex_to_tls_list(mysql_mutex_t *mysql_mux)
+{
+  assert(mysql_mux->l.prev == NULL);
+  assert(mysql_mux->l.next == NULL);
+  assert(tls_mutex_head != NULL);
+  assert(tls_mutex_head->prev == NULL);
+
+  if (tls_mutex_head->next == NULL)
+  {
+    tls_mutex_head->next= &mysql_mux->l;
+    mysql_mux->l.prev= tls_mutex_head;
+    mysql_mux->l.next= NULL;
+  }
+  else
+  {
+    list_add(tls_mutex_head->next, &mysql_mux->l);
+  }
+  assert(tls_mutex_head->next == &mysql_mux->l);
+}
+
+int mysql_coro_mutex_lock(mysql_mutex_t *that
+#if defined(SAFE_MUTEX) || defined(HAVE_PSI_MUTEX_INTERFACE)
+                          ,
+                          const char *src_file, uint src_line
+#endif
+)
+{
+  if (tls_mutex_head != NULL)
+  {
+    assert(tls_sql_conn != NULL);
+
+    while (1)
+    {
+      int ret= inline_mysql_mutex_lock(that
+#if defined(SAFE_MUTEX) || defined(HAVE_PSI_MUTEX_INTERFACE)
+                                       ,
+                                       src_file, src_line
+#endif
+      );
+
+      if (ret == 0)
+      {
+        if (that->l.prev != NULL || that->l.next != NULL)
+        {
+          // The lock is already held by another coroutine. Releases the lock
+          // and prepares to yield.
+          inline_mysql_mutex_unlock(that
+#if defined(SAFE_MUTEX)
+                                    ,
+                                    src_file, src_line
+#endif
+          );
+          ret= EBUSY;
+        }
+        else
+        {
+          add_mutex_to_tls_list(that);
+        }
+      }
+
+      if (ret == EBUSY)
+      {
+        // The lock is being held by someone else. Yields and resumes the
+        // coroutine until the lock is released.
+        tls_coro_fn(tls_sql_conn, CoroFnResume);
+        tls_coro_fn(tls_sql_conn, CoroFnYield);
+      }
+      else
+      {
+        return ret;
+      }
+    }
+  }
+  else
+  {
+    return inline_mysql_mutex_lock(that
+#if defined(SAFE_MUTEX) || defined(HAVE_PSI_MUTEX_INTERFACE)
+                                   ,
+                                   src_file, src_line
+#endif
+    );
+  }
+}
+
+int mysql_coro_mutex_trylock(mysql_mutex_t *that
+#if defined(SAFE_MUTEX) || defined(HAVE_PSI_MUTEX_INTERFACE)
+                             ,
+                             const char *src_file, uint src_line
+#endif
+)
+{
+  int ret= inline_mysql_mutex_trylock(that
+#if defined(SAFE_MUTEX) || defined(HAVE_PSI_MUTEX_INTERFACE)
+                                      ,
+                                      src_file, src_line
+#endif
+  );
+
+  if (ret == 0 && tls_mutex_head != NULL)
+  {
+    // Check if this mutex is held by another coroutine. If so, releases the
+    // mutex and returns EBUSY.
+    if (that->l.prev != NULL || that->l.next != NULL)
+    {
+      inline_mysql_mutex_unlock(that
+#if defined(SAFE_MUTEX)
+                                ,
+                                src_file, src_line
+#endif
+      );
+      ret= EBUSY;
+    }
+    else
+    {
+      add_mutex_to_tls_list(that);
+    }
+  }
+
+  return ret;
+}
+
+int mysql_coro_mutex_unlock(mysql_mutex_t *that
+#ifdef SAFE_MUTEX
+                            ,
+                            const char *src_file, uint src_line
+#endif
+)
+{
+  if (tls_mutex_head != NULL)
+  {
+    list_delete(tls_mutex_head, &that->l);
+    that->l.prev= NULL;
+    that->l.next= NULL;
+  }
+
+  return inline_mysql_mutex_unlock(that
+#ifdef SAFE_MUTEX
+                                   ,
+                                   src_file, src_line
+#endif
+  );
+}
+
+int mysql_coro_cond_wait(mysql_cond_t *that, mysql_mutex_t *mutex
+#if defined(SAFE_MUTEX) || defined(HAVE_PSI_COND_INTERFACE)
+                   ,
+                   const char *src_file, uint src_line
+#endif
+)
+{
+  int ret = 0;
+
+  void *sql_conn= tls_sql_conn;
+  bool begin_wait = false;
+
+  if (sql_conn != NULL)
+  {
+    begin_wait= true;
+    tls_coro_fn(sql_conn, CoroFnWaitBegin);
+  }
+
+  // The mutex will be released in condition wait. Removes it from the
+  // coroutine mutex list.
+  if (tls_mutex_head != NULL)
+  {
+    list_delete(tls_mutex_head, &mutex->l);
+    mutex->l.prev= NULL;
+    mutex->l.next= NULL;
+  }
+
+  ret = inline_mysql_cond_wait(that, mutex
+#if defined(SAFE_MUTEX) || defined(HAVE_PSI_COND_INTERFACE)
+                                   , src_file, src_line
+#endif
+  );
+
+  // Re-enqueues the mutex into the coroutine mutex list.
+  while (mutex->l.prev || mutex->l.next)
+  {
+    inline_mysql_mutex_unlock(mutex
+#if defined(SAFE_MUTEX)
+                              ,
+                              src_file, src_line
+#endif
+    );
+    inline_mysql_mutex_lock(mutex
+#if defined(SAFE_MUTEX) || defined(HAVE_PSI_MUTEX_INTERFACE)
+                            ,
+                            src_file, src_line
+#endif
+    );
+  }
+
+  if (tls_mutex_head != NULL)
+  {
+    add_mutex_to_tls_list(mutex);
+  }
+
+  if (begin_wait)
+  {
+    tls_coro_fn(sql_conn, CoroFnWaitEnd);
+  }
+
+  return ret;
+}
+
+int mysql_coro_cond_timedwait(mysql_cond_t *that, mysql_mutex_t *mutex,
+                              const struct timespec *abstime
+#if defined(SAFE_MUTEX) || defined(HAVE_PSI_COND_INTERFACE)
+                              ,
+                              const char *src_file, uint src_line
+#endif
+)
+{
+  int ret= 0;
+
+  void *sql_conn= tls_sql_conn;
+  bool begin_wait= false;
+
+  if (sql_conn != NULL)
+  {
+    begin_wait= true;
+    tls_coro_fn(sql_conn, CoroFnWaitBegin);
+  }
+
+  // The mutex will be released in condition wait. Removes it from the
+  // coroutine mutex list.
+  if (tls_mutex_head != NULL)
+  {
+    list_delete(tls_mutex_head, &mutex->l);
+    mutex->l.prev= NULL;
+    mutex->l.next= NULL;
+  }
+
+  ret= inline_mysql_cond_timedwait(that, mutex, abstime
+#if defined(SAFE_MUTEX) || defined(HAVE_PSI_COND_INTERFACE)
+                                   ,
+                                   src_file, src_line
+#endif
+  );
+
+  // Re-enqueues the mutex into the coroutine mutex list.
+  while (mutex->l.prev || mutex->l.next)
+  {
+    inline_mysql_mutex_unlock(mutex
+#if defined(SAFE_MUTEX)
+                              ,
+                              src_file, src_line
+#endif
+    );
+    inline_mysql_mutex_lock(mutex
+#if defined(SAFE_MUTEX) || defined(HAVE_PSI_MUTEX_INTERFACE)
+                            ,
+                            src_file, src_line
+#endif
+    );
+  }
+
+  if (tls_mutex_head != NULL)
+  {
+    add_mutex_to_tls_list(mutex);
+  }
+
+  if (begin_wait)
+  {
+    tls_coro_fn(sql_conn, CoroFnWaitEnd);
+  }
+
+  return ret;
+}

@@ -245,7 +245,7 @@ uint tc_records(void)
 }
 
 #ifdef COROUTINE_ENABLED
-static void CoroutineWait(THD *thd, mysql_cond_t *cv, mysql_mutex_t *mux)
+static void CoroutineBusyWait(THD *thd, mysql_cond_t *cv, mysql_mutex_t *mux)
 {
   if (thd != nullptr && thd->coro_status_ == THD::CoroStatus::Ongoing)
   {
@@ -273,7 +273,7 @@ static void tc_remove_table(TABLE *table, THD *thd)
   /* Wait for MDL deadlock detector to complete traversing tdc.all_tables. */
   while (element->all_tables_refs)
 #ifdef COROUTINE_ENABLED
-    CoroutineWait(thd, &element->COND_release, &element->LOCK_table_share);
+    CoroutineBusyWait(thd, &element->COND_release, &element->LOCK_table_share);
 #else
     mysql_cond_wait(&element->COND_release, &element->LOCK_table_share);
 #endif
@@ -368,7 +368,7 @@ void tc_add_table(THD *thd, TABLE *table)
   /* Wait for MDL deadlock detector to complete traversing tdc.all_tables. */
   while (element->all_tables_refs)
 #ifdef COROUTINE_ENABLED
-    CoroutineWait(thd, &element->COND_release, &element->LOCK_table_share);
+    CoroutineBusyWait(thd, &element->COND_release, &element->LOCK_table_share);
 #else
     mysql_cond_wait(&element->COND_release, &element->LOCK_table_share);
 #endif
@@ -535,7 +535,7 @@ static void tdc_delete_share_from_hash(TDC_element *element)
     do
     {
 #ifdef COROUTINE_ENABLED
-      CoroutineWait(thd, &element->COND_release, &element->LOCK_table_share);
+      CoroutineBusyWait(thd, &element->COND_release, &element->LOCK_table_share);
 #else
       mysql_cond_wait(&element->COND_release, &element->LOCK_table_share);
 #endif
@@ -1293,7 +1293,7 @@ void TDC_element::wait_for_refs(uint my_refs, THD *thd)
 {
   while (ref_count > my_refs)
 #ifdef COROUTINE_ENABLED
-    CoroutineWait(thd, &COND_release, &LOCK_table_share);
+    CoroutineBusyWait(thd, &COND_release, &LOCK_table_share);
 #else
     mysql_cond_wait(&COND_release, &LOCK_table_share);
 #endif

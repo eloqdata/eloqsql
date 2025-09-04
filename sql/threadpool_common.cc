@@ -43,6 +43,16 @@
 #include <condition_variable>
 #include <mutex>
 #endif
+#include "is_sql_thd.h"
+
+extern "C"
+{
+  void set_tls_mutex_head(LIST *head);
+  LIST *get_tls_mutex_head();
+  void set_coro_fn(void (*fn)(void *, CoroFnType));
+  void set_tls_sql_conn(void *conn);
+  void *get_tls_sql_conn();
+}
 
 /* Threadpool parameters */
 
@@ -187,10 +197,32 @@ static TP_PRIORITY get_priority(TP_connection *c)
 }
 
 #ifdef COROUTINE_ENABLED
-static void CoroutineYield(boost::context::continuation &&main,
+static void CoroutineFn(void *data, CoroFnType fn_type)
+{
+  TP_connection_generic *conn = static_cast<TP_connection_generic *>(data);
+  switch (fn_type)
+  {
+  case CoroFnResume:
+    conn->thd->long_resume_func_();
+    break;
+  case CoroFnYield:
+    conn->thd->yield_func_();
+    break;
+  case CoroFnWaitBegin:
+    conn->wait_begin(1);
+    break;
+  case CoroFnWaitEnd:
+    conn->wait_end();
+    break;
+  default:
+    break;
+  }
+}
+
+static void CoroutineYield(boost::context::continuation *main,
                            TP_connection_generic *conn)
 {
-  LIST *node= conn->acquired_mutexes;
+  LIST *node= conn->acquired_mutexes.next;
   while (node)
   {
     // Release all mutexes acquired by this coroutine.
@@ -208,13 +240,43 @@ static void CoroutineYield(boost::context::continuation &&main,
 #endif
     node= node->next;
   }
-  main= main.resume();
+  *main= (*main).resume();
 }
 
 static void CoroutineResume(thread_group_t *thd_group,
                             TP_connection_generic *conn)
 {
   CoroutineInfo &coro_info= *thd_group->coroutine_info_;
+#ifdef ELOQ_MODULE_ENABLED
+  if (conn->need_sql_thd_)
+  {
+    coro_info.sql_native_queue_.Enqueue(conn);
+
+    if (thd_group->active_thread_count.load(std::memory_order_relaxed) == 0)
+    {
+      mysql_mutex_lock(&thd_group->mutex);
+      if (thd_group->active_thread_count.load(std::memory_order_relaxed) == 0)
+      {
+        int err= thd_group->WakeOrCreateThread();
+        if (err != 0)
+        {
+          sql_print_warning("Resumed command fails to wake up the SQL thread "
+                            "in the thread group %d, err: %d",
+                            coro_info.group_id_, err);
+        }
+      }
+      mysql_mutex_unlock(&thd_group->mutex);
+    }
+  }
+  else
+  {
+    coro_info.resume_queue_.Enqueue(conn);
+    if (!thd_group->ext_worker_active_.load(std::memory_order_relaxed))
+    {
+      eloq::EloqModule::NotifyWorker(coro_info.group_id_);
+    }
+  }
+#else
   coro_info.resume_queue_.Enqueue(conn);
 
   // By the time the first load() returns 0 and the mutex is locked,
@@ -224,9 +286,6 @@ static void CoroutineResume(thread_group_t *thd_group,
   // before trying to sleep.
   if (!thd_group->HasActiveWorker())
   {
-#ifdef ELOQ_MODULE_ENABLED
-    eloq::EloqModule::NotifyWorker(coro_info.group_id_);
-#else
     mysql_mutex_lock(&thd_group->mutex);
 
     if (!thd_group->HasActiveWorker())
@@ -241,8 +300,45 @@ static void CoroutineResume(thread_group_t *thd_group,
     }
 
     mysql_mutex_unlock(&thd_group->mutex);
-#endif
   }
+#endif
+}
+
+static void CoroutineLongResume(thread_group_t *thd_group,
+                                TP_connection_generic *conn)
+{
+  CoroutineInfo &coro_info= *thd_group->coroutine_info_;
+#ifdef ELOQ_MODULE_ENABLED
+  if (conn->need_sql_thd_)
+  {
+    assert(GetIsSqlThd());
+    coro_info.sql_native_queue_.Enqueue(conn);
+  }
+  else
+  {
+    coro_info.req_queue_.Enqueue(conn);
+  }
+#else
+  coro_info.req_queue_.Enqueue(conn);
+#endif
+}
+
+void RestoreCoroutineVarInC(THD *thd, TP_connection_generic *conn)
+{
+  assert(get_tls_mutex_head() == nullptr ||
+         get_tls_mutex_head() == &conn->acquired_mutexes);
+  assert(get_tls_sql_conn() == nullptr || get_tls_sql_conn() == conn);
+
+  set_tls_mutex_head(&conn->acquired_mutexes);
+  set_tls_sql_conn(conn);
+  set_coro_fn(CoroutineFn);
+}
+
+void ClearCoroutineVarInC()
+{
+  set_tls_mutex_head(NULL);
+  set_coro_fn(NULL);
+  set_tls_sql_conn(NULL);
 }
 
 boost::context::continuation
@@ -257,7 +353,7 @@ CloseConnCoroutine(boost::context::continuation &&caller, THD *thd)
 
   thread_group_t *thread_group= connection->thread_group;
 
-  thd->yield_func_= [&main= caller, conn= connection]() {
+  thd->yield_func_= [main= &caller, conn= connection]() {
     CoroutineYield(std::move(main), conn);
   };
 
@@ -266,8 +362,11 @@ CloseConnCoroutine(boost::context::continuation &&caller, THD *thd)
   };
 
   thd->long_resume_func_= [thd_group= thread_group, conn= connection]() {
-    thd_group->coroutine_info_->req_queue_.Enqueue(conn);
+    CoroutineLongResume(thd_group, conn);
   };
+
+  assert(connection->acquired_mutexes.next == nullptr);
+  RestoreCoroutineVarInC(thd, connection);
 
   // The following code is copied from threadpool_remove_connection().
   // thread_attach(thd);
@@ -305,18 +404,26 @@ void ResumeCoroutine(THD *thd, bool bind_socket = true)
   }
   /* restore all mutexes of this thd that was released on yield.*/
   TP_connection_generic *connection= (TP_connection_generic *) get_TP_connection(thd);
-  LIST *node= connection->acquired_mutexes;
-  // Reacquire all mutex locks that we released on yield.
-  while(node)
+
+  LIST *last_node= connection->acquired_mutexes.next;
+  // Finds the last node in the list.
+  while (last_node != nullptr && last_node->next != nullptr)
   {
-#if defined(SAFE_MUTEX) || defined (HAVE_PSI_MUTEX_INTERFACE)
-  inline_mysql_mutex_lock((mysql_mutex_t *)node->data, __FILE__, __LINE__);
+    last_node= last_node->next;
+  }
+  // Re-acquire all mutex locks that we released on yield.
+  LIST *node = last_node;
+  while (node != nullptr && node != &connection->acquired_mutexes)
+  {
+#if defined(SAFE_MUTEX) || defined(HAVE_PSI_MUTEX_INTERFACE)
+    inline_mysql_mutex_lock((mysql_mutex_t *) node->data, __FILE__, __LINE__);
 #else
-  inline_mysql_mutex_lock((mysql_mutex_t *)node->data);
+    inline_mysql_mutex_lock((mysql_mutex_t *) node->data);
 #endif
-    node= node->next;
+    node= node->prev;
   }
 
+  RestoreCoroutineVarInC(thd, connection);
   thd->cmd_coroutine_= thd->cmd_coroutine_.resume();
 }
 
@@ -389,7 +496,7 @@ AddConnCoroutine(boost::context::continuation &&caller, TP_connection *c)
 
   setup_connection_thread_globals(thd);
 
-  thd->yield_func_= [&main= caller, conn= conn]() {
+  thd->yield_func_= [main= &caller, conn= conn]() {
     CoroutineYield(std::move(main), conn);
   };
 
@@ -398,8 +505,11 @@ AddConnCoroutine(boost::context::continuation &&caller, TP_connection *c)
   };
 
   thd->long_resume_func_= [thd_group= thread_group, conn= conn]() {
-    thd_group->coroutine_info_->req_queue_.Enqueue(conn);
+    CoroutineLongResume(thd_group, conn);
   };
+
+  assert(conn->acquired_mutexes.next == nullptr);
+  RestoreCoroutineVarInC(thd, conn);
 
   if (thd_prepare_connection(thd))
     goto end;
@@ -468,7 +578,7 @@ void tp_callback(TP_connection *c)
     {
       // The add connection coroutine has not finished.
       worker_context.restore();
-      c->being_processed_.store(false, std::memory_order_relaxed);
+      c->being_processed_.store(false, std::memory_order_release);
       return;
     }
     else
@@ -515,7 +625,7 @@ retry:
           goto retry;
         }
         worker_context.restore();
-        c->being_processed_.store(false, std::memory_order_relaxed);
+        c->being_processed_.store(false, std::memory_order_release);
         return;
       case DISPATCH_COMMAND_CLOSE_CONNECTION:
         /* QUIT or an error occurred. */
@@ -524,7 +634,7 @@ retry:
         break;
       case DISPATCH_COMMAND_YIELD:
         worker_context.restore();
-        c->being_processed_.store(false, std::memory_order_relaxed);
+        c->being_processed_.store(false, std::memory_order_release);
         return;
     }
     thd->async_state.m_state= thd_async_state::enum_async_state::NONE;
@@ -540,7 +650,7 @@ retry:
     goto error;
 
   worker_context.restore();
-  c->being_processed_.store(false, std::memory_order_relaxed);
+  c->being_processed_.store(false, std::memory_order_release);
   return;
 
 error:
@@ -581,7 +691,7 @@ error:
     }
     else
     {
-      c->being_processed_.store(false, std::memory_order_relaxed);
+      c->being_processed_.store(false, std::memory_order_release);
       worker_context.restore();
     }
   }
@@ -729,7 +839,7 @@ SqlCmdCoroutine(boost::context::continuation &&caller, THD *thd)
   TP_connection *c= get_TP_connection(thd);
   TP_connection_generic *connection=(TP_connection_generic *)c;
   thread_group_t *thread_group= connection->thread_group;
-  thd->yield_func_= [&main= caller, conn= connection]() {
+  thd->yield_func_= [main= &caller, conn= connection]() {
     CoroutineYield(std::move(main), conn);
   };
 
@@ -738,8 +848,11 @@ SqlCmdCoroutine(boost::context::continuation &&caller, THD *thd)
   };
 
   thd->long_resume_func_= [thd_group= thread_group, conn= connection]() {
-    thd_group->coroutine_info_->req_queue_.Enqueue(conn);
+    CoroutineLongResume(thd_group, conn);
   };
+
+  assert(connection->acquired_mutexes.next == nullptr);
+  RestoreCoroutineVarInC(thd, connection);
 
   dispatch_command_return cmd_ret= DISPATCH_COMMAND_SUCCESS;
 

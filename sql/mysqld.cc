@@ -1832,6 +1832,10 @@ extern "C" sig_handler print_signal_warning(int sig)
 #if !defined(_WIN32)
   if (sig == SIGALRM)
     alarm(2);					/* reschedule alarm */
+  else if (sig == SIGTERM)
+  {
+    break_connect_loop();
+  }
 #endif
 }
 

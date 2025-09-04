@@ -64,6 +64,7 @@
 
 #include "mysql/psi/psi.h"
 #include "my_list.h"
+#include <stdbool.h>
 #ifdef MYSQL_SERVER
 #ifndef MYSQL_DYNAMIC_PLUGIN
 #include "pfs_thread_provider.h"
@@ -353,6 +354,66 @@ typedef struct st_mysql_cond mysql_cond_t;
     inline_mysql_mutex_destroy(M)
 #endif
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+#if defined(__cplusplus)
+#define TLS_KEYWORD thread_local
+#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+#define TLS_KEYWORD _Thread_local
+#else
+#define TLS_KEYWORD __thread
+#endif
+
+  typedef enum
+  {
+    CoroFnResume,
+    CoroFnYield,
+    CoroFnWaitBegin,
+    CoroFnWaitEnd
+  } CoroFnType;
+
+  extern TLS_KEYWORD LIST *tls_mutex_head;
+
+  typedef void (*CoroFn)(void *conn, CoroFnType fn_type);
+  extern TLS_KEYWORD CoroFn tls_coro_fn;
+
+  extern TLS_KEYWORD void *tls_sql_conn;
+
+#ifdef __cplusplus
+}
+#endif
+#undef TLS_KEYWORD
+
+void set_tls_mutex_head(LIST *head);
+LIST *get_tls_mutex_head();
+void set_coro_fn(void (*fn)(void *, CoroFnType));
+void set_tls_sql_conn(void *conn);
+void *get_tls_sql_conn();
+
+int mysql_coro_mutex_lock(mysql_mutex_t *that
+#if defined(SAFE_MUTEX) || defined(HAVE_PSI_MUTEX_INTERFACE)
+                          ,
+                          const char *src_file, uint src_line
+#endif
+);
+
+int mysql_coro_mutex_trylock(mysql_mutex_t *that
+#if defined(SAFE_MUTEX) || defined(HAVE_PSI_MUTEX_INTERFACE)
+                             ,
+                             const char *src_file, uint src_line
+#endif
+);
+
+int mysql_coro_mutex_unlock(mysql_mutex_t *that
+#ifdef SAFE_MUTEX
+                            ,
+                            const char *src_file, uint src_line
+#endif
+);
+
 /**
   @def mysql_mutex_lock(M)
   Instrumented mutex_lock.
@@ -362,11 +423,21 @@ typedef struct st_mysql_cond mysql_cond_t;
 
 #ifndef mysql_mutex_lock
 #if defined(SAFE_MUTEX) || defined (HAVE_PSI_MUTEX_INTERFACE)
+#ifdef COROUTINE_ENABLED
+  #define mysql_mutex_lock(M) \
+    mysql_coro_mutex_lock(M, __FILE__, __LINE__)
+#else
   #define mysql_mutex_lock(M) \
     inline_mysql_mutex_lock(M, __FILE__, __LINE__)
+#endif
+#else
+#ifdef COROUTINE_ENABLED
+  #define mysql_mutex_lock(M) \
+    mysql_coro_mutex_lock(M)
 #else
   #define mysql_mutex_lock(M) \
     inline_mysql_mutex_lock(M)
+#endif
 #endif
 #endif
 
@@ -379,11 +450,21 @@ typedef struct st_mysql_cond mysql_cond_t;
 
 #ifndef mysql_mutex_trylock
 #if defined(SAFE_MUTEX) || defined (HAVE_PSI_MUTEX_INTERFACE)
+#ifdef COROUTINE_ENABLED
+  #define mysql_mutex_trylock(M) \
+    mysql_coro_mutex_trylock(M, __FILE__, __LINE__)
+#else
   #define mysql_mutex_trylock(M) \
     inline_mysql_mutex_trylock(M, __FILE__, __LINE__)
+#endif
+#else
+#ifdef COROUTINE_ENABLED
+  #define mysql_mutex_trylock(M) \
+    mysql_coro_mutex_trylock(M)
 #else
   #define mysql_mutex_trylock(M) \
     inline_mysql_mutex_trylock(M)
+#endif
 #endif
 #endif
 
@@ -394,11 +475,21 @@ typedef struct st_mysql_cond mysql_cond_t;
 */
 #ifndef mysql_mutex_unlock
 #ifdef SAFE_MUTEX
+#ifdef COROUTINE_ENABLED
+  #define mysql_mutex_unlock(M) \
+    mysql_coro_mutex_unlock(M, __FILE__, __LINE__)
+#else
   #define mysql_mutex_unlock(M) \
     inline_mysql_mutex_unlock(M, __FILE__, __LINE__)
+#endif
+#else
+#ifdef COROUTINE_ENABLED
+  #define mysql_mutex_unlock(M) \
+    mysql_coro_mutex_unlock(M)
 #else
   #define mysql_mutex_unlock(M) \
     inline_mysql_mutex_unlock(M)
+#endif
 #endif
 #endif
 
@@ -676,6 +767,21 @@ typedef struct st_mysql_cond mysql_cond_t;
 */
 #define mysql_cond_destroy(C) inline_mysql_cond_destroy(C)
 
+int mysql_coro_cond_wait(mysql_cond_t *that, mysql_mutex_t *mutex
+#if defined(SAFE_MUTEX) || defined(HAVE_PSI_COND_INTERFACE)
+                         ,
+                         const char *src_file, uint src_line
+#endif
+);
+
+int mysql_coro_cond_timedwait(mysql_cond_t *that, mysql_mutex_t *mutex,
+                              const struct timespec *abstime
+#if defined(SAFE_MUTEX) || defined(HAVE_PSI_COND_INTERFACE)
+                              ,
+                              const char *src_file, uint src_line
+#endif
+);
+
 /**
   @def mysql_cond_wait(C)
   Instrumented cond_wait.
@@ -683,11 +789,21 @@ typedef struct st_mysql_cond mysql_cond_t;
 */
 #ifndef mysql_cond_wait
 #if defined(SAFE_MUTEX) || defined(HAVE_PSI_COND_INTERFACE)
+#ifdef COROUTINE_ENABLED
+  #define mysql_cond_wait(C, M) \
+    mysql_coro_cond_wait(C, M, __FILE__, __LINE__)
+#else
   #define mysql_cond_wait(C, M) \
     inline_mysql_cond_wait(C, M, __FILE__, __LINE__)
+#endif
+#else
+#ifdef COROUTINE_ENABLED
+  #define mysql_cond_wait(C, M) \
+    mysql_coro_cond_wait(C, M)
 #else
   #define mysql_cond_wait(C, M) \
     inline_mysql_cond_wait(C, M)
+#endif
 #endif
 #endif
 
@@ -699,11 +815,21 @@ typedef struct st_mysql_cond mysql_cond_t;
 */
 #ifndef mysql_cond_timedwait
 #if defined(SAFE_MUTEX) || defined(HAVE_PSI_COND_INTERFACE)
+#ifdef COROUTINE_ENABLED
+  #define mysql_cond_timedwait(C, M, W) \
+    mysql_coro_cond_timedwait(C, M, W, __FILE__, __LINE__)
+#else
   #define mysql_cond_timedwait(C, M, W) \
     inline_mysql_cond_timedwait(C, M, W, __FILE__, __LINE__)
+#endif
+#else
+#ifdef COROUTINE_ENABLED
+  #define mysql_cond_timedwait(C, M, W) \
+    mysql_coro_cond_timedwait(C, M, W)
 #else
   #define mysql_cond_timedwait(C, M, W) \
     inline_mysql_cond_timedwait(C, M, W)
+#endif
 #endif
 #endif
 
