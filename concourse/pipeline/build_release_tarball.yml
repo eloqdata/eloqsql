@@ -70,6 +70,7 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB_CLOUD_S3
       CLOUDFRONT_DIST: ((cloudfront-dist))
+    privileged: true
 
   - task: build-eloqdss-rocksdb-type
     file: eloqsql_src/concourse/tasks/build_release_tarball.yml
@@ -84,6 +85,7 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB
       CLOUDFRONT_DIST: ((cloudfront-dist))
+    privileged: true
 
   - task: build-eloqstore-type
     file: eloqsql_src/concourse/tasks/build_release_tarball.yml
@@ -98,6 +100,7 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ELOQSTORE
       CLOUDFRONT_DIST: ((cloudfront-dist))
+    privileged: true
 
   serial: true
 
@@ -128,6 +131,7 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB_CLOUD_S3
       CLOUDFRONT_DIST: ((cloudfront-dist))
+    privileged: true
 
   - task: build-eloqdss-rocksdb-type
     file: eloqsql_src/concourse/tasks/build_release_tarball.yml
@@ -142,6 +146,7 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB
       CLOUDFRONT_DIST: ((cloudfront-dist))
+    privileged: true
 
   - task: build-eloqstore-type
     file: eloqsql_src/concourse/tasks/build_release_tarball.yml
@@ -156,6 +161,7 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ELOQSTORE
       CLOUDFRONT_DIST: ((cloudfront-dist))
+    privileged: true
 
   serial: true
 
@@ -186,6 +192,7 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB_CLOUD_S3
       CLOUDFRONT_DIST: ((cloudfront-dist))
+    privileged: true
 
   - task: build-eloqdss-rocksdb-type
     file: eloqsql_src/concourse/tasks/build_release_tarball.yml
@@ -200,6 +207,7 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB
       CLOUDFRONT_DIST: ((cloudfront-dist))
+    privileged: true
 
   - task: build-eloqstore-type
     file: eloqsql_src/concourse/tasks/build_release_tarball.yml
@@ -214,6 +222,7 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ELOQSTORE
       CLOUDFRONT_DIST: ((cloudfront-dist))
+    privileged: true
 
   serial: true
 
@@ -244,6 +253,7 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB_CLOUD_S3
       CLOUDFRONT_DIST: ((cloudfront-dist))
+    privileged: true
 
   - task: build-eloqdss-rocksdb-type
     file: eloqsql_src/concourse/tasks/build_release_tarball.yml
@@ -258,6 +268,7 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB
       CLOUDFRONT_DIST: ((cloudfront-dist))
+    privileged: true
 
   - task: build-eloqstore-type
     file: eloqsql_src/concourse/tasks/build_release_tarball.yml
@@ -272,5 +283,6 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ELOQSTORE
       CLOUDFRONT_DIST: ((cloudfront-dist))
+    privileged: true
 
   serial: true
