@@ -2,8 +2,7 @@ resources:
 - name: eloqsql_src_main
   type: git
   source:
-    # TODO(ZX)
-    branch: rel_0_4_15_eloqsql
+    branch: rel_x_x_x_eloqsql
     uri: git@github.com:eloqdata/eloqsql.git
     private_key: ((git-key))
     tag_regex: '^[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+$'
@@ -22,12 +21,21 @@ resources:
   type: registry-image
   source:
     repository: eloqdata/eloq-dev-ci-ubuntu2404
-    tag: latest
 
 - name: image_centos7_main
   type: registry-image
   source:
     repository: eloqdata/eloq-dev-ci-centos7
+
+- name: image_centos8_main
+  type: registry-image
+  source:
+    repository: eloqdata/eloq-dev-ci-centos8
+
+- name: image_rocky9_main
+  type: registry-image
+  source:
+    repository: eloqdata/eloq-dev-ci-rocky9
 
 - name: logservice_src_main
   type: git
@@ -299,6 +307,100 @@ jobs:
       CLOUDFRONT_DIST: ((cloudfront-dist))
       PG_CONN: ((pg-conn))
     privileged: true
+
+
+  serial: true
+
+- name: centos8-main
+  plan:
+  - in_parallel:
+      limit: 2
+      steps:
+      - get: eloqsql_src
+        resource: eloqsql_src_main
+      - get: logservice_src
+        resource: logservice_src_main
+      - get: raft_host_manager_src
+        resource: raft_host_manager_src_main
+      - get: image_centos8
+        resource: image_centos8_main
+
+  - task: build-rocksdb-cloud-s3-type
+    file: eloqsql_src/concourse/tasks/build_release_tarball.yml
+    image: image_centos8
+    params:
+      TAGGED: "true"
+      GIT_SSH_KEY: ((git-key))
+      AWS_ACCESS_KEY_ID: ((aws_access_key_id))
+      AWS_DEFAULT_REGION: ((aws-region))
+      AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
+      BUILD_LOG_SRV: "true"
+      BUILD_TYPE: RelWithDebInfo
+      DATA_STORE_TYPE: ELOQDSS_ROCKSDB_CLOUD_S3
+      CLOUDFRONT_DIST: ((cloudfront-dist))
+      PG_CONN: ((pg-conn))
+
+  - task: build-eloqdss-rocksdb-type
+    file: eloqsql_src/concourse/tasks/build_release_tarball.yml
+    image: image_centos8
+    params:
+      TAGGED: "true"
+      GIT_SSH_KEY: ((git-key))
+      AWS_ACCESS_KEY_ID: ((aws_access_key_id))
+      AWS_DEFAULT_REGION: ((aws-region))
+      AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
+      BUILD_LOG_SRV: "true"
+      BUILD_TYPE: RelWithDebInfo
+      DATA_STORE_TYPE: ELOQDSS_ROCKSDB
+      CLOUDFRONT_DIST: ((cloudfront-dist))
+      PG_CONN: ((pg-conn))
+
+
+  serial: true
+
+- name: rocky9-main
+  plan:
+  - in_parallel:
+      limit: 2
+      steps:
+      - get: eloqsql_src
+        resource: eloqsql_src_main
+      - get: logservice_src
+        resource: logservice_src_main
+      - get: raft_host_manager_src
+        resource: raft_host_manager_src_main
+      - get: image_rocky9
+        resource: image_rocky9_main
+
+  - task: build-rocksdb-cloud-s3-type
+    file: eloqsql_src/concourse/tasks/build_release_tarball.yml
+    image: image_rocky9
+    params:
+      TAGGED: "true"
+      GIT_SSH_KEY: ((git-key))
+      AWS_ACCESS_KEY_ID: ((aws_access_key_id))
+      AWS_DEFAULT_REGION: ((aws-region))
+      AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
+      BUILD_LOG_SRV: "true"
+      BUILD_TYPE: RelWithDebInfo
+      DATA_STORE_TYPE: ELOQDSS_ROCKSDB_CLOUD_S3
+      CLOUDFRONT_DIST: ((cloudfront-dist))
+      PG_CONN: ((pg-conn))
+
+  - task: build-eloqdss-rocksdb-type
+    file: eloqsql_src/concourse/tasks/build_release_tarball.yml
+    image: image_rocky9
+    params:
+      TAGGED: "true"
+      GIT_SSH_KEY: ((git-key))
+      AWS_ACCESS_KEY_ID: ((aws_access_key_id))
+      AWS_DEFAULT_REGION: ((aws-region))
+      AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
+      BUILD_LOG_SRV: "true"
+      BUILD_TYPE: RelWithDebInfo
+      DATA_STORE_TYPE: ELOQDSS_ROCKSDB
+      CLOUDFRONT_DIST: ((cloudfront-dist))
+      PG_CONN: ((pg-conn))
 
 
   serial: true
