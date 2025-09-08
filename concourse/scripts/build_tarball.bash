@@ -16,13 +16,6 @@ if [ -n "${GIT_SSH_KEY}" ]; then
   ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null || true
 fi
 
-# make coredump dir writable for debugging
-if [ ! -d "/var/crash" ]; then sudo mkdir -p /var/crash; fi
-sudo chmod 777 /var/crash
-
-ulimit -c unlimited
-echo '/var/crash/core.%t.%e.%p' | sudo tee /proc/sys/kernel/core_pattern
-
 # Ensure workspace ownership
 sudo chown -R $current_user $HOME/workspace 2>/dev/null || true
 
@@ -82,7 +75,7 @@ arm64 | aarch64) ARCH=arm64 ;;
 *) ARCH=$(uname -m) ;;
 esac
 
-if [ -n "${TAGGED}" ]; then
+if [ "${TAGGED}" = "true" ]; then
     TAGGED=$(git tag --sort=-v:refname | head -n 1)
     if [ -z "${TAGGED}" ]; then
         exit 1
@@ -105,11 +98,9 @@ S3_PREFIX="s3://${S3_BUCKET}/eloqsql"
 DATA_STORE_ID=$(echo ${DATA_STORE_TYPE} | tr '[:upper:]' '[:lower:]')
 
 # Normalize behavior for supported DATA_STORE_TYPE values
-if [ "${DATA_STORE_TYPE}" = "ROCKSDB" ]; then
-    DATA_STORE_ID="rocksdb"
-elif [ "${DATA_STORE_TYPE}" = "ELOQDSS_ROCKSDB_CLOUD_S3" ]; then
+if [ "${DATA_STORE_TYPE}" = "ELOQDSS_ROCKSDB_CLOUD_S3" ]; then
     CMAKE_ARGS="${CMAKE_ARGS} -DUSE_ROCKSDB_LOG_STATE=ON -DWITH_ROCKSDB_CLOUD=S3 -DWITH_CLOUD_AZ_INFO=ON"
-    DATA_STORE_ID="eloqdss_s3"
+    DATA_STORE_ID="rocks_s3"
 elif [ "${DATA_STORE_TYPE}" = "ELOQDSS_ROCKSDB" ]; then
     DATA_STORE_ID="eloqdss_rocksdb"
 elif [ "${DATA_STORE_TYPE}" = "ELOQDSS_ELOQSTORE" ]; then
@@ -228,10 +219,10 @@ mv launch_sv ${DEST_DIR}/bin/
 cd ${HOME}
 tar -czvf eloqsql.tar.gz -C ${HOME} EloqSQL
 
-if [ -n "${TAGGED}" ]; then
+if [ "${TAGGED}" = "true" ]; then
     SQL_TARBALL="eloqsql-${TAGGED}-${OS_ID}-${ARCH}.tar.gz"
     eval ${INSTALL_PSQL}
-    SQL="INSERT INTO sql_release VALUES ('eloqsql', '${ARCH}', '${OS_ID}', '${DATA_STORE_ID}', $(echo ${TAGGED} | tr '.' ',')) ON CONFLICT DO NOTHING"
+    SQL="INSERT INTO tx_release VALUES ('eloqsql', '${ARCH}', '${OS_ID}', '${DATA_STORE_ID}', $(echo ${TAGGED} | tr '.' ',')) ON CONFLICT DO NOTHING"
     psql postgresql://${PG_CONN}/eloq_release?sslmode=require -c "${SQL}"
 else
     SQL_TARBALL="eloqsql-${OUT_NAME}-${OS_ID}-${ARCH}.tar.gz"
@@ -281,7 +272,7 @@ build_upload_log_srv() {
 
 if [ "${BUILD_LOG_SRV}" = true ]; then
     # make and build log_service
-    if [ -n "${TAGGED}" ]; then
+    if [ "${TAGGED}" = "true" ]; then
         LOG_TARBALL="log-service-${TAGGED}-${OS_ID}-${ARCH}.tar.gz"
     else
         LOG_TARBALL="log-service-${OUT_NAME}-${OS_ID}-${ARCH}.tar.gz"
