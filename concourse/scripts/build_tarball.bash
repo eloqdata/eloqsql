@@ -200,13 +200,22 @@ cmake --install . --config ${BUILD_TYPE}
 copy_libraries ${DEST_DIR}/bin/mariadbd ${DEST_DIR}/lib
 copy_libraries ${DEST_DIR}/bin/mariadb ${DEST_DIR}/lib
 
-# Build and install dss_server
-cd ${ELOQSQL_SRC}/storage/eloq/store_handler/eloq_data_store_service
-mkdir bld && cd bld
-cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DWITH_DATA_STORE=${DATA_STORE_TYPE} ../
-cmake --build . --config ${BUILD_TYPE} -j${NCORE}
-copy_libraries dss_server ${DEST_DIR}/lib
-mv dss_server ${DEST_DIR}/bin/
+# Build and install dss_server (only for ELOQDSS_* data stores)
+if [[ "${DATA_STORE_TYPE}" == ELOQDSS_* ]]; then
+    DSS_TYPE="${DATA_STORE_TYPE}"
+else
+    DSS_TYPE=""
+fi
+
+if [ -n "${DSS_TYPE}" ]; then
+    cd ${ELOQSQL_SRC}/storage/eloq/store_handler/eloq_data_store_service
+    mkdir -p build && cd build
+    cmake .. -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DWITH_DATA_STORE=${DSS_TYPE} -DUSE_ONE_ELOQDSS_PARTITION_ENABLED=OFF
+    cmake --build . --config ${BUILD_TYPE} -j${NCORE}
+    copy_libraries dss_server ${DEST_DIR}/lib
+    mv dss_server ${DEST_DIR}/bin/
+    cd ${ELOQSQL_SRC}
+fi
 
 # Build and install log_server (launch_sv)
 cd ${ELOQSQL_SRC}/storage/eloq/eloq_log_service
@@ -237,6 +246,7 @@ rm -rf eloqsql.tar.gz
 cd $ELOQSQL_SRC
 rm -rf bld
 rm -rf storage/eloq/store_handler/eloq_data_store_service/bld
+rm -rf storage/eloq/store_handler/eloq_data_store_service/build
 rm -rf storage/eloq/eloq_log_service/bld
 rm -rf ${DEST_DIR}
 
