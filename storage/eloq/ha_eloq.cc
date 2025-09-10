@@ -957,7 +957,9 @@ static MYSQL_SYSVAR_STR(dss_peer_node, eloq_dss_peer_node,
                         "");
 static MYSQL_SYSVAR_STR(dss_branch_name, eloq_dss_branch_name,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "EloqDataStoreService branch name", NULL, NULL, "");
+                        "EloqDataStoreService branch name, specifying the "
+                        "branch to start the data store service",
+                        NULL, NULL, "");
 
 static MYSQL_SYSVAR_STR(dss_rocksdb_cloud_bucket_name,
                         eloq_dss_rocksdb_cloud_bucket_name,
@@ -2692,8 +2694,8 @@ static int eloq_init_func(void *p)
     bool enable_cache_replacement_= fake_config_reader.GetBoolean(
         "local", "enable_cache_replacement", false);
     auto ds_factory= std::make_unique<EloqDS::RocksDBCloudDataStoreFactory>(
-        ds_branch_name,
-        rocksdb_config, rocksdb_cloud_config, enable_cache_replacement_);
+        ds_branch_name, rocksdb_config, rocksdb_cloud_config,
+        enable_cache_replacement_);
 #elif defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB)
     INIReader fake_config_reader(nullptr, 0);
     EloqDS::RocksDBConfig rocksdb_config(fake_config_reader, dss_data_path);
@@ -2721,8 +2723,7 @@ static int eloq_init_func(void *p)
     defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_GCS)
       // TODO(lzx):move setup datastore to data_store_service
       auto ds= std::make_unique<EloqDS::RocksDBCloudDataStore>(
-          ds_branch_name,
-          rocksdb_cloud_config, rocksdb_config,
+          ds_branch_name, rocksdb_cloud_config, rocksdb_config,
           (opt_bootstrap || is_single_node), enable_cache_replacement_,
           shard_id, data_store_service_.get());
 #elif defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB)
