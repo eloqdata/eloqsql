@@ -625,3 +625,5 @@ win/packaging/ca/symlinks.cc
 .root
 .rgignore
 storage/eloq/eloq_log_service
+install
+cass
