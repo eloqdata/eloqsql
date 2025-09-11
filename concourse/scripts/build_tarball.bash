@@ -73,7 +73,7 @@ arm64 | aarch64) ARCH=arm64 ;;
 *) ARCH=$(uname -m) ;;
 esac
 
-if [ "${TAGGED}" = "true" ]; then
+if [ -n "${TAGGED}" ]; then
     TAGGED=$(git tag --sort=-v:refname | head -n 1)
     if [ -z "${TAGGED}" ]; then
         exit 1
@@ -184,7 +184,7 @@ cmake -DCMAKE_INSTALL_PREFIX="${DEST_DIR}" \
       -DFORK_HM_PROCESS=ON \
       ../
 
-cmake --build . --config ${BUILD_TYPE} -j${NCORE}
+cmake --build . --config ${BUILD_TYPE} -j4
 cmake --install . --config ${BUILD_TYPE}
 
 # Copy main binaries and libraries
@@ -195,7 +195,7 @@ copy_libraries ${DEST_DIR}/bin/mariadb ${DEST_DIR}/lib
 cd ${ELOQSQL_SRC}/storage/eloq/store_handler/eloq_data_store_service
 mkdir bld && cd bld
 cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DWITH_DATA_STORE=${DATA_STORE_TYPE} ../
-cmake --build . --config ${BUILD_TYPE} -j${NCORE}
+cmake --build . --config ${BUILD_TYPE} -j4
 copy_libraries dss_server ${DEST_DIR}/lib
 mv dss_server ${DEST_DIR}/bin/
 
@@ -203,14 +203,14 @@ mv dss_server ${DEST_DIR}/bin/
 cd ${ELOQSQL_SRC}/storage/eloq/eloq_log_service
 mkdir bld && cd bld
 cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DUSE_ROCKSDB_LOG_STATE=ON ${CMAKE_ARGS} ../
-cmake --build . --config ${BUILD_TYPE} -j${NCORE}
+cmake --build . --config ${BUILD_TYPE} -j4
 copy_libraries launch_sv ${DEST_DIR}/lib
 mv launch_sv ${DEST_DIR}/bin/
 
 cd ${HOME}
 tar -czvf eloqsql.tar.gz -C ${HOME} EloqSQL
 
-if [ "${TAGGED}" = "true" ]; then
+if [ -n "${TAGGED}" ]; then
     SQL_TARBALL="eloqsql-${TAGGED}-${OS_ID}-${ARCH}.tar.gz"
     eval ${INSTALL_PSQL}
     SQL="INSERT INTO tx_release VALUES ('eloqsql', '${ARCH}', '${OS_ID}', '${DATA_STORE_ID}', $(echo ${TAGGED} | tr '.' ',')) ON CONFLICT DO NOTHING"
@@ -248,7 +248,7 @@ build_upload_log_srv() {
     fi
     cmake .. $cmake_args
     # build and copy log_server
-    cmake --build . --config $BUILD_TYPE -j${NCORE}
+    cmake --build . --config $BUILD_TYPE -j4
     mv ${log_sv_src}/build/launch_sv ${log_sv_src}/LogService/bin
     copy_libraries ${log_sv_src}/LogService/bin/launch_sv ${log_sv_src}/LogService/lib
     cd ${HOME}
@@ -263,7 +263,7 @@ build_upload_log_srv() {
 
 if [ "${BUILD_LOG_SRV}" = true ]; then
     # make and build log_service
-    if [ "${TAGGED}" = "true" ]; then
+    if [ -n "${TAGGED}" ]; then
         LOG_TARBALL="log-service-${TAGGED}-${OS_ID}-${ARCH}.tar.gz"
     else
         LOG_TARBALL="log-service-${OUT_NAME}-${OS_ID}-${ARCH}.tar.gz"
