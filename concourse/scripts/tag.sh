@@ -25,7 +25,7 @@ git config --global user.name "concourse-ci"
 set +e
 git checkout -
 set -e
-git fetch --tags
+git fetch --tags --no-recurse-submodules
 
 latest=$(git tag --sort=-version:refname | head -n 1)
 
