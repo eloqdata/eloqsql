@@ -351,6 +351,7 @@ static char *eloq_notify_checkpointer_threshold_size= nullptr;
 // data_store_service
 static char *eloq_dss_config_file_path= nullptr;
 static char *eloq_dss_peer_node= nullptr;
+static char *eloq_dss_branch_name= nullptr;
 static char *eloq_dss_rocksdb_cloud_bucket_name= nullptr;
 static char *eloq_dss_rocksdb_cloud_bucket_prefix= nullptr;
 static char *eloq_dss_rocksdb_cloud_object_path= nullptr;
@@ -954,6 +955,11 @@ static MYSQL_SYSVAR_STR(dss_peer_node, eloq_dss_peer_node,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
                         "EloqDataStoreService peer node endpoint", NULL, NULL,
                         "");
+static MYSQL_SYSVAR_STR(dss_branch_name, eloq_dss_branch_name,
+                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+                        "EloqDataStoreService branch name, specifying the "
+                        "branch to start the data store service",
+                        NULL, NULL, "");
 
 static MYSQL_SYSVAR_STR(dss_rocksdb_cloud_bucket_name,
                         eloq_dss_rocksdb_cloud_bucket_name,
@@ -1240,6 +1246,7 @@ static struct st_mysql_sys_var *eloq_system_variables[]= {
     MYSQL_SYSVAR(enable_heap_defragment),
     MYSQL_SYSVAR(dss_config_file_path),
     MYSQL_SYSVAR(dss_peer_node),
+    MYSQL_SYSVAR(dss_branch_name),
     MYSQL_SYSVAR(dss_rocksdb_cloud_bucket_name),
     MYSQL_SYSVAR(dss_rocksdb_cloud_bucket_prefix),
     MYSQL_SYSVAR(dss_rocksdb_cloud_object_path),
@@ -2591,6 +2598,7 @@ static int eloq_init_func(void *p)
   case KV_ELOQDS: {
     bool is_single_node= true;
     std::string ds_peer_node= eloq_dss_peer_node;
+    std::string ds_branch_name= eloq_dss_branch_name;
     std::string dss_data_path= mysql_real_data_home_ptr;
     dss_data_path.append("/eloq_dss");
     try
@@ -2682,6 +2690,7 @@ static int eloq_init_func(void *p)
         eloq_dss_rocksdb_cloud_file_deletion_delay;
     rocksdb_cloud_config.purger_periodicity_millis_=
         eloq_dss_rocksdb_cloud_purger_periodicity_secs * 1000;
+    rocksdb_cloud_config.branch_name_= ds_branch_name;
 
     bool enable_cache_replacement_= fake_config_reader.GetBoolean(
         "local", "enable_cache_replacement", false);
