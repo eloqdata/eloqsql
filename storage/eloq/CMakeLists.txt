@@ -297,16 +297,15 @@ elseif(WITH_DATA_STORE STREQUAL "ELOQDSS_ROCKSDB_CLOUD_S3" OR WITH_DATA_STORE ST
 		store_handler/eloq_data_store_service/rocksdb_config.h
 		store_handler/eloq_data_store_service/rocksdb_config.cpp
     store_handler/eloq_data_store_service/rocksdb_data_store_common.h
-    store_handler/eloq_data_store_service/rocksdb_data_store_common.cpp
-    store_handler/eloq_data_store_service/purger_event_listener.cpp
-    store_handler/eloq_data_store_service/purger_sliding_window.cpp
-	)
+    store_handler/eloq_data_store_service/rocksdb_data_store_common.cpp)
 
   if (WITH_DATA_STORE STREQUAL "ELOQDSS_ROCKSDB_CLOUD_S3")
     SET(MYELOQ_SOURCES
       ${MYELOQ_SOURCES}
 		  store_handler/eloq_data_store_service/rocksdb_cloud_data_store.h
 		  store_handler/eloq_data_store_service/rocksdb_cloud_data_store.cpp
+      store_handler/eloq_data_store_service/purger_event_listener.cpp
+      store_handler/eloq_data_store_service/purger_sliding_window.cpp
     )
   elseif (WITH_DATA_STORE STREQUAL "ELOQDSS_ROCKSDB")
     SET(MYELOQ_SOURCES
