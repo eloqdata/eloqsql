@@ -222,8 +222,13 @@ public:
           sample_pool_map,
       txservice::CcShard *ccs, txservice::NodeGroupId cc_ng_id) override;
 
-  txservice::TxKey NegativeInfKey() override;
+  txservice::TxKey NegativeInfKey() const override;
 
-  txservice::TxKey PositiveInfKey() override;
+  txservice::TxKey PositiveInfKey() const override;
+
+  txservice::TxKey CreateTxKey() const override;
+  txservice::TxKey CreateTxKey(const char *data, size_t size) const override;
+  const txservice::TxKey *PackedNegativeInfinity() const override;
+  std::unique_ptr<txservice::TxRecord> CreateTxRecord() const override;
 };
 } // namespace MyEloq

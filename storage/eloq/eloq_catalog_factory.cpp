@@ -569,12 +569,8 @@ MariaCatalogFactory::CreateTableSchema(const txservice::TableName &table_name,
                                        const std::string &catalog_image,
                                        uint64_t version)
 {
-  if (table_name == txservice::Sequences::table_name_)
-  {
-    DLOG(INFO) << "===create sequence table schema";
-    return std::make_unique<txservice::SequenceTableSchema>(
-        table_name, catalog_image, version);
-  }
+  assert(table_name.Engine() == txservice::TableEngine::EloqSql);
+
   return std::make_unique<MysqlTableSchema>(table_name, catalog_image,
                                             version);
 }
@@ -584,13 +580,7 @@ txservice::CcMap::uptr MariaCatalogFactory::CreatePkCcMap(
     const txservice::TableSchema *table_schema, bool ccm_has_full_entries,
     txservice::CcShard *shard, txservice::NodeGroupId cc_ng_id)
 {
-  if (table_name == txservice::Sequences::table_name_)
-  {
-    return std::make_unique<
-        txservice::TemplateCcMap<EloqKey, EloqRecord, true, true>>(
-        shard, cc_ng_id, table_name, table_schema->Version(), table_schema,
-        ccm_has_full_entries);
-  }
+  assert(table_name.Engine() == txservice::TableEngine::EloqSql);
 
   uint64_t key_version= table_schema->KeySchema()->SchemaTs();
   return std::make_unique<
@@ -722,13 +712,34 @@ MariaCatalogFactory::CreateTableStatistics(
       table_schema, std::move(sample_pool_map), ccs, cc_ng_id);
 }
 
-txservice::TxKey MariaCatalogFactory::NegativeInfKey()
+txservice::TxKey MariaCatalogFactory::NegativeInfKey() const
 {
   return txservice::TxKey(EloqKey::NegativeInfinity());
 }
 
-txservice::TxKey MariaCatalogFactory::PositiveInfKey()
+txservice::TxKey MariaCatalogFactory::PositiveInfKey() const
 {
   return txservice::TxKey(EloqKey::PositiveInfinity());
 }
+
+txservice::TxKey MariaCatalogFactory::CreateTxKey() const
+{
+  return txservice::TxKey(std::make_unique<EloqKey>());
+}
+txservice::TxKey MariaCatalogFactory::CreateTxKey(const char *data,
+                                                  size_t size) const
+{
+  return txservice::TxKey(
+      std::make_unique<EloqKey>(reinterpret_cast<const uchar *>(data), size));
+}
+const txservice::TxKey *MariaCatalogFactory::PackedNegativeInfinity() const
+{
+  return EloqKey::PackedNegativeInfinityTxKey();
+}
+std::unique_ptr<txservice::TxRecord>
+MariaCatalogFactory::CreateTxRecord() const
+{
+  return std::make_unique<EloqRecord>();
+}
+
 } // namespace MyEloq

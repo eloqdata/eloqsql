@@ -2306,18 +2306,6 @@ static int eloq_init_abort()
   DBUG_RETURN(1);
 }
 
-static void RegisterFactory()
-{
-  txservice::TxKeyFactory::RegisterCreateTxKeyFunc(EloqKey::Create);
-  txservice::TxKeyFactory::RegisterCreateDefaultTxKeyFunc(
-      EloqKey::CreateDefault);
-  txservice::TxKeyFactory::RegisterNegInfTxKey(EloqKey::NegInfTxKey());
-  txservice::TxKeyFactory::RegisterPosInfTxKey(EloqKey::PosInfTxKey());
-  txservice::TxKeyFactory::RegisterPackedNegativeInfinity(
-      EloqKey::PackedNegativeInfinityTxKey());
-  txservice::TxRecordFactory::RegisterCreateTxRecordFunc(EloqRecord::Create);
-}
-
 #if defined(DATA_STORE_TYPE_ELOQDSS_ELOQSTORE)
 /**
  * Configure EloqStore settings for the data store service
@@ -2412,7 +2400,7 @@ static int eloq_init_func(void *p)
 
   PrintEloqConfig();
 
-  RegisterFactory();
+  CatalogFactory *catalog_factory[3]{&maria_catalog_factory, nullptr, nullptr};
 
   sql_print_information("Eloq initializing.");
 
@@ -2760,7 +2748,7 @@ static int eloq_init_func(void *p)
     data_store_service_->ConnectDataStore(std::move(dss_shards_map));
     // setup data store service client
     storage_hd= std::make_unique<EloqDS::DataStoreServiceClient>(
-        ds_config, data_store_service_.get());
+        catalog_factory, ds_config, data_store_service_.get());
 
     if (!storage_hd->Connect())
     {
@@ -3218,8 +3206,6 @@ static int eloq_init_func(void *p)
       tx_service_common_labels["node_port"]= std::to_string(mysqld_port);
       tx_service_common_labels["node_id"]= std::to_string(node_id);
 
-      CatalogFactory *catalog_factory[3]{&maria_catalog_factory, nullptr,
-                                         nullptr};
       tx_service= std::make_unique<TxService>(
           catalog_factory, &MariaSystemHandler::Instance(), tx_service_conf,
           node_id, native_ng_id, &ng_configs, cluster_config_version,
@@ -3238,9 +3224,6 @@ static int eloq_init_func(void *p)
   }
   else
   {
-    // Sequence table will use the same catalog factory as elosql table.
-    CatalogFactory *catalog_factory[4]{&maria_catalog_factory, nullptr,
-                                       nullptr, &maria_catalog_factory};
     tx_service= std::make_unique<TxService>(
         catalog_factory, &MariaSystemHandler::Instance(), tx_service_conf,
         node_id, native_ng_id, &ng_configs, cluster_config_version,
