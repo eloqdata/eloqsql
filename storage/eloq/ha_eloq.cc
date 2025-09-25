@@ -202,15 +202,13 @@
 #include "log_service_metrics.h"
 #include "log_utils.h"
 
-#if defined(USE_ROCKSDB_LOG_STATE) && defined(WITH_ROCKSDB_CLOUD)
+#if defined(LOG_STATE_TYPE_RKDB_S3)
 #include "rocksdb_cloud_config.h"
 #endif
 
 // Don't put this include after sql_class.h include, it will cause compile
 // error
-#if (defined(DATA_STORE_TYPE_DYNAMODB) ||                                     \
-     (defined(USE_ROCKSDB_LOG_STATE) &&                                       \
-      (WITH_ROCKSDB_CLOUD == CS_TYPE_S3)) ||                                  \
+#if (defined(DATA_STORE_TYPE_DYNAMODB) || defined(LOG_STATE_TYPE_RKDB_S3) ||  \
      defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3))
 #include <aws/core/Aws.h>
 #endif
@@ -2264,8 +2262,7 @@ static void PrintEloqConfig()
   std::cout << std::endl;
 }
 
-#if defined(DATA_STORE_TYPE_DYNAMODB) ||                                      \
-    (defined(USE_ROCKSDB_LOG_STATE) && (WITH_ROCKSDB_CLOUD == CS_TYPE_S3)) || \
+#if defined(DATA_STORE_TYPE_DYNAMODB) || defined(LOG_STATE_TYPE_RKDB_S3) ||   \
     defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3)
 
 Aws::SDKOptions aws_options;
@@ -2297,8 +2294,7 @@ static int eloq_init_abort()
     txlog_server= nullptr; // stop and release txlog service
   }
 
-#if defined(DATA_STORE_TYPE_DYNAMODB) ||                                      \
-    (defined(USE_ROCKSDB_LOG_STATE) && (WITH_ROCKSDB_CLOUD == CS_TYPE_S3)) || \
+#if defined(DATA_STORE_TYPE_DYNAMODB) || defined(LOG_STATE_TYPE_RKDB_S3) ||   \
     defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3)
   aws_deinit();
 #endif
@@ -2404,8 +2400,7 @@ static int eloq_init_func(void *p)
 
   sql_print_information("Eloq initializing.");
 
-#if defined(DATA_STORE_TYPE_DYNAMODB) ||                                      \
-    (defined(USE_ROCKSDB_LOG_STATE) && (WITH_ROCKSDB_CLOUD == CS_TYPE_S3)) || \
+#if defined(DATA_STORE_TYPE_DYNAMODB) || defined(LOG_STATE_TYPE_RKDB_S3) ||   \
     defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3)
   if (aws_init())
   {
@@ -2832,6 +2827,8 @@ static int eloq_init_func(void *p)
       std::to_string(eloq_logserver_rocksdb_scan_thread_num).c_str());
   std::vector<std::string> txlog_ips;
   std::vector<uint16_t> txlog_ports;
+
+  // If eloq_txlog_service_list is empty, it means bounded txlog service
   if (std::strlen(eloq_txlog_service_list) == 0)
   {
     sql_print_information("Stand-alone txlog service is not provided, start "
@@ -2877,15 +2874,15 @@ static int eloq_init_func(void *p)
                             eloq_notify_checkpointer_threshold_size);
     }
 
-#ifdef USE_ROCKSDB_LOG_STATE
+#if defined(LOG_STATE_TYPE_RKDB_ALL)
     size_t rocksdb_target_file_size_base_val=
         txlog::parse_size(eloq_txlog_rocksdb_target_file_size_base);
-#ifdef WITH_ROCKSDB_CLOUD
+#if defined(LOG_STATE_TYPE_RKDB_CLOUD)
     txlog::RocksDBCloudConfig rocksdb_cloud_config;
-#if WITH_ROCKSDB_CLOUD == CS_TYPE_S3
+#if defined(LOG_STATE_TYPE_RKDB_S3)
     rocksdb_cloud_config.aws_access_key_id_= eloq_aws_access_key_id;
     rocksdb_cloud_config.aws_secret_key_= eloq_aws_secret_key;
-#endif /* WITH_ROCKSDB_CLOUD == CS_TYPE_S3 */
+#endif /* LOG_STATE_TYPE_RKDB_S3 */
     rocksdb_cloud_config.bucket_name_= eloq_txlog_rocksdb_cloud_bucket_name;
     rocksdb_cloud_config.bucket_prefix_=
         eloq_txlog_rocksdb_cloud_bucket_prefix;
@@ -2903,14 +2900,6 @@ static int eloq_init_func(void *p)
 
     if (opt_bootstrap)
     {
-#if defined(OPEN_LOG_SERVICE)
-      txlog_server= std::make_unique<::txlog::LogServer>(
-          node_id, log_server_port, txlog_path, 1, rocksdb_cloud_config,
-          eloq_txlog_rocksdb_cloud_in_mem_log_size_high_watermark,
-          eloq_txlog_rocksdb_max_write_buffer_number,
-          eloq_txlog_rocksdb_max_background_jobs,
-          rocksdb_target_file_size_base_val);
-#else
       txlog_server= std::make_unique<::txlog::LogServer>(
           node_id, log_server_port, txlog_ips, txlog_ports, txlog_path, 0,
           eloq_txlog_group_replica_num, txlog_rocksdb_path,
@@ -2919,18 +2908,9 @@ static int eloq_init_func(void *p)
           eloq_txlog_rocksdb_max_write_buffer_number,
           eloq_txlog_rocksdb_max_background_jobs,
           rocksdb_target_file_size_base_val, eloq_logserver_snapshot_interval);
-#endif
     }
     else
     {
-#if defined(OPEN_LOG_SERVICE)
-      txlog_server= std::make_unique<::txlog::LogServer>(
-          node_id, log_server_port, txlog_path, 1, rocksdb_cloud_config,
-          eloq_txlog_rocksdb_cloud_in_mem_log_size_high_watermark,
-          eloq_txlog_rocksdb_max_write_buffer_number,
-          eloq_txlog_rocksdb_max_background_jobs,
-          rocksdb_target_file_size_base_val);
-#else
       txlog_server= std::make_unique<::txlog::LogServer>(
           node_id, log_server_port, txlog_ips, txlog_ports, txlog_path, 0,
           eloq_txlog_group_replica_num, txlog_rocksdb_path,
@@ -2942,9 +2922,9 @@ static int eloq_init_func(void *p)
           enable_txlog_request_checkpoint,
           eloq_check_replay_log_size_interval_sec,
           notify_checkpointer_threshold_size);
-#endif
     }
-#else /* WITH_ROCKSDB_CLOUD */
+#else /* LOG_STATE_TYPE_RKDB_CLOUD */
+    // LOG_STATE_TYPE_RKDB
     size_t rocksdb_sst_files_size_limit_val=
         txlog::parse_size(eloq_txlog_rocksdb_sst_files_size_limit);
 
@@ -2992,8 +2972,8 @@ static int eloq_init_func(void *p)
 #endif
     }
 
-#endif /* WITH_ROCKSDB_CLOUD */
-#else  /* USE_ROCKSDB_LOG_STATE */
+#endif /* LOG_STATE_TYPE_RKDB_CLOUD */
+#else  /* LOG_STATE_TYPE_MEM */
 #if defined(OPEN_LOG_SERVICE)
     txlog_server= std::make_unique<::txlog::LogServer>(
         node_id, log_server_port, txlog_path, 1);
@@ -3002,7 +2982,7 @@ static int eloq_init_func(void *p)
         node_id, log_server_port, txlog_ips, txlog_ports, txlog_path, 0,
         eloq_txlog_group_replica_num, eloq_logserver_snapshot_interval);
 #endif
-#endif /* USE_ROCKSDB_LOG_STATE */
+#endif /* LOG_STATE_TYPE_MEM */
     err= txlog_server->Start();
     if (err != 0)
     {
@@ -3329,9 +3309,8 @@ static int eloq_done_func(void *p)
   }
 
 #if defined(DATA_STORE_TYPE_DYNAMODB) ||                                      \
-    (defined(USE_ROCKSDB_LOG_STATE) && (WITH_ROCKSDB_CLOUD == CS_TYPE_S3)) || \
+    defined(LOG_STATE_TYPE_RKDB_S3) || \
     defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3)
-
   aws_deinit();
 #endif
 
