@@ -146,7 +146,6 @@ find_package(Protobuf REQUIRED)
 ADD_CONVENIENCE_LIBRARY(logservice STATIC
     ${LOG_SOURCE_DIR}/src/log_server.cpp
     ${LOG_SOURCE_DIR}/src/log_state_rocksdb_impl.cpp
-    ${LOG_SOURCE_DIR}/src/log_state_rocksdb_cloud_impl.cpp
     ${LOG_SOURCE_DIR}/src/fault_inject.cpp
     ${LOG_SOURCE_DIR}/src/INIReader.cpp
     ${LOG_SOURCE_DIR}/src/ini.c
