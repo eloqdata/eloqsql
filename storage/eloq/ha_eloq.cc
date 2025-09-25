@@ -198,13 +198,38 @@
 #include "tx_service/include/tx_service_metrics.h"
 #include "tx_service/include/tx_request.h"
 #include "tx_service/include/util.h"
+
+#if (WITH_LOG_SERVICE)
 #include "log_server.h"
 #include "log_service_metrics.h"
 #include "log_utils.h"
+#endif
 
-#if defined(LOG_STATE_TYPE_RKDB_S3)
+// Log state type
+#if !defined(LOG_STATE_TYPE_RKDB_CLOUD)
+
+// Only if LOG_STATE_TYPE_RKDB_CLOUD undefined
+#if ((defined(LOG_STATE_TYPE_RKDB_S3) || defined(LOG_STATE_TYPE_RKDB_GCS)) &&  \
+     !defined(LOG_STATE_TYPE_RKDB))
+#define LOG_STATE_TYPE_RKDB_CLOUD 1
+#endif
+
+#endif
+
+#if !defined(LOG_STATE_TYPE_RKDB_ALL)
+
+// Only if LOG_STATE_TYPE_RKDB_ALL undefined
+#if (defined(LOG_STATE_TYPE_RKDB_S3) || defined(LOG_STATE_TYPE_RKDB_GCS) ||    \
+     defined(LOG_STATE_TYPE_RKDB))
+#define LOG_STATE_TYPE_RKDB_ALL 1
+#endif
+
+#endif
+
+#if defined(LOG_STATE_TYPE_RKDB_CLOUD)
 #include "rocksdb_cloud_config.h"
 #endif
+
 
 // Don't put this include after sql_class.h include, it will cause compile
 // error
