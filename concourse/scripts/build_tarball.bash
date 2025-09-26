@@ -223,12 +223,7 @@ fi
 # Build and install log_server (launch_sv)
 cd ${ELOQSQL_SRC}/storage/eloq/eloq_log_service
 mkdir bld && cd bld
-cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DWITH_LOG_STATE=ROCKSDB_CLOUD_S3 ${CMAKE_ARGS} ../
-cmake --build . --config ${BUILD_TYPE} -j4
-copy_libraries launch_sv ${DEST_DIR}/lib/
-mv launch_sv ${DEST_DIR}/bin/launch_sv_s3
-rm -rf ../bld/*
-cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DWITH_LOG_STATE=ROCKSDB ${CMAKE_ARGS} ../
+cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ${CMAKE_ARGS} ../
 cmake --build . --config ${BUILD_TYPE} -j4
 copy_libraries launch_sv ${DEST_DIR}/lib/
 mv launch_sv ${DEST_DIR}/bin/launch_sv
