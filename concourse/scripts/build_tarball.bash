@@ -272,7 +272,7 @@ build_upload_log_srv() {
     local cmake_args="-DCMAKE_BUILD_TYPE=$BUILD_TYPE -DWITH_ASAN=$ASAN -DDISABLE_CODE_LINE_IN_LOG=ON"
     if [ "$ds_type" = "ELOQDSS_ROCKSDB_CLOUD_S3" ]; then
         cmake_args="$cmake_args -DWITH_LOG_STATE=ROCKSDB_CLOUD_S3 -DWITH_CLOUD_AZ_INFO=ON"
-    elif [ "$kv_type" = "ELOQDSS_ROCKSDB_CLOUD_GCS" ]; then
+    elif [ "$ds_type" = "ELOQDSS_ROCKSDB_CLOUD_GCS" ]; then
         cmake_args="$cmake_args -DWITH_LOG_STATE=ROCKSDB_CLOUD_GCS"
     fi
     cmake .. $cmake_args
