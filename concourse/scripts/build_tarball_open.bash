@@ -133,7 +133,7 @@ popd
 pushd "${ELOQSQL_SRC}/storage/eloq/log_service"
 rm -rf bld
 mkdir bld && cd bld
-cmake -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" -DUSE_ROCKSDB_LOG_STATE=ON ../
+cmake -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" ../
 cmake --build . --config "${BUILD_TYPE}" -j"${NCORE}"
 copy_libraries launch_sv "${DEST_DIR}/lib"
 mv launch_sv "${DEST_DIR}/bin/"

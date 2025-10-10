@@ -139,7 +139,6 @@ if [ ! -f "Makefile" ]; then
           -DMARIA_WITH_GLOG=ON \
           -DSTATISTICS=ON \
           -DWITH_DATA_STORE=ELOQDSS_ROCKSDB_CLOUD_S3 \
-          -DUSE_ROCKSDB_LOG_STATE=ON \
           ../
 fi
 
@@ -162,7 +161,7 @@ cp dss_server /home/$current_user/workspace/eloqsql/install/bin/
 echo "building log_server"
 cd /home/$current_user/workspace/eloqsql/storage/eloq/log_service
 mkdir bld && cd bld
-cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DUSE_ROCKSDB_LOG_STATE=ON ../
+cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ../
 cmake --build . --config Debug -j8
 echo "installing launch_sv"
 cp launch_sv /home/$current_user/workspace/eloqsql/install/bin/
