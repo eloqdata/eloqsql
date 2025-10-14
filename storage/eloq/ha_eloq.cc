@@ -2724,51 +2724,17 @@ static int eloq_init_func(void *p)
     data_store_service_= std::make_unique<EloqDS::DataStoreService>(
         ds_config, dss_config_file_path, dss_data_path + "/DSMigrateLog",
         std::move(ds_factory));
-    std::vector<uint32_t> dss_shards= ds_config.GetShardsForThisNode();
-    std::unordered_map<uint32_t, std::unique_ptr<EloqDS::DataStore>>
-        dss_shards_map;
-    // setup rocksdb cloud data store
-    for (int shard_id : dss_shards)
-    {
-#if defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3) ||                      \
-    defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_GCS)
-      // TODO(lzx):move setup datastore to data_store_service
-      auto ds= std::make_unique<EloqDS::RocksDBCloudDataStore>(
-          rocksdb_cloud_config, rocksdb_config,
-          (opt_bootstrap || is_single_node), enable_cache_replacement_,
-          shard_id, data_store_service_.get());
-#elif defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB)
-      auto ds= std::make_unique<EloqDS::RocksDBDataStore>(
-          rocksdb_config, (opt_bootstrap || is_single_node),
-          enable_cache_replacement_, shard_id, data_store_service_.get());
-#elif defined(DATA_STORE_TYPE_ELOQDSS_ELOQSTORE)
-      auto ds= std::make_unique<EloqDS::EloqStoreDataStore>(
-          shard_id, data_store_service_.get());
-#endif
-      ds->Initialize();
 
-      // Start db if the shard status is not closed
-      if (ds_config.FetchDSShardStatus(shard_id) !=
-          EloqDS::DSShardStatus::Closed)
-      {
-        bool ret= ds->StartDB();
-        if (!ret)
-        {
-          sql_print_error("Failed to start db instance in data store service");
-          DBUG_RETURN(eloq_init_abort());
-        }
-      }
-      dss_shards_map[shard_id]= std::move(ds);
-    }
-
-    // setup local data store service
-    bool ret= data_store_service_->StartService();
+    // setup local data store service, the data store service will start
+    // data store if needed.
+    bool ret=
+        data_store_service_->StartService((opt_bootstrap || is_single_node));
     if (!ret)
     {
       sql_print_error("Failed to start data store service");
       DBUG_RETURN(eloq_init_abort());
     }
-    data_store_service_->ConnectDataStore(std::move(dss_shards_map));
+
     // setup data store service client
     storage_hd= std::make_unique<EloqDS::DataStoreServiceClient>(
         catalog_factory, ds_config, data_store_service_.get());
@@ -3304,7 +3270,6 @@ static int eloq_done_func(void *p)
 #if ELOQDS
   if (data_store_service_ != nullptr)
   {
-    data_store_service_->DisconnectDataStore();
     data_store_service_= nullptr;
   }
 #endif
