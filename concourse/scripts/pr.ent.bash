@@ -243,8 +243,8 @@ mc rb ${minio_server_alias}/dss-${bucket_name} --force; \
 mc rb ${minio_server_alias}/txlog-${bucket_name} --force
 set -e
 
-echo "running mono_main,mono_basic"
-./mtr --clean-txlog-bucket-restart --suite=mono_main,mono_basic --testcase-timeout=30 --bootstrap-defaults-file=$WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap.cnf
+echo "running eloq_main,eloq_basic"
+./mtr --clean-txlog-bucket-restart --suite=eloq_main,eloq_basic --testcase-timeout=30 --bootstrap-defaults-file=$WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap.cnf
 
 # Clean up minio buckets
 echo "cleaning minio buckets"
@@ -267,8 +267,8 @@ echo "starting dss_server"
 nohup /home/$current_user/workspace/eloqsql/install/bin/dss_server --config=$WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini > dss_server.log 2>&1 &
 sleep 5
 
-echo "running mono_multi"
-./mtr --suite=mono_multi --clean-txlog-bucket-restart --force --bootstrap-defaults-file=$WORKSPACE/eloqsql_pr/concourse/scripts/mtr_multi_bootstrap.cnf
+echo "running eloq_multi"
+./mtr --suite=eloq_multi --clean-txlog-bucket-restart --force --bootstrap-defaults-file=$WORKSPACE/eloqsql_pr/concourse/scripts/mtr_multi_bootstrap.cnf
 
 # Clean up minio bucket
 # If mtr test failed, it would not be run.

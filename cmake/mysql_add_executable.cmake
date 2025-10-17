@@ -120,4 +120,34 @@ FUNCTION (MYSQL_ADD_EXECUTABLE)
       INSTALL(PROGRAMS $<TARGET_FILE_DIR:${target}>/${link} DESTINATION ${ARG_DESTINATION} COMPONENT ${COMP})
     ENDIF()
   ENDIF()
+
+  # create ELOQSQL named "links"
+  GET_ELOQSQL_SYMLINK(${target} link)
+  IF(link)
+    IF(UNIX)
+      ADD_CUSTOM_COMMAND(TARGET ${target} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E create_symlink
+         ${target} ${link}
+        COMMENT "Creating ${link} link"
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
+      INSTALL(PROGRAMS
+         ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/${link}
+         DESTINATION
+         ${ARG_DESTINATION}
+         COMPONENT ${COMP})
+    ELSE()
+      # Windows note:
+      # Here, hardlinks are used, because cmake can't install symlinks.
+      # In packages, there are won't be links, just copies.
+      SET(link ${link}.exe)
+      ADD_CUSTOM_COMMAND(TARGET ${target} POST_BUILD
+        COMMAND cmake -E remove -f ${link}
+        COMMAND mklink /H ${link} $<TARGET_FILE_NAME:${target}>
+        COMMENT "Creating ${link} link"
+        WORKING_DIRECTORY $<TARGET_FILE_DIR:${target}>)
+      INSTALL(PROGRAMS $<TARGET_FILE_DIR:${target}>/${link} DESTINATION ${ARG_DESTINATION} COMPONENT ${COMP})
+    ENDIF()
+  ENDIF()
+
+
 ENDFUNCTION()
