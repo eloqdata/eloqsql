@@ -19,6 +19,10 @@
   Calls mysqld_main() entry point exported by sql library.
   On Windows, might do some service handling.
 */
+#include <gflags/gflags.h>
+
+
+
 #ifdef WITH_GLOG
 #include "glog_error_logging.h"
 #endif /* WITH_GLOG */
@@ -32,6 +36,24 @@ extern int mysqld_main(int argc, char **argv);
 
 int main(int argc, char **argv)
 {
+  // Initialize gflags - will error on unknown flags
+  gflags::SetUsageMessage(
+    "mysqld [gflags options]\n\n"
+    "MySQL system variables must be in config file specified by --eloqsql_config.\n"
+    "Data substrate flags can be passed on command line.\n"
+    "Use --help to see all available flags.");
+  
+#ifdef MYSQLD_LIBRARY_MODE
+  // When compiled as library mode, only accept flags that are defined in the data substrate
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
+#else
+  // When compiled as standalone mode, allow unrecognized flags to be passed through to MySQL
+  gflags::AllowCommandLineReparsing();
+  // Allow all MySQL-specific flags to pass through without error
+  gflags::SetCommandLineOption("undefok", "*");
+  gflags::ParseCommandLineNonHelpFlags(&argc, &argv, false);
+#endif
+  
 #ifdef WITH_GLOG
   InitGoogleLogging(argv);
 #endif /* WITH_GLOG */

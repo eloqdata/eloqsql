@@ -2,9 +2,9 @@
 # Use default setting for mysqld processes
 !include include/default_mysqld.cnf
 !include include/default_client.cnf
-!include include/eloq_kv_storage.cnf
+
 !include include/eloq_kv_keyspace.cnf
-!include include/eloq_kv_dss.cnf
+
 
 [mysqld]
 plugin-maturity=experimental

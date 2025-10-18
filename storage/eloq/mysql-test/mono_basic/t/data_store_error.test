@@ -1,5 +1,4 @@
 --source include/have_eloq.inc
---source include/have_range_partition.inc
 
 set @@default_storage_engine= eloq;
 select @@default_storage_engine;

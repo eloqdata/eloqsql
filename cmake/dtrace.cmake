@@ -70,7 +70,7 @@ MACRO (DTRACE_HEADER provider header header_no_dtrace)
  ADD_CUSTOM_COMMAND(
    OUTPUT  ${header} ${header_no_dtrace}
    COMMAND ${DTRACE} -h -s ${provider} -o ${header}
-   COMMAND perl ${CMAKE_SOURCE_DIR}/scripts/dheadgen.pl -f ${provider} > ${header_no_dtrace}
+   COMMAND perl ${ELOQSQL_SOURCE_DIR}/scripts/dheadgen.pl -f ${provider} > ${header_no_dtrace}
    DEPENDS ${provider}
  )
  ENDIF()
@@ -79,22 +79,22 @@ ENDMACRO()
 
 # Create provider headers
 IF(ENABLE_DTRACE)
-  CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/include/probes_mysql.d.base 
-    ${CMAKE_BINARY_DIR}/include/probes_mysql.d COPYONLY)
+  CONFIGURE_FILE(${ELOQSQL_SOURCE_DIR}/include/probes_mysql.d.base 
+    ${ELOQSQL_BINARY_DIR}/include/probes_mysql.d COPYONLY)
   DTRACE_HEADER(
-   ${CMAKE_BINARY_DIR}/include/probes_mysql.d 
-   ${CMAKE_BINARY_DIR}/include/probes_mysql_dtrace.h
-   ${CMAKE_BINARY_DIR}/include/probes_mysql_nodtrace.h
+   ${ELOQSQL_BINARY_DIR}/include/probes_mysql.d 
+   ${ELOQSQL_BINARY_DIR}/include/probes_mysql_dtrace.h
+   ${ELOQSQL_BINARY_DIR}/include/probes_mysql_nodtrace.h
   )
   ADD_CUSTOM_TARGET(gen_dtrace_header
   DEPENDS  
-  ${CMAKE_BINARY_DIR}/include/probes_mysql.d
-  ${CMAKE_BINARY_DIR}/include/probes_mysql_dtrace.h
-  ${CMAKE_BINARY_DIR}/include/probes_mysql_nodtrace.h
+  ${ELOQSQL_BINARY_DIR}/include/probes_mysql.d
+  ${ELOQSQL_BINARY_DIR}/include/probes_mysql_dtrace.h
+  ${ELOQSQL_BINARY_DIR}/include/probes_mysql_nodtrace.h
   ) 
 ELSE()
- CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/include/probes_mysql_nodtrace.h.in
-   ${CMAKE_BINARY_DIR}/include/probes_mysql_nodtrace.h COPYONLY)
+ CONFIGURE_FILE(${ELOQSQL_SOURCE_DIR}/include/probes_mysql_nodtrace.h.in
+   ${ELOQSQL_BINARY_DIR}/include/probes_mysql_nodtrace.h COPYONLY)
 ENDIF()
 
 FUNCTION(DTRACE_INSTRUMENT target)
@@ -117,21 +117,21 @@ FUNCTION(DTRACE_INSTRUMENT target)
         COMMAND ${CMAKE_COMMAND}
           -DDTRACE=${DTRACE}	  
           -DOUTFILE=${outfile} 
-          -DDFILE=${CMAKE_BINARY_DIR}/include/probes_mysql.d
+          -DDFILE=${ELOQSQL_BINARY_DIR}/include/probes_mysql.d
           -DDTRACE_FLAGS=${DTRACE_FLAGS}
           -DDIRS=.
           -DTYPE=${target_type}
-          -P ${CMAKE_SOURCE_DIR}/cmake/dtrace_prelink.cmake
+          -P ${ELOQSQL_SOURCE_DIR}/cmake/dtrace_prelink.cmake
         WORKING_DIRECTORY ${objdir}
       )
     ELSEIF(CMAKE_SYSTEM_NAME MATCHES "Linux")
       # dtrace on Linux runs gcc and uses flags from environment
       SET(CFLAGS_SAVED $ENV{CFLAGS})
       SET(ENV{CFLAGS} ${CMAKE_C_FLAGS})
-      SET(outfile "${CMAKE_BINARY_DIR}/probes_mysql.o")
+      SET(outfile "${ELOQSQL_BINARY_DIR}/probes_mysql.o")
       # Systemtap object
       EXECUTE_PROCESS(
-        COMMAND ${DTRACE} -G -s ${CMAKE_SOURCE_DIR}/include/probes_mysql.d.base
+        COMMAND ${DTRACE} -G -s ${ELOQSQL_SOURCE_DIR}/include/probes_mysql.d.base
         -o ${outfile}
         )
       SET(ENV{CFLAGS} ${CFLAGS_SAVED})
@@ -190,11 +190,11 @@ IF(CMAKE_SYSTEM_NAME MATCHES "SunOS" AND ENABLE_DTRACE)
   COMMAND ${CMAKE_COMMAND}
    -DDTRACE=${DTRACE}	  
    -DOUTFILE=${obj} 
-   -DDFILE=${CMAKE_BINARY_DIR}/include/probes_mysql.d
+   -DDFILE=${ELOQSQL_BINARY_DIR}/include/probes_mysql.d
    -DDTRACE_FLAGS=${DTRACE_FLAGS}
    "-DDIRS=${dirs}"
    -DTYPE=MERGE
-   -P ${CMAKE_SOURCE_DIR}/cmake/dtrace_prelink.cmake
+   -P ${ELOQSQL_SOURCE_DIR}/cmake/dtrace_prelink.cmake
    VERBATIM
   )
   ADD_CUSTOM_TARGET(${target}_dtrace_all  DEPENDS ${obj})

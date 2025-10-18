@@ -62,14 +62,14 @@
 
 #include <unordered_map>
 #include "ha_eloq_macro.h"
-#include "eloq_key.h"
-#include "eloq_schema.h"
+#include "eloqsql_key.h"
+#include "eloqsql_schema.h"
 #include "tx_service/include/statistics.h"
 #include "tx_service/include/tx_request.h"
 #include "tx_service/include/tx_execution.h"
 #include "tx_service/include/tx_util.h"
 #include "tx_service/include/store/data_store_scanner.h"
-#include "eloq_catalog_factory.h"
+#include "eloqsql_catalog_factory.h"
 #include "eloq_buff.h"
 #include "eloq_key_def.h"
 #include "tx_service/include/cc/reader_writer_cntl.h"
@@ -78,7 +78,7 @@ using namespace MyEloq;
 using namespace txservice;
 
 extern uint32_t node_id; // node id of itself
-extern std::unique_ptr<store::DataStoreHandler> storage_hd;
+extern store::DataStoreHandler *storage_hd;
 
 /** @brief
   Eloq_share is a class that will be shared among all open handlers.

@@ -1,5 +1,4 @@
 --source include/have_eloq.inc
---source include/have_range_partition.inc
 
 --let $mono_server_count= 3
 --source include/mono_init.inc

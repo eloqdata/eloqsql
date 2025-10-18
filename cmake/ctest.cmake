@@ -8,8 +8,8 @@ ENDMACRO()
 MACRO(MY_ADD_TESTS)
   CMAKE_PARSE_ARGUMENTS(ARG "" "EXT" "LINK_LIBRARIES" ${ARGN})
 
-  INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/include
-                      ${CMAKE_SOURCE_DIR}/unittest/mytap)
+  INCLUDE_DIRECTORIES(${ELOQSQL_SOURCE_DIR}/include
+                      ${ELOQSQL_SOURCE_DIR}/unittest/mytap)
 
   IF (NOT ARG_EXT)
     SET(ARG_EXT "c")

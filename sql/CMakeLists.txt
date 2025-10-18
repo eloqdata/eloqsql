@@ -54,7 +54,7 @@ if (EXT_TX_PROC_ENABLED)
   add_definitions(-DEXT_TX_PROC_ENABLED)
 endif()
 
-option(ELOQ_MODULE_ENABLED "Allows external threads to loop thread groups." OFF)
+option(ELOQ_MODULE_ENABLED "Allows external threads to loop thread groups." ON)
 if (ELOQ_MODULE_ENABLED)
   add_definitions(-DELOQ_MODULE_ENABLED)
 endif()
@@ -118,13 +118,13 @@ IF(ELOQ_MODULE_ENABLED)
 ENDIF()
 
 INCLUDE_DIRECTORIES(
-${CMAKE_SOURCE_DIR}/include
-${CMAKE_SOURCE_DIR}/sql
+${ELOQSQL_SOURCE_DIR}/include
+${ELOQSQL_SOURCE_DIR}/sql
 ${PCRE_INCLUDES}
 ${ZLIB_INCLUDE_DIR}
 ${SSL_INCLUDE_DIRS}
-${CMAKE_BINARY_DIR}/sql
-${CMAKE_SOURCE_DIR}/tpool
+${ELOQSQL_BINARY_DIR}/sql
+${ELOQSQL_SOURCE_DIR}/tpool
 ${Boost_INCLUDE_DIRS}
 )
 
@@ -212,7 +212,7 @@ SET (SQL_SOURCE
                sql_signal.cc mdl.cc sql_admin.cc
                transaction.cc sys_vars.cc sql_truncate.cc datadict.cc
                sql_reload.cc
-               mysql_metrics.cc
+               mysql_metrics.cc circular_queue.h
 
                # added in MariaDB:
                grant.cc
@@ -260,7 +260,7 @@ IF ((CMAKE_SYSTEM_NAME MATCHES "Linux" OR
  ENDIF()
  SET(SQL_SOURCE ${SQL_SOURCE} threadpool_generic.cc)
  SET(SQL_SOURCE ${SQL_SOURCE} threadpool_common.cc)
- MYSQL_ADD_PLUGIN(thread_pool_info thread_pool_info.cc DEFAULT STATIC_ONLY NOT_EMBEDDED)
+ MYSQL_ADD_PLUGIN(thread_pool_info thread_pool_info.cc DEFAULT STATIC_ONLY NOT_EMBEDDED LINK_LIBRARIES data_substrate)
 ENDIF()
 
 IF(WIN32)
@@ -279,6 +279,7 @@ SET(SQL_DEP_LIBS
   ${SSL_LIBRARIES}
   ${LIBSYSTEMD}
   ${LIBSYSTEMD}
+  ${DATA_SUBSTRATE_LIB}
 )
 
 IF(COROUTINE_ENABLED)
@@ -302,7 +303,7 @@ IF(MARIA_WITH_GLOG)
   endif()
   include_directories(${GLOG_INCLUDE_PATH})
   set(SQL_DEP_LIBS ${SQL_DEP_LIBS} ${GLOG_LIB} gflags)
-  set(SQL_SOURCE ${SQL_SOURCE} glog_error_logging.cc)
+  #set(SQL_SOURCE ${SQL_SOURCE} glog_error_logging.cc)
 ENDIF()
 
 ADD_LIBRARY(sql STATIC ${SQL_SOURCE})
@@ -310,11 +311,11 @@ MAYBE_DISABLE_IPO(sql)
 DTRACE_INSTRUMENT(sql)
 TARGET_LINK_LIBRARIES(sql ${SQL_DEP_LIBS})
 
-IF(PLUGIN_ELOQ)
+# IF(PLUGIN_ELOQ)
   ADD_DEFINITIONS(-DWITH_ELOQ_STORAGE_ENGINE)
-  SET(ELOQ_SOURCE_DIR ${CMAKE_SOURCE_DIR}/storage/eloq)
+  SET(ELOQ_SOURCE_DIR ${ELOQSQL_SOURCE_DIR}/storage/eloq)
   set(SQL_INCLUDE_DIR ${SQL_INCLUDE_DIR} ${ELOQ_SOURCE_DIR})
-ENDIF()
+# ENDIF()
 
 TARGET_INCLUDE_DIRECTORIES(sql PRIVATE ${SQL_INCLUDE_DIR})
 
@@ -384,7 +385,22 @@ ENDIF()
 ADD_LIBRARY(sql_builtins STATIC ${CMAKE_CURRENT_BINARY_DIR}/sql_builtin.cc)
 TARGET_LINK_LIBRARIES(sql_builtins ${MYSQLD_STATIC_PLUGIN_LIBS})
 
-MYSQL_ADD_EXECUTABLE(mariadbd ${MYSQLD_SOURCE} DESTINATION ${INSTALL_SBINDIR} COMPONENT Server)
+# Export libraries for converged build
+if(BUILD_ELOQSQL_AS_LIBRARY)
+    # Make sql and sql_builtins available to parent
+    set(ELOQSQL_SQL_LIBRARY sql CACHE STRING "EloqSQL sql library")
+    set(ELOQSQL_SQL_BUILTINS_LIBRARY sql_builtins CACHE STRING "EloqSQL sql_builtins library")
+    set(ELOQSQL_INCLUDE_DIRS
+        ${ELOQSQL_SOURCE_DIR}/include
+        ${ELOQSQL_SOURCE_DIR}/sql
+        ${ELOQSQL_BINARY_DIR}/include
+        CACHE STRING "EloqSQL include directories"
+    )
+endif()
+
+# Make executable optional
+if(NOT BUILD_ELOQSQL_AS_LIBRARY)
+    MYSQL_ADD_EXECUTABLE(mariadbd ${MYSQLD_SOURCE} DESTINATION ${INSTALL_SBINDIR} COMPONENT Server)
 
 IF(APPLE)
   # Add CoreServices framework since some dloadable plugins may need it
@@ -432,6 +448,7 @@ IF(WITH_MYSQLD_LDFLAGS)
   SET_TARGET_PROPERTIES(mariadbd PROPERTIES LINK_FLAGS 
      "${MYSQLD_LINK_FLAGS} ${WITH_MYSQLD_LDFLAGS}")
 ENDIF()
+endif() # End of BUILD_ELOQSQL_AS_LIBRARY conditional
 
 
 # Handle out-of-source build from source package with possibly broken 
@@ -504,14 +521,14 @@ IF(WIN32 OR HAVE_DLOPEN AND NOT DISABLE_SHARED)
 ENDIF()
 
 CONFIGURE_FILE(
-  ${CMAKE_SOURCE_DIR}/cmake/make_dist.cmake.in
-  ${CMAKE_BINARY_DIR}/make_dist.cmake @ONLY)
+  ${ELOQSQL_SOURCE_DIR}/cmake/make_dist.cmake.in
+  ${ELOQSQL_BINARY_DIR}/make_dist.cmake @ONLY)
 
 ADD_CUSTOM_TARGET(dist
-  COMMAND ${CMAKE_COMMAND} -P ${CMAKE_BINARY_DIR}/make_dist.cmake
-  DEPENDS ${CMAKE_BINARY_DIR}/sql/yy_mariadb.cc ${CMAKE_BINARY_DIR}/sql/yy_mariadb.hh
-  DEPENDS ${CMAKE_BINARY_DIR}/sql/yy_oracle.cc ${CMAKE_BINARY_DIR}/sql/yy_oracle.hh
-  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+  COMMAND ${CMAKE_COMMAND} -P ${ELOQSQL_BINARY_DIR}/make_dist.cmake
+  DEPENDS ${ELOQSQL_BINARY_DIR}/sql/yy_mariadb.cc ${ELOQSQL_BINARY_DIR}/sql/yy_mariadb.hh
+  DEPENDS ${ELOQSQL_BINARY_DIR}/sql/yy_oracle.cc ${ELOQSQL_BINARY_DIR}/sql/yy_oracle.hh
+  WORKING_DIRECTORY ${ELOQSQL_BINARY_DIR}
 )
 
 ADD_CUSTOM_TARGET(distclean
@@ -532,11 +549,11 @@ IF(TARGET mariadbd AND (NOT CMAKE_CROSSCOMPILING OR DEFINED CMAKE_CROSSCOMPILING
      COMMAND ${CMAKE_COMMAND} -E make_directory data
      COMMAND ${CMAKE_COMMAND} -E chdir data ${CMAKE_COMMAND}
      ${CONFIG_PARAM}
-     -DTOP_SRCDIR="${CMAKE_BINARY_DIR}"
+     -DTOP_SRCDIR="${ELOQSQL_BINARY_DIR}"
      -DBINDIR="${CMAKE_CURRENT_BINARY_DIR}"
      -DMYSQLD_EXECUTABLE="$<TARGET_FILE:mariadbd>"
      -DCMAKE_CFG_INTDIR="${CMAKE_CFG_INTDIR}"
-     -P ${CMAKE_SOURCE_DIR}/cmake/create_initial_db.cmake
+     -P ${ELOQSQL_SOURCE_DIR}/cmake/create_initial_db.cmake
      COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_CURRENT_BINARY_DIR}/initdb.dep
      WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/
      DEPENDS mariadbd
@@ -559,15 +576,15 @@ IF(WIN32)
   # Create bootstrapper SQL script
   ADD_CUSTOM_COMMAND(OUTPUT    
     ${my_bootstrap_sql}
-    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR}/scripts
+    COMMAND ${CMAKE_COMMAND} -E chdir ${ELOQSQL_BINARY_DIR}/scripts
     cmd /c copy mysql_system_tables.sql+mysql_system_tables_data.sql+fill_help_tables.sql+mysql_performance_tables.sql+mysql_test_db.sql+mysql_sys_schema.sql ${native_outfile}
     DEPENDS
-    ${CMAKE_SOURCE_DIR}/scripts/mysql_system_tables.sql
-    ${CMAKE_SOURCE_DIR}/scripts/mysql_system_tables_data.sql
-    ${CMAKE_SOURCE_DIR}/scripts/fill_help_tables.sql
-    ${CMAKE_SOURCE_DIR}/scripts/mysql_performance_tables.sql
-    ${CMAKE_SOURCE_DIR}/scripts/mysql_test_db.sql
-    ${CMAKE_BINARY_DIR}/scripts/mysql_sys_schema.sql
+    ${ELOQSQL_SOURCE_DIR}/scripts/mysql_system_tables.sql
+    ${ELOQSQL_SOURCE_DIR}/scripts/mysql_system_tables_data.sql
+    ${ELOQSQL_SOURCE_DIR}/scripts/fill_help_tables.sql
+    ${ELOQSQL_SOURCE_DIR}/scripts/mysql_performance_tables.sql
+    ${ELOQSQL_SOURCE_DIR}/scripts/mysql_test_db.sql
+    ${ELOQSQL_BINARY_DIR}/scripts/mysql_sys_schema.sql
   )
 
   ADD_CUSTOM_COMMAND(

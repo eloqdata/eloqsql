@@ -22,9 +22,9 @@
 #include <regex>
 
 #include "eloq_key_def.h"
-#include "eloq_schema.h"
+#include "eloqsql_schema.h"
 #include "date.h"
-#include "eloq_key.h"
+#include "eloqsql_key.h"
 #include "tx_record.h"
 #include "butil/logging.h"
 

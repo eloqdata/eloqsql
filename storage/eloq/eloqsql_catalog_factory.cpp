@@ -18,7 +18,7 @@
 #include "type.h"
 #define MYSQL_SERVER 1
 
-#include "eloq_catalog_factory.h"
+#include "eloqsql_catalog_factory.h"
 
 #include <string>
 #include <memory>
@@ -29,7 +29,7 @@
 #include "sql_class.h"
 
 #include "store_handler/kv_store.h"
-#include "eloq_key.h"
+#include "eloqsql_key.h"
 
 #include "cc/template_cc_map.h"
 #include "constants.h"
@@ -435,7 +435,9 @@ MysqlTableSchema::MysqlTableSchema(const txservice::TableName &table_name,
   }
 
   size_t offset= 0;
-  kv_info_= storage_hd->DeserializeKVCatalogInfo(kv_info, offset);
+  kv_info_= DataSubstrate::GetGlobal()
+                ->GetStoreHandler()
+                ->DeserializeKVCatalogInfo(kv_info, offset);
   record_schema_= EloqRecordSchema(&mysql_table_share_);
 }
 

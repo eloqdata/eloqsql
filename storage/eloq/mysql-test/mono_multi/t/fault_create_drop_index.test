@@ -1,6 +1,5 @@
 --source include/have_eloq.inc
 --source include/long_test.inc
---source include/have_range_partition.inc
 # Skip for dynamodb temporary.
 if (!`SELECT count(*) FROM information_schema.GLOBAL_VARIABLES
         WHERE VARIABLE_NAME='eloq_kv_storage'

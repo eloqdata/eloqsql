@@ -231,7 +231,7 @@ MACRO(MERGE_STATIC_LIBS TARGET OUTPUT_NAME LIBS_TO_MERGE)
         COMMAND ${CMAKE_COMMAND}
         ARGS
           -DTARGET_SCRIPT="${MRI_SCRIPT}"
-          -DTOP_DIR="${CMAKE_BINARY_DIR}"
+          -DTOP_DIR="${ELOQSQL_BINARY_DIR}"
           -DCMAKE_AR="${CMAKE_AR}"
           -P "${MYSQL_CMAKE_SCRIPT_DIR}/merge_archives_unix.cmake"
         COMMAND ${CMAKE_RANLIB}

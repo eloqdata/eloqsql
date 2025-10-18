@@ -23,7 +23,7 @@
 #include <mysql_com.h>
 #include <lf.h>
 
-#include "../storage/eloq/tx_service/include/circular_queue.h"
+#include "circular_queue.h"
 
 class THD;
 

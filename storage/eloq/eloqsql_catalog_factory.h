@@ -24,13 +24,14 @@
 
 #include "tx_service/include/catalog_factory.h"
 #include "tx_service/include/store/data_store_handler.h"
-#include "eloq_key.h"
-#include "eloq_schema.h"
+#include "eloqsql_key.h"
+#include "eloqsql_schema.h"
 #include "ha_eloq_macro.h"
+#include "data_substrate.h"
 #include "tx_service/include/table_statistics.h"
 #include "tx_service/include/type.h" // TableName
 
-extern std::unique_ptr<txservice::store::DataStoreHandler> storage_hd;
+extern txservice::store::DataStoreHandler *storage_hd;
 
 namespace txservice
 {
@@ -116,7 +117,9 @@ public:
   void SetKVCatalogInfo(const std::string &kv_info) override
   {
     size_t offset= 0;
-    kv_info_= storage_hd->DeserializeKVCatalogInfo(kv_info, offset);
+    kv_info_= DataSubstrate::GetGlobal()
+                  ->GetStoreHandler()
+                  ->DeserializeKVCatalogInfo(kv_info, offset);
   }
 
   txservice::KVCatalogInfo *GetKVCatalogInfo() const override

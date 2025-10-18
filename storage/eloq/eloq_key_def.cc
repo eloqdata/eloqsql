@@ -33,7 +33,7 @@
    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02111-1301 USA
  */
 
-#include "eloq_schema.h"
+#include "eloqsql_schema.h"
 #ifdef USE_PRAGMA_IMPLEMENTATION
 #pragma implementation // gcc: Class implementation
 #endif
@@ -64,7 +64,7 @@
 #include "sql_table.h"
 #include "log.h"
 #include "mysqld_error.h"
-#include "eloq_key.h"
+#include "eloqsql_key.h"
 
 #define HA_EXIT_FAILURE 1
 #define HA_EXIT_SUCCESS 0

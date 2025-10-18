@@ -20,9 +20,9 @@
 # along with this program; if not, write to the Free Software Foundation,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1335 USA
 
-INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/include
-                    ${CMAKE_SOURCE_DIR}/sql
-                    ${CMAKE_BINARY_DIR}/sql
+INCLUDE_DIRECTORIES(${ELOQSQL_SOURCE_DIR}/include
+                    ${ELOQSQL_SOURCE_DIR}/sql
+                    ${ELOQSQL_BINARY_DIR}/sql
                     ${CMAKE_CURRENT_BINARY_DIR}
                     ${PCRE_INCLUDES}
                     ${SSL_INCLUDE_DIRS})

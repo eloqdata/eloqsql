@@ -40,11 +40,18 @@ public:
 
   void ReloadCache(std::function<void(bool)> done) override;
 
-  void Shutdown();
+  void Shutdown() override;
 
 private:
   MariaSystemHandler();
-  ~MariaSystemHandler()= default;
+  ~MariaSystemHandler()
+  {
+    Shutdown();
+    if (thd_.joinable())
+    {
+      thd_.join();
+    }
+  }
 
   void SubmitWork(std::packaged_task<bool()> work);
 

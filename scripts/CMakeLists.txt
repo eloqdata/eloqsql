@@ -29,7 +29,7 @@ MACRO(INSTALL_LINK old new destination component)
 ENDMACRO()
 
 IF(NOT CMAKE_CROSSCOMPILING OR DEFINED CMAKE_CROSSCOMPILING_EMULATOR)
- INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/include)
+ INCLUDE_DIRECTORIES(${ELOQSQL_SOURCE_DIR}/include)
  ADD_EXECUTABLE(comp_sql comp_sql.c ../sql/sql_bootstrap.cc)
  TARGET_LINK_LIBRARIES(comp_sql)
 ENDIF()
@@ -40,7 +40,7 @@ IF(NOT WIN32 OR  (CMAKE_CROSSCOMPILING AND NOT DEFINED CMAKE_CROSSCOMPILING_EMUL
   MARK_AS_ADVANCED(CAT_EXECUTABLE)
 ENDIF()
 
-IF(NOT ("${CMAKE_BINARY_DIR}" STREQUAL "${CMAKE_SOURCE_DIR}"))
+IF(NOT ("${ELOQSQL_BINARY_DIR}" STREQUAL "${ELOQSQL_SOURCE_DIR}"))
   FOREACH(f fill_help_tables.sql mysql_system_tables_fix.sql mysql_system_tables.sql mysql_system_tables_data.sql mysql_performance_tables.sql)
     CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/${f} ${CMAKE_CURRENT_BINARY_DIR}/${f} COPYONLY)
   ENDFOREACH()
@@ -84,7 +84,7 @@ ADD_CUSTOM_TARGET(GenFixPrivs
 
 IF(UNIX AND NOT WITHOUT_SERVER)
  FILE(WRITE ${CMAKE_CURRENT_BINARY_DIR}/make_binary_distribution
-   "cd ${CMAKE_BINARY_DIR} && '${CMAKE_CPACK_COMMAND}' -G TGZ --config CPackConfig.cmake\n" )
+   "cd ${ELOQSQL_BINARY_DIR} && '${CMAKE_CPACK_COMMAND}' -G TGZ --config CPackConfig.cmake\n" )
  EXECUTE_PROCESS(
   COMMAND chmod +x ${CMAKE_CURRENT_BINARY_DIR}/make_binary_distribution
 )

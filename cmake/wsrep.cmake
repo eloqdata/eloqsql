@@ -19,7 +19,7 @@
 #
 IF (NOT WITHOUT_SERVER)
 IF(UNIX)
-  SET(with_wsrep_default ON)
+  SET(with_wsrep_default OFF)
 ELSE()
   SET(with_wsrep_default OFF)
 ENDIF()
@@ -33,14 +33,14 @@ IF(WITH_WSREP)
   # Set the patch version
   SET(WSREP_PATCH_VERSION "22")
 
-  IF(NOT EXISTS "${CMAKE_SOURCE_DIR}/wsrep-lib/wsrep-API/v26/wsrep_api.h")
+  IF(NOT EXISTS "${ELOQSQL_SOURCE_DIR}/wsrep-lib/wsrep-API/v26/wsrep_api.h")
     MESSAGE(FATAL_ERROR "No MariaDB wsrep-API code! Run
     ${GIT_EXECUTABLE} submodule update --init --recursive
 Then restart the build.
 ")
   ENDIF()
   # Obtain wsrep API version
-  FILE(STRINGS "${CMAKE_SOURCE_DIR}/wsrep-lib/wsrep-API/v26/wsrep_api.h" WSREP_API_VERSION
+  FILE(STRINGS "${ELOQSQL_SOURCE_DIR}/wsrep-lib/wsrep-API/v26/wsrep_api.h" WSREP_API_VERSION
        LIMIT_COUNT 1 REGEX "WSREP_INTERFACE_VERSION")
   STRING(REGEX MATCH "([0-9]+)" WSREP_API_VERSION "${WSREP_API_VERSION}")
 
@@ -56,8 +56,8 @@ Then restart the build.
     SET(WSREP_LIB_WITH_DBSIM OFF CACHE BOOL
       "Disable building dbsim for wsrep-lib")
   endif()
-  INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/wsrep-lib/include)
-  INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/wsrep-lib/wsrep-API/v26)
+  INCLUDE_DIRECTORIES(${ELOQSQL_SOURCE_DIR}/wsrep-lib/include)
+  INCLUDE_DIRECTORIES(${ELOQSQL_SOURCE_DIR}/wsrep-lib/wsrep-API/v26)
 
   SET(old_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
   SET(BUILD_SHARED_LIBS OFF)

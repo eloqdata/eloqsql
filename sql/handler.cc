@@ -67,6 +67,7 @@
 
 #ifdef WITH_ELOQ_STORAGE_ENGINE
 #include "eloq_db_dl.h"
+static LEX_CSTRING ELOQ_ENGINE_NAME= {STRING_WITH_LEN("ELOQ")};
 #endif
 #include "mysql_metrics.h"
 

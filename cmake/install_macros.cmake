@@ -59,10 +59,10 @@ FUNCTION(INSTALL_MANPAGE file)
   ENDIF()
   GET_FILENAME_COMPONENT(file_name "${file}" NAME)
   SET(GLOB_EXPR 
-    ${CMAKE_SOURCE_DIR}/man/*${file}man.1*
-    ${CMAKE_SOURCE_DIR}/man/*${file}man.8*
-    ${CMAKE_BINARY_DIR}/man/*${file}man.1*
-    ${CMAKE_BINARY_DIR}/man/*${file}man.8*
+    ${ELOQSQL_SOURCE_DIR}/man/*${file}man.1*
+    ${ELOQSQL_SOURCE_DIR}/man/*${file}man.8*
+    ${ELOQSQL_BINARY_DIR}/man/*${file}man.1*
+    ${ELOQSQL_BINARY_DIR}/man/*${file}man.8*
    )
   IF(MYSQL_DOC_DIR)
     SET(GLOB_EXPR
@@ -260,7 +260,7 @@ ENDFUNCTION()
 # Optionally install mysqld/client/embedded from debug build run. outside of the current build dir
 # (unless multi-config generator is used like Visual Studio or Xcode).
 # For Makefile generators we default Debug build directory to ${buildroot}/../debug.
-GET_FILENAME_COMPONENT(BINARY_PARENTDIR ${CMAKE_BINARY_DIR} PATH)
+GET_FILENAME_COMPONENT(BINARY_PARENTDIR ${ELOQSQL_BINARY_DIR} PATH)
 SET(DEBUGBUILDDIR "${BINARY_PARENTDIR}/debug" CACHE INTERNAL "Directory of debug build")
 
 FUNCTION(INSTALL_MYSQL_TEST from to)

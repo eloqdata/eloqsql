@@ -56,7 +56,7 @@
 #include "field.h"
 
 #include "eloq_buff.h"
-#include "eloq_schema.h"
+#include "eloqsql_schema.h"
 #include "slice.h"
 
 /* The following is copied from storage/innobase/univ.i: */

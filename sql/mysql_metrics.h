@@ -1,7 +1,7 @@
 #pragma once
 #include <memory>
-#include "../storage/eloq/eloq_metrics/include/metrics.h"
-#include "../storage/eloq/eloq_metrics/include/meter.h"
+#include "metrics.h"
+#include "meter.h"
 
 namespace metrics
 {
