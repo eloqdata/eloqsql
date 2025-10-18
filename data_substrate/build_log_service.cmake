@@ -143,7 +143,7 @@ set(LOG_LIB
 find_package(Protobuf REQUIRED)
 
 
-ADD_CONVENIENCE_LIBRARY(logservice STATIC
+ADD_LIBRARY(logservice STATIC
     ${LOG_SOURCE_DIR}/src/log_server.cpp
     ${LOG_SOURCE_DIR}/src/log_state_rocksdb_impl.cpp
     ${LOG_SOURCE_DIR}/src/fault_inject.cpp

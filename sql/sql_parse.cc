@@ -103,7 +103,7 @@
 
 #define FLAGSTR(V,F) ((V)&(F)?#F" ":"")
 
-#include "eloq_db_dl.h"
+#include "../storage/eloq/eloq_db_dl.h"
 
 #ifdef WITH_ARIA_STORAGE_ENGINE
 #include "../storage/maria/ha_maria.h"

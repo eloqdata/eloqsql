@@ -540,11 +540,28 @@ fi
 mysqld_bootstrap="${MYSQLD_BOOTSTRAP-$mysqld}"
 mysqld_install_cmd_line()
 {
-  "$mysqld_bootstrap" $defaults $defaults_group_suffix "$mysqld_opt" --bootstrap $silent_startup\
-  "--basedir=$basedir" "--datadir=$ldata" --log-warnings=0 --enforce-storage-engine="" \
-  "--plugin-dir=${plugindir}" \
-  $args --max_allowed_packet=8M \
-  --net_buffer_length=16K
+  # Create temporary config file for bootstrap
+  local temp_config=$(mktemp)
+  
+  cat > "$temp_config" << EOF
+[mysqld]
+basedir=$basedir
+datadir=$ldata
+plugin-dir=$plugindir
+log-warnings=0
+enforce-storage-engine=
+max-allowed-packet=8M
+net-buffer-length=16K
+EOF
+
+  # Call mysqld with config file and bootstrap flag
+  "$mysqld_bootstrap" --eloqsql_config="$temp_config" --bootstrap  $args
+  local exit_code=$?
+  
+  # Clean up temp file
+  rm -f "$temp_config"
+  
+  return $exit_code
 }
 
 # Use $auth_root_socket_user if explicitly specified.

@@ -14,6 +14,7 @@ if(WITH_LOG_STATE STREQUAL "MEMORY")
   add_compile_definitions(LOG_STATE_TYPE_MEM)
 elseif(WITH_LOG_STATE STREQUAL "ROCKSDB")
   add_compile_definitions(LOG_STATE_TYPE_RKDB)
+  add_compile_definitions(LOG_STATE_TYPE_RKDB_ALL)
 elseif(WITH_LOG_STATE STREQUAL "ROCKSDB_CLOUD_S3")
   add_compile_definitions(LOG_STATE_TYPE_RKDB_S3)
 elseif(WITH_LOG_STATE STREQUAL "ROCKSDB_CLOUD_GCS")
@@ -265,7 +266,7 @@ set(LOG_LIB
 find_package(Protobuf REQUIRED)
 
 
-ADD_CONVENIENCE_LIBRARY(logservice STATIC
+ADD_LIBRARY(logservice STATIC
     ${LOG_SOURCE_DIR}/src/log_instance.cpp
     ${LOG_SOURCE_DIR}/src/log_server.cpp
     ${LOG_SOURCE_DIR}/src/log_state_rocksdb_impl.cpp

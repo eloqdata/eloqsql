@@ -31,9 +31,11 @@ set(ELOQ_METRICS_TARGET_SOURCE_LIST
     ${ELOQ_METRICS_INCLUDE_DIR}/metrics_collector.h
     ${ELOQ_METRICS_INCLUDE_DIR}/prometheus_collector.h
     ${ELOQ_METRICS_INCLUDE_DIR}/metrics_manager.h
+    ${ELOQ_METRICS_INCLUDE_DIR}/metrics_registry_impl.h
     ${ELOQ_METRICS_SRC_DIR}/metrics.cc
     ${ELOQ_METRICS_SRC_DIR}/prometheus_collector.cc
     ${ELOQ_METRICS_SRC_DIR}/metrics_manager.cc
+    ${ELOQ_METRICS_SRC_DIR}/metrics_registry_impl.cpp
 )
 add_library(${METRICS_LIB} STATIC ${ELOQ_METRICS_TARGET_SOURCE_LIST})
 

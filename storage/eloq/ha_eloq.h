@@ -78,7 +78,7 @@ using namespace MyEloq;
 using namespace txservice;
 
 extern uint32_t node_id; // node id of itself
-extern std::unique_ptr<store::DataStoreHandler> storage_hd;
+extern store::DataStoreHandler *storage_hd;
 
 /** @brief
   Eloq_share is a class that will be shared among all open handlers.

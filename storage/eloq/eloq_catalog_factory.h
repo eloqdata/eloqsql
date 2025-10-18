@@ -30,7 +30,7 @@
 #include "tx_service/include/table_statistics.h"
 #include "tx_service/include/type.h" // TableName
 
-extern std::unique_ptr<txservice::store::DataStoreHandler> storage_hd;
+extern txservice::store::DataStoreHandler *storage_hd;
 
 namespace txservice
 {

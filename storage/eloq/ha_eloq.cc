@@ -112,8 +112,6 @@
 */
 
 #include "mysql/plugin.h"
-#include "mysql_metrics.h"
-#include "mysql_version.h"
 #include <climits>
 #include <cstdint>
 #ifdef USE_PRAGMA_IMPLEMENTATION
@@ -127,10 +125,8 @@
 #include <string>
 #include <memory>
 #include <unordered_map>
-#include <map>
 #include <algorithm>
 #include <tuple>
-#include <filesystem>
 
 #include "my_global.h"
 #include "thr_lock.h" /* THR_LOCK, THR_LOCK_DATA */
@@ -144,75 +140,23 @@
 #include "key.h"
 #include "mysql/service_thd_wait.h"
 
-#include "log_wrapper.h"
 #include "eloq_i_s.h"
 #include "eloq_catalog_factory.h"
 #include "eloq_catalog_name.h"
 #include "eloq_system_handler.h"
 #include "eloq_errors.h"
 #include "tx_util.h"
+#include "data_substrate.h"
 // #include "eloq_tests.hpp"
 #include "ha_eloq.h"
 #include "tx_service/include/sequences/sequences.h"
 #include "slice.h"
 
-#include "store_handler/kv_store.h"
-
-#if (defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3) ||                     \
-     defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_GCS) ||                    \
-     defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB) ||                              \
-     defined(DATA_STORE_TYPE_ELOQDSS_ELOQSTORE))
-#define ELOQDS 1
-#endif
-
-#if (defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3) || \
-     defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_GCS))
-#define ELOQDS_RKDB_CLOUD 1
-#endif
-
-#if defined(DATA_STORE_TYPE_DYNAMODB)
-#include "store_handler/dynamo_handler.h"
-#elif defined(DATA_STORE_TYPE_BIGTABLE)
-#include "store_handler/bigtable_handler.h"
-
-#elif ELOQDS
-#include "store_handler/eloq_data_store_service/data_store_service.h"
-#include "store_handler/eloq_data_store_service/data_store_service_config.h"
-#include "store_handler/data_store_service_client.h"
-#if ELOQDS_RKDB_CLOUD
-#include "store_handler/eloq_data_store_service/rocksdb_cloud_data_store_factory.h"
-#include "store_handler/eloq_data_store_service/rocksdb_config.h"
-#elif defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB)
-#include "store_handler/eloq_data_store_service/rocksdb_data_store_factory.h"
-#include "store_handler/eloq_data_store_service/rocksdb_config.h"
-#elif defined(DATA_STORE_TYPE_ELOQDSS_ELOQSTORE)
-#include "store_handler/eloq_data_store_service/eloq_store_data_store_factory.h"
-#endif
-#else
-#endif
-
-#include "metrics_registry_impl.h"
-
-#include "tx_service/include/constants.h"
-#include "tx_service/include/statistics.h"
-#include "tx_service/include/type.h"
-#include "tx_service/include/tx_execution.h"
-#include "tx_service/include/tx_service.h"
-#include "tx_service/include/tx_service_metrics.h"
-#include "tx_service/include/tx_request.h"
-#include "tx_service/include/util.h"
-
-#if (WITH_LOG_SERVICE)
-#include "log_server.h"
-#include "log_service_metrics.h"
-#include "log_utils.h"
-#endif
-
 // Log state type
 #if !defined(LOG_STATE_TYPE_RKDB_CLOUD)
 
 // Only if LOG_STATE_TYPE_RKDB_CLOUD undefined
-#if ((defined(LOG_STATE_TYPE_RKDB_S3) || defined(LOG_STATE_TYPE_RKDB_GCS)) &&  \
+#if ((defined(LOG_STATE_TYPE_RKDB_S3) || defined(LOG_STATE_TYPE_RKDB_GCS)) && \
      !defined(LOG_STATE_TYPE_RKDB))
 #define LOG_STATE_TYPE_RKDB_CLOUD 1
 #endif
@@ -222,24 +166,26 @@
 #if !defined(LOG_STATE_TYPE_RKDB_ALL)
 
 // Only if LOG_STATE_TYPE_RKDB_ALL undefined
-#if (defined(LOG_STATE_TYPE_RKDB_S3) || defined(LOG_STATE_TYPE_RKDB_GCS) ||    \
+#if (defined(LOG_STATE_TYPE_RKDB_S3) || defined(LOG_STATE_TYPE_RKDB_GCS) ||   \
      defined(LOG_STATE_TYPE_RKDB))
 #define LOG_STATE_TYPE_RKDB_ALL 1
 #endif
 
 #endif
 
-#if defined(LOG_STATE_TYPE_RKDB_CLOUD)
-#include "rocksdb_cloud_config.h"
+#if defined(WITH_LOG_SERVICE)
+#include "log_server.h"
 #endif
+#include "store_handler/kv_store.h"
 
-
-// Don't put this include after sql_class.h include, it will cause compile
-// error
-#if (defined(DATA_STORE_TYPE_DYNAMODB) || defined(LOG_STATE_TYPE_RKDB_S3) ||  \
-     defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3))
-#include <aws/core/Aws.h>
-#endif
+#include "tx_service/include/constants.h"
+#include "tx_service/include/statistics.h"
+#include "tx_service/include/type.h"
+#include "tx_service/include/tx_execution.h"
+#include "tx_service/include/tx_service.h"
+// #include "tx_service/include/tx_service_metrics.h"
+#include "tx_service/include/tx_request.h"
+#include "tx_service/include/util.h"
 
 #define DEFAULT_SCAN_TUPLE_SIZE 128
 // eloq_debug_set prefix "+d,eloq;"
@@ -252,6 +198,10 @@
 using namespace MyEloq;
 using namespace txservice;
 
+MariaCatalogFactory maria_catalog_factory;
+txservice::CatalogFactory *eloqsql_catalog_factory= &maria_catalog_factory;
+txservice::SystemHandler *eloqsql_system_handler=
+    &MyEloq::MariaSystemHandler::Instance();
 extern my_bool opt_bootstrap; // Defined in Mariadb context.
 extern std::function<void(int)> terminate_hook;
 
@@ -273,296 +223,19 @@ static handler *eloq_create_handler(handlerton *hton, TABLE_SHARE *table,
 
 handlerton *eloq_hton;
 
-static ulong eloq_kv_storage= 0;
-static char *eloq_local_ip= nullptr;
-static char *eloq_ip_list= nullptr;
-static char *eloq_standby_ip_list= nullptr;
-static char *eloq_voter_ip_list= nullptr;
-static char *eloq_hm_ip= nullptr;
-static char *eloq_hm_bin_path= nullptr;
-static char *eloq_cluster_config_file= nullptr;
-static char *eloq_keyspace_name= nullptr;
-static char *eloq_dynamodb_endpoint= nullptr;
-static char *eloq_aws_access_key_id= nullptr;
-static char *eloq_aws_secret_key= nullptr;
-static char *eloq_dynamodb_region= nullptr;
-static char *eloq_bigtable_project_id= nullptr;
-static char *eloq_bigtable_instance_id= nullptr;
 static char *eloq_insert_semantic= nullptr;
 static char *eloq_auto_increment= nullptr;
 static char *eloq_invalidate_cache_once= nullptr;
-static unsigned int eloq_core_num= 1;
 static ulong srv_enum_var= 0;
 static ulong srv_ulong_var= 0;
 static double srv_double_var= 0;
-static unsigned int eloq_checkpointer_interval_sec= 10;
-static unsigned int eloq_checkpointer_delay_sec= 5;
-static unsigned int eloq_collect_active_tx_ts_interval_sec= 2;
-// range split worker number
-static unsigned int eloq_range_split_worker_num= 0;
-static unsigned int eloq_bthread_worker_num= 0;
-static unsigned int eloq_logserver_rocksdb_scan_thread_num= 0;
-// eloq_realtime_sampling cannot be changed at runtime until now, because
-// broadcast configuration has not been supported.
-static my_bool eloq_realtime_sampling= true;
-static my_bool eloq_ddl_skip_kv= false;
-static my_bool eloq_skip_redo_log= false;
-static my_bool eloq_scan_skip_kv= false;
 static my_bool eloq_random_scan_sort= false;
-static my_bool eloq_use_key_cache= false;
 static my_bool eloq_report_debug_info= false;
-// memory limit default 8GB.
-static unsigned int eloq_node_memory_limit_mb= 8000;
-// log limit default 16GB since rocksdb is used as default engine of log
-// service, it's not sensitive to log size. But we still keep the logic of
-// triggering checkpoint when log size reach the limit.
-static unsigned int eloq_node_log_limit_mb= 16000;
-static my_bool eloq_enable_mvcc= true;
-static unsigned int eloq_metrics_port= 18081;
-static unsigned int eloq_deadlock_interval_sec= 10;
-// If not 0, will create a hook function that will close all braft connections
-// when mysqld received crash single.
 static int eloq_signal_monitor= 0;
-// tx log service list
-static char *eloq_txlog_rocksdb_storage_path= nullptr;
-static char *eloq_txlog_service_list= nullptr;
-static unsigned int eloq_txlog_group_replica_num= 3;
-static ulong eloq_partition_type= 0;
-
-// metrics collection
-static std::unique_ptr<metrics::MetricsRegistry> metrics_registry= nullptr;
-static my_bool eloq_enable_metrics= false;
-
-// mysql metrics
-static my_bool eloq_enable_mysql_tx_metrics= true;
-static my_bool eloq_enable_mysql_dml_metrics= true;
-
-// tx_service metrics
-static my_bool eloq_enable_tx_metrics= true;
-static my_bool eloq_enable_cache_hit_rate= true;
-static my_bool eloq_enable_kv_metrics= true;
-static my_bool eloq_enable_busy_round_metrics= true;
-static my_bool eloq_enable_memory_usage= true;
-static my_bool eloq_enable_remote_request_metrics= true;
-static unsigned long long eloq_collect_memory_usage_round= 10000;
-static unsigned long long eloq_collect_tx_duration_round= 1;
-static unsigned long long eloq_busy_round_threshold= 10;
-
-// log_service metrics
-static my_bool eloq_enable_log_service_metrics= false;
-
-// log server/rocksdb/cloud
-static char *eloq_txlog_rocksdb_cloud_bucket_name= nullptr;
-static char *eloq_txlog_rocksdb_cloud_bucket_prefix= nullptr;
-static char *eloq_txlog_rocksdb_cloud_object_path= nullptr;
-static char *eloq_txlog_rocksdb_cloud_region= nullptr;
-static char *eloq_txlog_rocksdb_cloud_endpoint_url= nullptr;
-static char *eloq_txlog_rocksdb_cloud_sst_file_cache_size= nullptr;
-static int eloq_txlog_rocksdb_cloud_sst_file_cache_num_shard_bits= 5;
-static char *eloq_txlog_rocksdb_target_file_size_base= nullptr;
-static char *eloq_txlog_rocksdb_sst_files_size_limit= nullptr;
-static unsigned int eloq_txlog_rocksdb_cloud_ready_timeout= 10;
-static unsigned int eloq_txlog_rocksdb_cloud_file_deletion_delay= 3600;
-static unsigned int eloq_node_group_replica_num= 3;
-static unsigned int eloq_logserver_snapshot_interval= 600;
-static unsigned int eloq_txlog_rocksdb_cloud_in_mem_log_size_high_watermark=
-    50 * 10000;
-static unsigned int eloq_txlog_rocksdb_max_write_buffer_number= 8;
-static unsigned int eloq_txlog_rocksdb_max_background_jobs= 8;
-
-static my_bool eloq_enable_txlog_request_checkpoint= true;
-static unsigned int eloq_check_replay_log_size_interval_sec= 10;
-static char *eloq_notify_checkpointer_threshold_size= nullptr;
-
-// data_store_service
-static char *eloq_dss_config_file_path= nullptr;
-static char *eloq_dss_peer_node= nullptr;
-static char *eloq_dss_branch_name= nullptr;
-static char *eloq_dss_rocksdb_cloud_bucket_name= nullptr;
-static char *eloq_dss_rocksdb_cloud_bucket_prefix= nullptr;
-static char *eloq_dss_rocksdb_cloud_object_path= nullptr;
-static char *eloq_dss_rocksdb_cloud_region= nullptr;
-static char *eloq_dss_rocksdb_cloud_endpoint_url= nullptr;
-static char *eloq_dss_rocksdb_cloud_sst_file_cache_size= nullptr;
-static int eloq_dss_rocksdb_cloud_sst_file_cache_num_shard_bits= 5;
-static char *eloq_dss_rocksdb_target_file_size_base= nullptr;
-static unsigned int eloq_dss_rocksdb_cloud_purger_periodicity_secs=
-    600; // 10 minutes
-static unsigned int eloq_dss_rocksdb_cloud_file_deletion_delay= 3600;
-static unsigned int eloq_dss_rocksdb_max_write_buffer_number= 8;
-static unsigned int eloq_dss_rocksdb_max_background_jobs= 8;
-#if defined(DATA_STORE_TYPE_ELOQDSS_ELOQSTORE)
-static unsigned int eloq_eloqstore_worker_num= 1;
-static char *eloq_eloqstore_data_path_list= nullptr;
-static unsigned int eloq_eloqstore_open_files_limit= 1024;
-static char *eloq_eloqstore_cloud_store_path= nullptr;
-static unsigned int eloq_eloqstore_gc_threads= 1;
-static unsigned int eloq_eloqstore_cloud_worker_count= 1;
-static unsigned int eloq_eloqstore_data_page_restart_interval= 16;
-static unsigned int eloq_eloqstore_index_page_restart_interval= 16;
-static unsigned int eloq_eloqstore_init_page_count= 1 << 15;
-static my_bool eloq_eloqstore_skip_verify_checksum= false;
-static unsigned int eloq_eloqstore_index_buffer_pool_size= 1 << 15;
-static unsigned int eloq_eloqstore_manifest_limit= 8 << 20;
-static unsigned int eloq_eloqstore_io_queue_size= 4096;
-static unsigned int eloq_eloqstore_max_inflight_write= 64 << 10;
-static unsigned int eloq_eloqstore_max_write_batch_pages= 256;
-static unsigned int eloq_eloqstore_buf_ring_size= 1 << 12;
-static unsigned int eloq_eloqstore_coroutine_stack_size= 32 * 1024;
-static unsigned int eloq_eloqstore_num_retained_archives= 0;
-static unsigned int eloq_eloqstore_archive_interval_secs= 86400;
-static unsigned int eloq_eloqstore_max_archive_tasks= 256;
-static unsigned int eloq_eloqstore_file_amplify_factor= 4;
-static unsigned long long eloq_eloqstore_local_space_limit= 1ULL << 40;
-static unsigned int eloq_eloqstore_reserve_space_ratio= 100;
-static unsigned int eloq_eloqstore_data_page_size= 1 << 12;
-static unsigned int eloq_eloqstore_pages_per_file_shift= 11;
-static unsigned int eloq_eloqstore_overflow_pointers= 16;
-static my_bool eloq_eloqstore_data_append_mode= false;
-#endif
 
 const char *enum_var_names[]= {"e1", "e2", NullS};
-const char *kv_storage_names[]= {"dynamo", "bigtable", "eloqds", NullS};
-const char *partition_names[]= {"Hash", "Range", NullS};
-
-#define KV_DYNAMO 0
-#define KV_BIGTABLE 1
-#define KV_ELOQDS 2
-
-static my_bool eloq_enable_heap_defragment= false;
-static my_bool eloq_kickout_data_for_test= false;
 
 #define DIRTY_KEY_ID_BEGIN 16
-
-static MYSQL_SYSVAR_STR(local_ip, eloq_local_ip,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "IP address of the local node", nullptr, nullptr,
-                        "127.0.0.1:8000");
-
-static MYSQL_SYSVAR_STR(ip_list, eloq_ip_list,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "IP addresses of the nodes in the cluster", nullptr,
-                        nullptr, "127.0.0.1:8000");
-static MYSQL_SYSVAR_STR(standby_ip_list, eloq_standby_ip_list,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "IP addresses of the standby nodes in the cluster",
-                        nullptr, nullptr, "");
-static MYSQL_SYSVAR_STR(voter_ip_list, eloq_voter_ip_list,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "IP addresses of the voter nodes in the cluster",
-                        nullptr, nullptr, "");
-static MYSQL_SYSVAR_STR(hm_ip, eloq_hm_ip,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "IP addresses of the host manager", nullptr, nullptr,
-                        "");
-
-static MYSQL_SYSVAR_STR(hm_bin_path, eloq_hm_bin_path,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "Path to host manager binary path.", nullptr, nullptr,
-                        "");
-
-static MYSQL_SYSVAR_STR(cluster_config_file, eloq_cluster_config_file,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "Path to cluster config file.", nullptr, nullptr, "");
-
-static MYSQL_SYSVAR_STR(keyspace_name, eloq_keyspace_name,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "Keyspace of KV Storage", nullptr, nullptr, "mono");
-static MYSQL_SYSVAR_UINT(core_num, eloq_core_num, PLUGIN_VAR_RQCMDARG,
-                         "Number of CPU cores", NULL, NULL, 1, 1, 1024, 1);
-
-static MYSQL_SYSVAR_UINT(range_split_worker_num, eloq_range_split_worker_num,
-                         PLUGIN_VAR_RQCMDARG, "Number of range split worker",
-                         NULL, NULL, 0, 0, 1024, 0);
-
-static MYSQL_SYSVAR_UINT(bthread_worker_num, eloq_bthread_worker_num,
-                         PLUGIN_VAR_RQCMDARG,
-                         "Number of bthread worker threads", NULL, NULL, 0, 0,
-                         1024, 0);
-
-static MYSQL_SYSVAR_UINT(logserver_rocksdb_scan_thread_num,
-                         eloq_logserver_rocksdb_scan_thread_num,
-                         PLUGIN_VAR_RQCMDARG, "Number of rocksdb scan threads",
-                         NULL, NULL, 1, 1, 1024, 1);
-
-// global metrics
-static MYSQL_SYSVAR_BOOL(enable_metrics, eloq_enable_metrics,
-                         PLUGIN_VAR_RQCMDARG,
-                         "When enabled, creates metric registry", NULL, NULL,
-                         FALSE);
-// mysql metrics
-static MYSQL_SYSVAR_BOOL(
-    enable_mysql_tx_metrics, eloq_enable_mysql_tx_metrics, PLUGIN_VAR_RQCMDARG,
-    "Enables or disables the collection of transaction metrics in MySQL.",
-    NULL, NULL, TRUE);
-
-static MYSQL_SYSVAR_BOOL(
-    enable_mysql_dml_metrics, eloq_enable_mysql_dml_metrics,
-    PLUGIN_VAR_RQCMDARG,
-    "Enables or disables the collection of DML metrics in MySQL. When set to "
-    "ON, the plugin will track DML operation metrics such as SELECT, INSERT, "
-    "UPDATE, DELETE, etc.",
-    NULL, NULL, TRUE);
-
-// tx_service metrics
-static MYSQL_SYSVAR_BOOL(
-    enable_tx_metrics, eloq_enable_tx_metrics, PLUGIN_VAR_RQCMDARG,
-    "Enable or disable transaction metrics for `tx_service` side.", NULL, NULL,
-    TRUE);
-
-static MYSQL_SYSVAR_BOOL(enable_cache_hit_rate, eloq_enable_cache_hit_rate,
-                         PLUGIN_VAR_RQCMDARG,
-                         "Enable or disable cache hit rate metrics", NULL,
-                         NULL, TRUE);
-
-static MYSQL_SYSVAR_BOOL(enable_busy_round_metrics,
-                         eloq_enable_busy_round_metrics, PLUGIN_VAR_RQCMDARG,
-                         "When enabled, collects process transaction requests "
-                         "latency, and process cc "
-                         "requests latency, cc queue length",
-                         NULL, NULL, TRUE);
-
-static MYSQL_SYSVAR_BOOL(enable_memory_usage, eloq_enable_memory_usage,
-                         PLUGIN_VAR_RQCMDARG,
-                         "Enable or disable memory usage metrics", NULL, NULL,
-                         TRUE);
-
-static MYSQL_SYSVAR_BOOL(
-    enable_remote_request_metrics, eloq_enable_remote_request_metrics,
-    PLUGIN_VAR_RQCMDARG,
-    "Enable or disable remote request metrics for `tx_service` side.", NULL,
-    NULL, TRUE);
-
-static MYSQL_SYSVAR_BOOL(
-    enable_kv_metrics, eloq_enable_kv_metrics, PLUGIN_VAR_RQCMDARG,
-    "Enable or disable KV store metrics for `tx_service` side.", NULL, NULL,
-    TRUE);
-
-static MYSQL_SYSVAR_ULONGLONG(
-    busy_round_threshold, eloq_busy_round_threshold, PLUGIN_VAR_RQCMDARG,
-    "If CC queue length >= `threshold` (default: 10), then the "
-    "RunOneRound is busy",
-    NULL, NULL, 10, 1, ULLONG_MAX, 1);
-
-static MYSQL_SYSVAR_ULONGLONG(
-    collect_memory_usage_round, eloq_collect_memory_usage_round,
-    PLUGIN_VAR_RQCMDARG,
-    "Interval of collecting memory usage. Only "
-    "works when enable memory usage (default: 10000)",
-    NULL, NULL, 10000, 0, ULLONG_MAX, 1);
-
-static MYSQL_SYSVAR_ULONGLONG(
-    collect_tx_duration_round, eloq_collect_tx_duration_round,
-    PLUGIN_VAR_RQCMDARG,
-    "Interval of collecting transaction duration. Only "
-    "works when enable tx metrics  (default: 1)",
-    NULL, NULL, 1, 0, ULLONG_MAX, 1);
-
-// log_service metrics
-static MYSQL_SYSVAR_BOOL(enable_log_service_metrics,
-                         eloq_enable_log_service_metrics, PLUGIN_VAR_RQCMDARG,
-                         "When enabled, collects log_service metrics.", NULL,
-                         NULL, FALSE);
 
 const char *cc_protocol_names[]= {"OCC", "OccRead", "Locking", NullS};
 
@@ -592,43 +265,6 @@ static MYSQL_SYSVAR_ENUM(enum_var,                       // name
                          0,                              // def
                          &enum_var_typelib);             // typelib
 
-TYPELIB kv_storage_typelib= {array_elements(kv_storage_names) - 1,
-                             "kv_storage_typelib", kv_storage_names, NULL};
-
-static MYSQL_SYSVAR_ENUM(kv_storage,                    // name
-                         eloq_kv_storage,               // varname
-                         PLUGIN_VAR_RQCMDARG,           // opt
-                         "Supported Key-Value storage", // comment
-                         NULL,                          // check
-                         NULL,                          // update
-                         0,                             // def
-                         &kv_storage_typelib);          // typelib
-
-static MYSQL_SYSVAR_STR(aws_access_key_id, eloq_aws_access_key_id,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "aws sdk access key id", nullptr, nullptr, "");
-
-static MYSQL_SYSVAR_STR(aws_secret_key, eloq_aws_secret_key,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "AWS SDK secret key", nullptr, nullptr, "");
-
-static MYSQL_SYSVAR_STR(dynamodb_endpoint, eloq_dynamodb_endpoint,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "Endpoint override of DynamoDB", nullptr, nullptr, "");
-
-static MYSQL_SYSVAR_STR(dynamodb_region, eloq_dynamodb_region,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "Region of the used trable in DynamoDB", nullptr,
-                        nullptr, "ap-northeast-1");
-
-static MYSQL_SYSVAR_STR(bigtable_project_id, eloq_bigtable_project_id,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "Project id of BigTable", nullptr, nullptr, "");
-
-static MYSQL_SYSVAR_STR(bigtable_instance_id, eloq_bigtable_instance_id,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "Instance id of BigTable", nullptr, nullptr, "");
-
 static MYSQL_SYSVAR_STR(insert_semantic, eloq_insert_semantic,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
                         "Insert semantic: insert or upsert", nullptr, nullptr,
@@ -653,86 +289,7 @@ static MYSQL_THDVAR_ULONG(varopt_default, PLUGIN_VAR_RQCMDARG,
                           "default value of the VAROPT table option", NULL,
                           NULL, 5, 0, 100, 0);
 
-static MYSQL_SYSVAR_UINT(checkpointer_interval_sec,
-                         eloq_checkpointer_interval_sec,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "Interval of checkpointer(s)", NULL, NULL, 10, 1,
-                         86400, 1);
-
-static MYSQL_SYSVAR_UINT(
-    checkpointer_delay_sec, eloq_checkpointer_delay_sec, PLUGIN_VAR_RQCMDARG,
-    "The time(second) which ckpt_ts is less than min lock ts", NULL, NULL, 5,
-    0, 86400, 1);
-
-static MYSQL_SYSVAR_UINT(collect_active_tx_ts_interval_sec,
-                         eloq_collect_active_tx_ts_interval_sec,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "Interval of collect active tx start timestamp(s)",
-                         NULL, NULL, 2, 1, 86400, 1);
-static MYSQL_SYSVAR_BOOL(
-    realtime_sampling, eloq_realtime_sampling,
-    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-    "Whether enable realtime sampling. If disable it, user may need execute "
-    "analyze command at some time. Different from Innodb, Eloq never "
-    "analyze table automatically.",
-    NULL, NULL, TRUE);
-
-static MYSQL_SYSVAR_BOOL(
-    ddl_skip_kv, eloq_ddl_skip_kv, PLUGIN_VAR_NOCMDARG | PLUGIN_VAR_READONLY,
-    "Skip create or drop table on kv store, only used to speed up test case",
-    NULL, NULL, FALSE);
-static MYSQL_SYSVAR_BOOL(skip_redo_log, eloq_skip_redo_log,
-                         PLUGIN_VAR_NOCMDARG | PLUGIN_VAR_READONLY,
-                         "Skip write redo log in tx_service", NULL, NULL,
-                         FALSE);
-static MYSQL_SYSVAR_BOOL(
-    use_key_cache, eloq_use_key_cache,
-    PLUGIN_VAR_NOCMDARG | PLUGIN_VAR_READONLY,
-    "Use key cache in primary key to avoid kv read if key does not exists.",
-    NULL, NULL, FALSE);
 static MYSQL_SYSVAR_BOOL(report_debug_info, eloq_report_debug_info,
-                         PLUGIN_VAR_NOCMDARG,
-                         "When enabled, report debug information to client",
-                         NULL, NULL, FALSE);
-static MYSQL_SYSVAR_UINT(node_memory_limit_mb, eloq_node_memory_limit_mb,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "memory limit per node (MB)", NULL, NULL, 8000, 1,
-                         1000000, 1);
-static MYSQL_SYSVAR_UINT(node_log_limit_mb, eloq_node_log_limit_mb,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "log limit per node (MB)", NULL, NULL, 16000, 1,
-                         1000000, 1);
-
-static MYSQL_SYSVAR_UINT(
-    metrics_port,                                 // name
-    eloq_metrics_port,                            // varname
-    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,    // opt
-    "The port on which the metrics_collector is " // comment
-    "reported. Default is 18081",                 // comment
-    NULL,                                         // check
-    NULL,                                         // update
-    18081,                                        // def
-    8080, 65535, 1);
-
-static MYSQL_SYSVAR_BOOL(
-    enable_mvcc, eloq_enable_mvcc, PLUGIN_VAR_NOCMDARG,
-    "When enabled, use muliti-versions. Repeatable Read "
-    "isolation level will be converted to Snapshot isolation level",
-    NULL, NULL, TRUE);
-
-TYPELIB partition_typelib= {array_elements(partition_names) - 1,
-                            "partition_typelib", partition_names, NULL};
-
-static MYSQL_SYSVAR_ENUM(partition_type,                            // name
-                         eloq_partition_type,                       // varname
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY, // opt
-                         "Partition type (Hash|Range)",             // comment
-                         NULL,                                      // check
-                         NULL,                                      // update
-                         0,                   // default(Hash)
-                         &partition_typelib); // typelib
-
-static MYSQL_SYSVAR_BOOL(enable_heap_defragment, eloq_enable_heap_defragment,
                          PLUGIN_VAR_NOCMDARG,
                          "When enabled, report debug information to client",
                          NULL, NULL, FALSE);
@@ -766,10 +323,6 @@ static MYSQL_SYSVAR_STR(auto_increment, eloq_auto_increment,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
                         "auto increment parameters", auto_increment_var_check,
                         NULL, "");
-
-static MYSQL_SYSVAR_BOOL(kickout_data_for_test, eloq_kickout_data_for_test,
-                         PLUGIN_VAR_NOCMDARG, "Clean data for test", NULL,
-                         NULL, FALSE);
 
 static int
 invalidate_table_cache(MYSQL_THD thd,
@@ -842,479 +395,24 @@ static MYSQL_SYSVAR_STR(
     "Evict caches for given tables. Mainly used after physical importing.",
     invalidate_cache_once_var_check, NULL, "");
 
-static MYSQL_SYSVAR_BOOL(
-    scan_skip_kv, eloq_scan_skip_kv, PLUGIN_VAR_NOCMDARG | PLUGIN_VAR_READONLY,
-    "Skip access kv store for scan request, only used to speed up test case",
-    NULL, NULL, FALSE);
-
 static MYSQL_SYSVAR_BOOL(random_scan_sort, eloq_random_scan_sort,
                          PLUGIN_VAR_OPCMDARG,
                          "Sort output result when executing random scan, only "
                          "used to run test case",
                          NULL, NULL, FALSE);
 
-static MYSQL_SYSVAR_UINT(deadlock_interval_sec, eloq_deadlock_interval_sec,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "Interval of dead lock check(s)", NULL, NULL, 300, 1,
-                         3600, 1);
-static MYSQL_SYSVAR_STR(txlog_rocksdb_storage_path,
-                        eloq_txlog_rocksdb_storage_path,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "The path for tx log service rocksdb storage", nullptr,
-                        nullptr, "");
-static MYSQL_SYSVAR_STR(txlog_service_list, eloq_txlog_service_list,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "Ip address of the tx log service node", nullptr,
-                        nullptr, "");
-
-static MYSQL_SYSVAR_UINT(txlog_group_replica_num, eloq_txlog_group_replica_num,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "Replicate number of tx log group", NULL, NULL, 3, 1,
-                         10, 1);
-
 static MYSQL_SYSVAR_INT(signal_monitor, eloq_signal_monitor,
                         PLUGIN_VAR_RQCMDARG, "Monitor mysql crash signal",
                         nullptr, nullptr, 0, 0, INT_MAX, 0);
 
-static MYSQL_SYSVAR_STR(txlog_rocksdb_cloud_bucket_name,
-                        eloq_txlog_rocksdb_cloud_bucket_name,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "TxLog RocksDB cloud bucket name", NULL, NULL, "");
-static MYSQL_SYSVAR_STR(txlog_rocksdb_cloud_bucket_prefix,
-                        eloq_txlog_rocksdb_cloud_bucket_prefix,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "TxLog RocksDB cloud bucket prefix", NULL, NULL, "");
-static MYSQL_SYSVAR_STR(txlog_rocksdb_cloud_object_path,
-                        eloq_txlog_rocksdb_cloud_object_path,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "TxLog RocksDB cloud object path", NULL, NULL,
-                        "rocksdb_cloud");
-static MYSQL_SYSVAR_STR(txlog_rocksdb_cloud_region,
-                        eloq_txlog_rocksdb_cloud_region,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "TxLog RocksDB cloud region", NULL, NULL, "");
-static MYSQL_SYSVAR_STR(txlog_rocksdb_cloud_endpoint_url,
-                        eloq_txlog_rocksdb_cloud_endpoint_url,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "TxLog RocksDB Cloud endpoint URL", NULL, NULL, "");
-static MYSQL_SYSVAR_STR(txlog_rocksdb_cloud_sst_file_cache_size,
-                        eloq_txlog_rocksdb_cloud_sst_file_cache_size,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "TxLog RocksDB Cloud SST file cache size", NULL, NULL,
-                        "10GB");
-static MYSQL_SYSVAR_INT(txlog_rocksdb_cloud_sst_file_cache_num_shard_bits,
-                        eloq_txlog_rocksdb_cloud_sst_file_cache_num_shard_bits,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "TxLog RocksDB Cloud SST file cache num shard bits",
-                        NULL, NULL, 5, 0, 30, 1);
-static MYSQL_SYSVAR_STR(txlog_rocksdb_target_file_size_base,
-                        eloq_txlog_rocksdb_target_file_size_base,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "TxLog RocksDB target file size", NULL, NULL, "64MB");
-static MYSQL_SYSVAR_STR(txlog_rocksdb_sst_files_size_limit,
-                        eloq_txlog_rocksdb_sst_files_size_limit,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "TxLog RocksDB sst files size limit", NULL, NULL,
-                        "500MB");
-static MYSQL_SYSVAR_UINT(txlog_rocksdb_cloud_ready_timeout,
-                         eloq_txlog_rocksdb_cloud_ready_timeout,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                         "TxLog RocksDB Cloud becomes ready timeout(seconds)",
-                         NULL, NULL, 10, 1, 120, 1);
-static MYSQL_SYSVAR_UINT(txlog_rocksdb_cloud_file_deletion_delay,
-                         eloq_txlog_rocksdb_cloud_file_deletion_delay,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                         "TxLog RocksDB Cloud becomes ready timeout", NULL,
-                         NULL, 60, 1, 3600, 1);
-static MYSQL_SYSVAR_UINT(node_group_replica_num, eloq_node_group_replica_num,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "Replicate number of node group(Max: 9)", NULL, NULL,
-                         3, 1, 9, 1);
-static MYSQL_SYSVAR_UINT(logserver_snapshot_interval,
-                         eloq_logserver_snapshot_interval,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "Logserver log state snapshot interval", NULL, NULL,
-                         600, 10, 7200, 1);
-static MYSQL_SYSVAR_UINT(
-    txlog_rocksdb_cloud_in_mem_log_high_watermark,
-    eloq_txlog_rocksdb_cloud_in_mem_log_size_high_watermark,
-    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-    "TxLog RocksDB Cloud in memory log queue high watermark", NULL, NULL,
-    50 * 10000, 10000, 1000 * 10000, 1);
-static MYSQL_SYSVAR_UINT(txlog_rocksdb_max_write_buffer_number,
-                         eloq_txlog_rocksdb_max_write_buffer_number,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "TxLog RocksDB max write buffer number", NULL, NULL,
-                         8, 4, 100, 1);
-static MYSQL_SYSVAR_UINT(txlog_rocksdb_max_background_jobs,
-                         eloq_txlog_rocksdb_max_background_jobs,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "TxLog RocksDB max background jobs", NULL, NULL, 8, 4,
-                         100, 1);
-
-static MYSQL_SYSVAR_BOOL(enable_txlog_request_checkpoint,
-                         eloq_enable_txlog_request_checkpoint,
-                         PLUGIN_VAR_NOCMDARG | PLUGIN_VAR_READONLY,
-                         "Enable txlog server sending checkpoint requests "
-                         "when the criteria are met.",
-                         NULL, NULL, TRUE);
-
-static MYSQL_SYSVAR_UINT(check_replay_log_size_interval_sec,
-                         eloq_check_replay_log_size_interval_sec,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "The interval for checking replay log size.", NULL,
-                         NULL, 10, 10, UINT_MAX, 1);
-
-static MYSQL_SYSVAR_STR(
-    notify_checkpointer_threshold_size,
-    eloq_notify_checkpointer_threshold_size,
-    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-    "When the replay log size reaches this threshold, the "
-    "txlog server sends a checkpoint request to tx_service.",
-    NULL, NULL, "1GB");
-
-static MYSQL_SYSVAR_STR(dss_config_file_path, eloq_dss_config_file_path,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "EloqDataStoreService config file path", NULL, NULL,
-                        "");
-static MYSQL_SYSVAR_STR(dss_peer_node, eloq_dss_peer_node,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "EloqDataStoreService peer node endpoint", NULL, NULL,
-                        "");
-static MYSQL_SYSVAR_STR(dss_branch_name, eloq_dss_branch_name,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "EloqDataStoreService branch name, specifying the "
-                        "branch to start the data store service",
-                        NULL, NULL, "");
-
-static MYSQL_SYSVAR_STR(dss_rocksdb_cloud_bucket_name,
-                        eloq_dss_rocksdb_cloud_bucket_name,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "EloqDataStoreService RocksDB cloud bucket name", NULL,
-                        NULL, "");
-static MYSQL_SYSVAR_STR(dss_rocksdb_cloud_bucket_prefix,
-                        eloq_dss_rocksdb_cloud_bucket_prefix,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "EloqDataStoreService RocksDB cloud bucket prefix",
-                        NULL, NULL, "");
-static MYSQL_SYSVAR_STR(dss_rocksdb_cloud_object_path,
-                        eloq_dss_rocksdb_cloud_object_path,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "EloqDataStoreService RocksDB cloud object path", NULL,
-                        NULL, "rocksdb_cloud");
-static MYSQL_SYSVAR_STR(dss_rocksdb_cloud_region,
-                        eloq_dss_rocksdb_cloud_region,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "EloqDataStoreService RocksDB cloud region", NULL,
-                        NULL, "");
-static MYSQL_SYSVAR_STR(dss_rocksdb_cloud_endpoint_url,
-                        eloq_dss_rocksdb_cloud_endpoint_url,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "EloqDataStoreService RocksDB Cloud endpoint URL",
-                        NULL, NULL, "");
-static MYSQL_SYSVAR_STR(
-    dss_rocksdb_cloud_sst_file_cache_size,
-    eloq_dss_rocksdb_cloud_sst_file_cache_size,
-    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-    "EloqDataStoreService RocksDB Cloud SST file cache size", NULL, NULL,
-    "10GB");
-static MYSQL_SYSVAR_INT(
-    dss_rocksdb_cloud_sst_file_cache_num_shard_bits,
-    eloq_dss_rocksdb_cloud_sst_file_cache_num_shard_bits,
-    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-    "EloqDataStoreService RocksDB Cloud SST file cache num shard bits", NULL,
-    NULL, 5, 0, 30, 1);
-static MYSQL_SYSVAR_STR(dss_rocksdb_target_file_size_base,
-                        eloq_dss_rocksdb_target_file_size_base,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "EloqDataStoreService RocksDB target file size", NULL,
-                        NULL, "64MB");
-static MYSQL_SYSVAR_UINT(
-    dss_rocksdb_cloud_purger_periodicity_secs,
-    eloq_dss_rocksdb_cloud_purger_periodicity_secs,
-    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-    "EloqDataStoreService RocksDB Cloud purger periodcity seconds", NULL, NULL,
-    600, 1, UINT_MAX, 1);
-
-static MYSQL_SYSVAR_UINT(
-    dss_rocksdb_cloud_file_deletion_delay,
-    eloq_dss_rocksdb_cloud_file_deletion_delay,
-    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-    "EloqDataStoreService RocksDB Cloud becomes ready timeout", NULL, NULL, 60,
-    1, 3600, 1);
-static MYSQL_SYSVAR_UINT(
-    dss_rocksdb_max_write_buffer_number,
-    eloq_dss_rocksdb_max_write_buffer_number,
-    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-    "EloqDataStoreService RocksDB max write buffer number", NULL, NULL, 8, 4,
-    100, 1);
-static MYSQL_SYSVAR_UINT(dss_rocksdb_max_background_jobs,
-                         eloq_dss_rocksdb_max_background_jobs,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "EloqDataStoreService RocksDB max background jobs",
-                         NULL, NULL, 8, 4, 100, 1);
-#if defined(DATA_STORE_TYPE_ELOQDSS_ELOQSTORE)
-static MYSQL_SYSVAR_UINT(eloqstore_worker_num, eloq_eloqstore_worker_num,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "EloqStore server worker num.", NULL, NULL, 1, 1,
-                         UINT_MAX, 1);
-static MYSQL_SYSVAR_STR(
-    eloqstore_data_path_list, eloq_eloqstore_data_path_list,
-    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY | PLUGIN_VAR_MEMALLOC,
-    "The data paths of the EloqStore (use memory store if empty).", NULL, NULL,
-    "");
-static MYSQL_SYSVAR_UINT(eloqstore_open_files_limit,
-                         eloq_eloqstore_open_files_limit,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "EloqStore server max open files.", NULL, NULL, 1024,
-                         1, UINT_MAX, 1);
-static MYSQL_SYSVAR_STR(
-    eloqstore_cloud_store_path, eloq_eloqstore_cloud_store_path,
-    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-    "EloqStore cloud store path (disable cloud store if empty)", NULL, NULL,
-    "");
-static MYSQL_SYSVAR_UINT(eloqstore_gc_threads, eloq_eloqstore_gc_threads,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "EloqStore server gc threads count (Must be 0 when "
-                         "cloud store is enabled).",
-                         NULL, NULL, 1, 0, UINT_MAX, 1);
-static MYSQL_SYSVAR_UINT(eloqstore_cloud_worker_count,
-                         eloq_eloqstore_cloud_worker_count,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "EloqStore server cloud worker count", NULL, NULL, 1,
-                         1, UINT_MAX, 1);
-static MYSQL_SYSVAR_UINT(eloqstore_data_page_restart_interval,
-                         eloq_eloqstore_data_page_restart_interval,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "EloqStore data page restart interval", NULL, NULL,
-                         16, 1, UINT_MAX, 1);
-static MYSQL_SYSVAR_UINT(eloqstore_index_page_restart_interval,
-                         eloq_eloqstore_index_page_restart_interval,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "EloqStore index page restart interval", NULL, NULL,
-                         16, 1, UINT_MAX, 1);
-static MYSQL_SYSVAR_UINT(eloqstore_init_page_count,
-                         eloq_eloqstore_init_page_count,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "EloqStore init page count", NULL, NULL, 1 << 15, 1,
-                         UINT_MAX, 1);
-static MYSQL_SYSVAR_BOOL(eloqstore_skip_verify_checksum,
-                         eloq_eloqstore_skip_verify_checksum,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "EloqStore skip verify checksum", NULL, NULL, FALSE);
-static MYSQL_SYSVAR_UINT(eloqstore_index_buffer_pool_size,
-                         eloq_eloqstore_index_buffer_pool_size,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "EloqStore index buffer pool size", NULL, NULL,
-                         1 << 15, 1, UINT_MAX, 1);
-static MYSQL_SYSVAR_UINT(eloqstore_manifest_limit,
-                         eloq_eloqstore_manifest_limit,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "EloqStore manifest limit", NULL, NULL, 8 << 20, 1,
-                         UINT_MAX, 1);
-static MYSQL_SYSVAR_UINT(eloqstore_io_queue_size, eloq_eloqstore_io_queue_size,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "EloqStore io queue size", NULL, NULL, 4096, 1,
-                         UINT_MAX, 1);
-static MYSQL_SYSVAR_UINT(eloqstore_max_inflight_write,
-                         eloq_eloqstore_max_inflight_write,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "EloqStore max inflight write", NULL, NULL, 64 << 10,
-                         1, UINT_MAX, 1);
-static MYSQL_SYSVAR_UINT(eloqstore_max_write_batch_pages,
-                         eloq_eloqstore_max_write_batch_pages,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "EloqStore max write batch pages", NULL, NULL, 256, 1,
-                         UINT_MAX, 1);
-static MYSQL_SYSVAR_UINT(eloqstore_buf_ring_size, eloq_eloqstore_buf_ring_size,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "EloqStore buf ring size", NULL, NULL, 1 << 12, 1,
-                         UINT_MAX, 1);
-static MYSQL_SYSVAR_UINT(eloqstore_coroutine_stack_size,
-                         eloq_eloqstore_coroutine_stack_size,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "EloqStore coroutine stack size", NULL, NULL,
-                         32 * 1024, 1, UINT_MAX, 1);
-static MYSQL_SYSVAR_UINT(eloqstore_num_retained_archives,
-                         eloq_eloqstore_num_retained_archives,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "EloqStore num retained archives", NULL, NULL, 0, 0,
-                         UINT_MAX, 1);
-static MYSQL_SYSVAR_UINT(eloqstore_archive_interval_secs,
-                         eloq_eloqstore_archive_interval_secs,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "EloqStore archive interval secs", NULL, NULL, 86400,
-                         1, UINT_MAX, 1);
-static MYSQL_SYSVAR_UINT(eloqstore_max_archive_tasks,
-                         eloq_eloqstore_max_archive_tasks,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "EloqStore max archive tasks", NULL, NULL, 256, 1,
-                         UINT_MAX, 1);
-static MYSQL_SYSVAR_UINT(eloqstore_file_amplify_factor,
-                         eloq_eloqstore_file_amplify_factor,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "EloqStore file amplify factor", NULL, NULL, 4, 1,
-                         UINT_MAX, 1);
-static MYSQL_SYSVAR_ULONGLONG(eloqstore_local_space_limit,
-                              eloq_eloqstore_local_space_limit,
-                              PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                              "EloqStore local space limit", NULL, NULL,
-                              1ULL << 40, 1, ULONGLONG_MAX, 1);
-static MYSQL_SYSVAR_UINT(eloqstore_reserve_space_ratio,
-                         eloq_eloqstore_reserve_space_ratio,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "EloqStore reserve space ratio", NULL, NULL, 100, 1,
-                         UINT_MAX, 1);
-static MYSQL_SYSVAR_UINT(eloqstore_data_page_size,
-                         eloq_eloqstore_data_page_size,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "EloqStore data page size", NULL, NULL, 1 << 12, 1,
-                         UINT_MAX, 1);
-static MYSQL_SYSVAR_UINT(eloqstore_pages_per_file_shift,
-                         eloq_eloqstore_pages_per_file_shift,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "EloqStore pages per file shift", NULL, NULL, 11, 1,
-                         UINT_MAX, 1);
-static MYSQL_SYSVAR_UINT(eloqstore_overflow_pointers,
-                         eloq_eloqstore_overflow_pointers,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "EloqStore overflow pointers", NULL, NULL, 16, 1,
-                         UINT_MAX, 1);
-static MYSQL_SYSVAR_BOOL(eloqstore_data_append_mode,
-                         eloq_eloqstore_data_append_mode,
-                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                         "EloqStore data append mode", NULL, NULL, FALSE);
-#endif
-
 static struct st_mysql_sys_var *eloq_system_variables[]= {
-    MYSQL_SYSVAR(local_ip),
-    MYSQL_SYSVAR(ip_list),
-    MYSQL_SYSVAR(standby_ip_list),
-    MYSQL_SYSVAR(voter_ip_list),
-    MYSQL_SYSVAR(hm_ip),
-    MYSQL_SYSVAR(keyspace_name),
-    MYSQL_SYSVAR(dynamodb_endpoint),
-    MYSQL_SYSVAR(core_num),
-    MYSQL_SYSVAR(cc_protocol),
-    MYSQL_SYSVAR(enum_var),
-    MYSQL_SYSVAR(kv_storage),
-    MYSQL_SYSVAR(dynamodb_region),
-    MYSQL_SYSVAR(aws_access_key_id),
-    MYSQL_SYSVAR(aws_secret_key),
-    MYSQL_SYSVAR(bigtable_project_id),
-    MYSQL_SYSVAR(bigtable_instance_id),
-    MYSQL_SYSVAR(ulong_var),
-    MYSQL_SYSVAR(int_var),
-    MYSQL_SYSVAR(double_var),
-    MYSQL_SYSVAR(double_thdvar),
-    MYSQL_SYSVAR(varopt_default),
-    MYSQL_SYSVAR(checkpointer_interval_sec),
-    MYSQL_SYSVAR(checkpointer_delay_sec),
-    MYSQL_SYSVAR(collect_active_tx_ts_interval_sec),
-    MYSQL_SYSVAR(realtime_sampling),
-    MYSQL_SYSVAR(insert_semantic),
-    MYSQL_SYSVAR(ddl_skip_kv),
-    MYSQL_SYSVAR(skip_redo_log),
-    MYSQL_SYSVAR(use_key_cache),
-    MYSQL_SYSVAR(auto_increment),
-    MYSQL_SYSVAR(kickout_data_for_test),
-    MYSQL_SYSVAR(invalidate_cache_once),
-    MYSQL_SYSVAR(scan_skip_kv),
-    MYSQL_SYSVAR(random_scan_sort),
-    MYSQL_SYSVAR(report_debug_info),
-    MYSQL_SYSVAR(node_memory_limit_mb),
-    MYSQL_SYSVAR(node_log_limit_mb),
-    MYSQL_SYSVAR(enable_mvcc),
-    MYSQL_SYSVAR(metrics_port),
-    MYSQL_SYSVAR(deadlock_interval_sec),
-    MYSQL_SYSVAR(txlog_rocksdb_storage_path),
-    MYSQL_SYSVAR(txlog_service_list),
-    MYSQL_SYSVAR(txlog_group_replica_num),
-    MYSQL_SYSVAR(signal_monitor),
-    MYSQL_SYSVAR(partition_type),
-    MYSQL_SYSVAR(enable_metrics),
-    MYSQL_SYSVAR(enable_mysql_tx_metrics),
-    MYSQL_SYSVAR(enable_mysql_dml_metrics),
-    MYSQL_SYSVAR(enable_tx_metrics),
-    MYSQL_SYSVAR(enable_cache_hit_rate),
-    MYSQL_SYSVAR(enable_memory_usage),
-    MYSQL_SYSVAR(enable_busy_round_metrics),
-    MYSQL_SYSVAR(enable_remote_request_metrics),
-    MYSQL_SYSVAR(enable_kv_metrics),
-    MYSQL_SYSVAR(busy_round_threshold),
-    MYSQL_SYSVAR(collect_memory_usage_round),
-    MYSQL_SYSVAR(collect_tx_duration_round),
-    MYSQL_SYSVAR(enable_log_service_metrics),
-    MYSQL_SYSVAR(txlog_rocksdb_cloud_bucket_name),
-    MYSQL_SYSVAR(txlog_rocksdb_cloud_bucket_prefix),
-    MYSQL_SYSVAR(txlog_rocksdb_cloud_object_path),
-    MYSQL_SYSVAR(txlog_rocksdb_cloud_region),
-    MYSQL_SYSVAR(txlog_rocksdb_cloud_sst_file_cache_size),
-    MYSQL_SYSVAR(txlog_rocksdb_cloud_sst_file_cache_num_shard_bits),
-    MYSQL_SYSVAR(txlog_rocksdb_cloud_endpoint_url),
-    MYSQL_SYSVAR(txlog_rocksdb_target_file_size_base),
-    MYSQL_SYSVAR(txlog_rocksdb_sst_files_size_limit),
-    MYSQL_SYSVAR(txlog_rocksdb_cloud_ready_timeout),
-    MYSQL_SYSVAR(txlog_rocksdb_cloud_file_deletion_delay),
-    MYSQL_SYSVAR(node_group_replica_num),
-    MYSQL_SYSVAR(logserver_snapshot_interval),
-    MYSQL_SYSVAR(logserver_rocksdb_scan_thread_num),
-    MYSQL_SYSVAR(txlog_rocksdb_cloud_in_mem_log_high_watermark),
-    MYSQL_SYSVAR(txlog_rocksdb_max_write_buffer_number),
-    MYSQL_SYSVAR(txlog_rocksdb_max_background_jobs),
-    MYSQL_SYSVAR(enable_txlog_request_checkpoint),
-    MYSQL_SYSVAR(check_replay_log_size_interval_sec),
-    MYSQL_SYSVAR(notify_checkpointer_threshold_size),
-    MYSQL_SYSVAR(range_split_worker_num),
-    MYSQL_SYSVAR(bthread_worker_num),
-    MYSQL_SYSVAR(hm_bin_path),
-    MYSQL_SYSVAR(cluster_config_file),
-    MYSQL_SYSVAR(enable_heap_defragment),
-    MYSQL_SYSVAR(dss_config_file_path),
-    MYSQL_SYSVAR(dss_peer_node),
-    MYSQL_SYSVAR(dss_branch_name),
-    MYSQL_SYSVAR(dss_rocksdb_cloud_bucket_name),
-    MYSQL_SYSVAR(dss_rocksdb_cloud_bucket_prefix),
-    MYSQL_SYSVAR(dss_rocksdb_cloud_object_path),
-    MYSQL_SYSVAR(dss_rocksdb_cloud_region),
-    MYSQL_SYSVAR(dss_rocksdb_cloud_sst_file_cache_size),
-    MYSQL_SYSVAR(dss_rocksdb_cloud_sst_file_cache_num_shard_bits),
-    MYSQL_SYSVAR(dss_rocksdb_cloud_endpoint_url),
-    MYSQL_SYSVAR(dss_rocksdb_target_file_size_base),
-    MYSQL_SYSVAR(dss_rocksdb_cloud_purger_periodicity_secs),
-    MYSQL_SYSVAR(dss_rocksdb_cloud_file_deletion_delay),
-    MYSQL_SYSVAR(dss_rocksdb_max_write_buffer_number),
-    MYSQL_SYSVAR(dss_rocksdb_max_background_jobs),
-#if defined(DATA_STORE_TYPE_ELOQDSS_ELOQSTORE)
-    MYSQL_SYSVAR(eloqstore_worker_num),
-    MYSQL_SYSVAR(eloqstore_data_path_list),
-    MYSQL_SYSVAR(eloqstore_open_files_limit),
-    MYSQL_SYSVAR(eloqstore_cloud_store_path),
-    MYSQL_SYSVAR(eloqstore_gc_threads),
-    MYSQL_SYSVAR(eloqstore_cloud_worker_count),
-    MYSQL_SYSVAR(eloqstore_data_page_restart_interval),
-    MYSQL_SYSVAR(eloqstore_index_page_restart_interval),
-    MYSQL_SYSVAR(eloqstore_init_page_count),
-    MYSQL_SYSVAR(eloqstore_skip_verify_checksum),
-    MYSQL_SYSVAR(eloqstore_index_buffer_pool_size),
-    MYSQL_SYSVAR(eloqstore_manifest_limit),
-    MYSQL_SYSVAR(eloqstore_io_queue_size),
-    MYSQL_SYSVAR(eloqstore_max_inflight_write),
-    MYSQL_SYSVAR(eloqstore_max_write_batch_pages),
-    MYSQL_SYSVAR(eloqstore_buf_ring_size),
-    MYSQL_SYSVAR(eloqstore_coroutine_stack_size),
-    MYSQL_SYSVAR(eloqstore_num_retained_archives),
-    MYSQL_SYSVAR(eloqstore_archive_interval_secs),
-    MYSQL_SYSVAR(eloqstore_max_archive_tasks),
-    MYSQL_SYSVAR(eloqstore_file_amplify_factor),
-    MYSQL_SYSVAR(eloqstore_local_space_limit),
-    MYSQL_SYSVAR(eloqstore_reserve_space_ratio),
-    MYSQL_SYSVAR(eloqstore_data_page_size),
-    MYSQL_SYSVAR(eloqstore_pages_per_file_shift),
-    MYSQL_SYSVAR(eloqstore_overflow_pointers),
-    MYSQL_SYSVAR(eloqstore_data_append_mode),
-#endif
-    NULL};
+    MYSQL_SYSVAR(cc_protocol),         MYSQL_SYSVAR(enum_var),
+    MYSQL_SYSVAR(ulong_var),           MYSQL_SYSVAR(int_var),
+    MYSQL_SYSVAR(double_var),          MYSQL_SYSVAR(double_thdvar),
+    MYSQL_SYSVAR(varopt_default),      MYSQL_SYSVAR(insert_semantic),
+    MYSQL_SYSVAR(auto_increment),      MYSQL_SYSVAR(invalidate_cache_once),
+    MYSQL_SYSVAR(random_scan_sort),    MYSQL_SYSVAR(report_debug_info),
+    MYSQL_SYSVAR(signal_monitor),      NULL};
 
 /**
   Structure for CREATE TABLE options (table options).
@@ -1440,15 +538,9 @@ static void init_eloq_psi_keys() {}
 static const char *ha_eloq_exts[]= {NullS};
 
 uint32_t node_id= 0; // node id of itself
-std::unique_ptr<store::DataStoreHandler> storage_hd= nullptr;
-
-#if ELOQDS
-std::unique_ptr<EloqDS::DataStoreService> data_store_service_;
-#endif
-
-static std::unique_ptr<TxService> tx_service= nullptr;
-static std::unique_ptr<::txlog::LogServer> txlog_server= nullptr;
-static MariaCatalogFactory maria_catalog_factory{};
+static TxService *tx_service= nullptr;
+static ::txlog::LogServer *txlog_server= nullptr;
+store::DataStoreHandler *storage_hd= nullptr;
 // insert semantic will check unique of primary key, while upsert semantic will
 // update the duplicated entry.
 bool is_insert_semantic_= true;
@@ -1564,7 +656,7 @@ static bool fetch_tx_isolation_level(THD *const thd, CcProtocol cc_protocol,
     // eloq can distinguish there two different isolation levels. To make
     // it consistent with Mysql, we convert user set RepeatableRead isolation
     // level to Snapshot Isolation if mvcc is enabled in Eloq engine.
-    if (eloq_enable_mvcc)
+    if (DataSubstrate::GetGlobal()->GetCoreConfig().enable_mvcc)
     {
       iso_level= IsolationLevel::Snapshot;
     }
@@ -1623,7 +715,7 @@ static bool get_or_create_myeloq_tx(THD *const thd, MyEloqTx **my_tx,
     int16_t thd_group_id= thd_get_group_id(thd);
     auto [yield_func, resume_func]= thd_get_coro_functors(thd);
     txservice::TransactionExecution *txm=
-        txservice::NewTxInit(tx_service.get(), iso_level, cc_proto, UINT32_MAX,
+        txservice::NewTxInit(tx_service, iso_level, cc_proto, UINT32_MAX,
                              thd_group_id, start_now, yield_func, resume_func);
     (*my_tx)->Reset(txm, thd);
 
@@ -1648,8 +740,8 @@ static bool get_or_create_myeloq_tx(THD *const thd, MyEloqTx **my_tx,
 // A help function to drop table, outside of MariaDB context.
 static void drop_table(const std::string &table_name_str)
 {
-  TransactionExecution *txm= NewTxInit(
-      tx_service.get(), IsolationLevel::Serializable, CcProtocol::Locking);
+  TransactionExecution *txm=
+      NewTxInit(tx_service, IsolationLevel::Serializable, CcProtocol::Locking);
   if (txm)
   {
     // All tables in mariadb_tables are of TableType::Primary
@@ -2330,112 +1422,13 @@ static int eloq_init_abort()
   DBUG_RETURN(1);
 }
 
-#if defined(DATA_STORE_TYPE_ELOQDSS_ELOQSTORE)
-/**
- * Configure EloqStore settings for the data store service
- * @param eloq_store_config Reference to EloqStoreConfig to be configured
- * @param dss_data_path Base data path for the data store service
- */
-static void configure_eloq_store(EloqDS::EloqStoreConfig &eloq_store_config,
-                                 const std::string &dss_data_path)
-{
-  eloq_store_config.eloqstore_configs_.num_threads=
-      std::max(eloq_eloqstore_worker_num, 1U);
-
-  std::string storage_path_list(eloq_eloqstore_data_path_list);
-  if (!storage_path_list.empty())
-  {
-    EloqDS::EloqStoreConfig::ParseStoragePath(
-        storage_path_list, eloq_store_config.eloqstore_configs_.store_path);
-  }
-  else
-  {
-    eloq_store_config.eloqstore_configs_.store_path.emplace_back()
-        .append(dss_data_path)
-        .append("/eloqstore");
-  }
-
-  eloq_store_config.eloqstore_configs_.fd_limit=
-      eloq_eloqstore_open_files_limit;
-  eloq_store_config.eloqstore_configs_.cloud_store_path=
-      eloq_eloqstore_cloud_store_path;
-  eloq_store_config.eloqstore_configs_.num_gc_threads=
-      !eloq_store_config.eloqstore_configs_.cloud_store_path.empty()
-          ? 0
-          : eloq_eloqstore_gc_threads;
-  eloq_store_config.eloqstore_configs_.rclone_threads=
-      eloq_eloqstore_cloud_worker_count;
-
-  LOG_IF(INFO, !eloq_store_config.eloqstore_configs_.cloud_store_path.empty())
-      << "EloqStore cloud store enabled.";
-
-  eloq_store_config.eloqstore_configs_.data_page_restart_interval=
-      eloq_eloqstore_data_page_restart_interval;
-  eloq_store_config.eloqstore_configs_.index_page_restart_interval=
-      eloq_eloqstore_index_page_restart_interval;
-  eloq_store_config.eloqstore_configs_.init_page_count=
-      eloq_eloqstore_init_page_count;
-  eloq_store_config.eloqstore_configs_.skip_verify_checksum=
-      eloq_eloqstore_skip_verify_checksum;
-  eloq_store_config.eloqstore_configs_.index_buffer_pool_size=
-      eloq_eloqstore_index_buffer_pool_size /
-      eloq_store_config.eloqstore_configs_.num_threads;
-  eloq_store_config.eloqstore_configs_.manifest_limit=
-      eloq_eloqstore_manifest_limit;
-  eloq_store_config.eloqstore_configs_.io_queue_size=
-      eloq_eloqstore_io_queue_size /
-      eloq_store_config.eloqstore_configs_.num_threads;
-  eloq_store_config.eloqstore_configs_.max_inflight_write=
-      eloq_eloqstore_max_inflight_write /
-      eloq_store_config.eloqstore_configs_.num_threads;
-  eloq_store_config.eloqstore_configs_.max_write_batch_pages=
-      eloq_eloqstore_max_write_batch_pages;
-  eloq_store_config.eloqstore_configs_.buf_ring_size=
-      eloq_eloqstore_buf_ring_size;
-  eloq_store_config.eloqstore_configs_.coroutine_stack_size=
-      eloq_eloqstore_coroutine_stack_size;
-  eloq_store_config.eloqstore_configs_.num_retained_archives=
-      eloq_eloqstore_num_retained_archives;
-  eloq_store_config.eloqstore_configs_.archive_interval_secs=
-      eloq_eloqstore_archive_interval_secs;
-  eloq_store_config.eloqstore_configs_.max_archive_tasks=
-      eloq_eloqstore_max_archive_tasks;
-  eloq_store_config.eloqstore_configs_.file_amplify_factor=
-      eloq_eloqstore_file_amplify_factor;
-  eloq_store_config.eloqstore_configs_.local_space_limit=
-      eloq_eloqstore_local_space_limit /
-      eloq_store_config.eloqstore_configs_.num_threads;
-  eloq_store_config.eloqstore_configs_.reserve_space_ratio=
-      eloq_eloqstore_reserve_space_ratio;
-  eloq_store_config.eloqstore_configs_.data_page_size=
-      eloq_eloqstore_data_page_size;
-  eloq_store_config.eloqstore_configs_.pages_per_file_shift=
-      eloq_eloqstore_pages_per_file_shift;
-  eloq_store_config.eloqstore_configs_.overflow_pointers=
-      eloq_eloqstore_overflow_pointers;
-  eloq_store_config.eloqstore_configs_.data_append_mode=
-      eloq_eloqstore_data_append_mode;
-}
-#endif
-
 static int eloq_init_func(void *p)
 {
   DBUG_ENTER_FUNC();
 
   PrintEloqConfig();
 
-  CatalogFactory *catalog_factory[3]{&maria_catalog_factory, nullptr, nullptr};
-
   sql_print_information("Eloq initializing.");
-
-#if defined(DATA_STORE_TYPE_DYNAMODB) || defined(LOG_STATE_TYPE_RKDB_S3) ||   \
-    defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3)
-  if (aws_init())
-  {
-    sql_print_error("Eloq failed to initialize AWS SDK.");
-    DBUG_RETURN(1);
-  }
-#endif
 
   // add mono collation and mono mem cmp mutex to psi definition
   init_eloq_psi_keys();
@@ -2468,27 +1461,11 @@ static int eloq_init_func(void *p)
     is_insert_semantic_= false;
   }
 
-  node_id= 0;
-  uint16_t local_port= 8000;
-  std::string local_ip;
+  tx_service= DataSubstrate::GetGlobal()->GetTxService();
+  txlog_server= DataSubstrate::GetGlobal()->GetLogServer();
+  storage_hd= DataSubstrate::GetGlobal()->GetStoreHandler();
 
-  // parse the eloq config.
-  std::string local_ip_str(eloq_local_ip);
-  size_t idx= local_ip_str.find_first_of(':');
-
-  if (idx == std::string::npos)
-  {
-    local_ip= local_ip_str;
-    local_port= 8000;
-    local_ip_str.append(":8000");
-  }
-  else
-  {
-    local_ip= local_ip_str.substr(0, idx);
-    local_port= std::stoi(local_ip_str.substr(idx + 1));
-  }
-
-  sql_print_information("MariaDB Node address: %s", local_ip_str.c_str());
+  node_id= DataSubstrate::GetGlobal()->GetNetworkConfig().node_id;
   sql_print_information("MariaDB data home: %s", mysql_real_data_home_ptr);
 
   // initialize monogrpah specific error message.
@@ -2499,516 +1476,6 @@ static int eloq_init_func(void *p)
     // NO_LINT_DEBUG
     sql_print_error("EloqDB: Couldn't initialize error messages");
     DBUG_RETURN(eloq_init_abort());
-  }
-
-  std::string local_path("local://");
-  local_path.append(mysql_real_data_home_ptr);
-  if (local_path.at(local_path.size() - 1) == '/')
-  {
-    local_path.erase(local_path.size() - 1);
-  }
-
-  // Read host manager address
-  std::string hm_ip("");
-  uint16_t hm_port;
-  std::string hm_bin_path(eloq_hm_bin_path);
-
-  std::string cluster_config_file(eloq_cluster_config_file);
-  if (cluster_config_file.empty())
-  {
-    cluster_config_file.append(mysql_real_data_home_ptr);
-    cluster_config_file.append("/tx_service/cluster_config");
-  }
-
-  // bootstrap is done in standalone mode and does not need host manager.
-  if (!opt_bootstrap)
-  {
-    std::string hm_ip_str(eloq_hm_ip);
-    idx= hm_ip_str.find_first_of(':');
-    if (idx != std::string::npos)
-    {
-      hm_ip= hm_ip_str.substr(0, idx);
-      hm_port= std::stoi(hm_ip_str.substr(idx + 1));
-    }
-#ifdef FORK_HM_PROCESS
-    else
-    {
-      hm_ip= local_ip;
-      hm_port= local_port + 4;
-    }
-    if (hm_bin_path.empty())
-    {
-      char path_buf[PATH_MAX];
-      ssize_t len= ::readlink("/proc/self/exe", path_buf, sizeof(path_buf));
-      len-= strlen("/mariadbd");
-      path_buf[len]= '\0';
-      hm_bin_path= std::string(path_buf, len);
-      hm_bin_path.append("/host_manager");
-    }
-#endif
-  }
-  else
-  {
-    // No need to enable log in bootstrap.
-    eloq_skip_redo_log= true;
-  }
-
-#ifdef ELOQ_MODULE_ENABLED
-  GFLAGS_NAMESPACE::SetCommandLineOption(
-      "bthread_concurrency", std::to_string(eloq_core_num).c_str());
-  GFLAGS_NAMESPACE::SetCommandLineOption("use_pthread_event_dispatcher",
-                                         "true");
-  int busy_time= 10000;
-  GFLAGS_NAMESPACE::SetCommandLineOption("worker_polling_time_us",
-                                         std::to_string(busy_time).c_str());
-#endif
-
-  std::unordered_map<uint32_t, std::vector<NodeConfig>> ng_configs;
-  uint64_t cluster_config_version= 2;
-
-  std::string store_keyspace_name(eloq_keyspace_name);
-
-  switch (eloq_kv_storage)
-  {
-#if defined(DATA_STORE_TYPE_DYNAMODB)
-  case KV_DYNAMO: {
-    // initialize DynamoDB handler.
-    std::string endpoint(eloq_dynamodb_endpoint);
-    std::string region(eloq_dynamodb_region);
-    std::string access_key(eloq_aws_access_key_id);
-    std::string secret_key(eloq_aws_secret_key);
-
-    storage_hd= std::make_unique<EloqDS::DynamoHandler>(
-        store_keyspace_name, endpoint, region, access_key, secret_key,
-        opt_bootstrap, eloq_ddl_skip_kv, eloq_core_num * 2);
-    if (!storage_hd->Connect())
-    {
-      sql_print_error("!!!!!!!! Failed to connect to DynamoDB server, EloqDB "
-                      "startup is terminated !!!!!!!!");
-      DBUG_RETURN(eloq_init_abort());
-    }
-    break;
-  }
-#elif defined(DATA_STORE_TYPE_BIGTABLE)
-  case KV_BIGTABLE: {
-    std::string project_id(eloq_bigtable_project_id);
-    std::string instance_id(eloq_bigtable_instance_id);
-    storage_hd= std::make_unique<EloqDS::BigTableHandler>(
-        store_keyspace_name, project_id, instance_id, opt_bootstrap,
-        eloq_ddl_skip_kv);
-    if (!storage_hd->Connect())
-    {
-      sql_print_error("!!!!!!!! Failed to connect BigTable server, EloqDB "
-                      "startup is terminated !!!!!!!!");
-      DBUG_RETURN(eloq_init_abort());
-    }
-    break;
-  }
-
-#elif ELOQDS
-  case KV_ELOQDS: {
-    bool is_single_node= true;
-    std::string ds_peer_node= eloq_dss_peer_node;
-    std::string ds_branch_name= eloq_dss_branch_name;
-    std::string dss_data_path= mysql_real_data_home_ptr;
-    dss_data_path.append("/eloq_dss");
-    try
-    {
-      if (!std::filesystem::exists(dss_data_path))
-      {
-        std::filesystem::create_directories(dss_data_path);
-      }
-    }
-    catch (const std::filesystem::filesystem_error &e)
-    {
-      sql_print_error("Failed to create dir: %s", dss_data_path.c_str());
-      DBUG_RETURN(eloq_init_abort());
-    }
-    std::string dss_config_file_path= eloq_dss_config_file_path;
-    if (dss_config_file_path.empty())
-    {
-      dss_config_file_path= dss_data_path + "/dss_config.ini";
-    }
-
-    EloqDS::DataStoreServiceClusterManager ds_config;
-    if (!ds_config.Load(dss_config_file_path))
-    {
-      if (!ds_peer_node.empty())
-      {
-        ds_config.SetThisNode(local_ip, local_port + 7);
-        // Fetch ds topology from peer node
-        if (!EloqDS::DataStoreService::FetchConfigFromPeer(ds_peer_node,
-                                                           ds_config))
-        {
-          sql_print_error("Failed to fetch config from peer node: %s",
-                          ds_peer_node.c_str());
-          DBUG_RETURN(eloq_init_abort());
-        }
-
-        // Save the fetched config to the local file
-        if (!ds_config.Save(dss_config_file_path))
-        {
-          sql_print_error("Failed to save config to file: %s",
-                          dss_config_file_path.c_str());
-          DBUG_RETURN(eloq_init_abort());
-        }
-      }
-      else if (opt_bootstrap || is_single_node)
-      {
-        // Initialize the data store service config
-        ds_config.Initialize(local_ip, local_port + 7);
-        if (!ds_config.Save(dss_config_file_path))
-        {
-          sql_print_error("Failed to save config to file: %s",
-                          dss_config_file_path.c_str());
-          DBUG_RETURN(eloq_init_abort());
-        }
-      }
-      else
-      {
-        sql_print_error("Failed to load data store service config file: %s",
-                        dss_config_file_path.c_str());
-        DBUG_RETURN(eloq_init_abort());
-      }
-    }
-    else
-    {
-      sql_print_information("EloqDataStoreService loaded config file %s",
-                            dss_config_file_path.c_str());
-    }
-
-#if defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3) ||                      \
-    defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_GCS)
-    // std::string ds_rocksdb_config_file_path=
-    //     "/home/lzx/test-eloqsql/eloq_ds.ini";
-    INIReader fake_config_reader(nullptr, 0);
-    EloqDS::RocksDBConfig rocksdb_config(fake_config_reader, dss_data_path);
-    EloqDS::RocksDBCloudConfig rocksdb_cloud_config(fake_config_reader);
-#if defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3)
-    rocksdb_cloud_config.aws_access_key_id_= eloq_aws_access_key_id;
-    rocksdb_cloud_config.aws_secret_key_= eloq_aws_secret_key;
-#endif
-    rocksdb_cloud_config.bucket_name_= eloq_dss_rocksdb_cloud_bucket_name;
-    rocksdb_cloud_config.bucket_prefix_= eloq_dss_rocksdb_cloud_bucket_prefix;
-    rocksdb_cloud_config.object_path_= eloq_dss_rocksdb_cloud_object_path;
-    rocksdb_cloud_config.region_= eloq_dss_rocksdb_cloud_region;
-    rocksdb_cloud_config.s3_endpoint_url_= eloq_dss_rocksdb_cloud_endpoint_url;
-    rocksdb_cloud_config.sst_file_cache_size_=
-        txlog::parse_size(eloq_dss_rocksdb_cloud_sst_file_cache_size);
-    rocksdb_cloud_config.sst_file_cache_num_shard_bits_=
-        eloq_dss_rocksdb_cloud_sst_file_cache_num_shard_bits;
-    rocksdb_cloud_config.db_file_deletion_delay_=
-        eloq_dss_rocksdb_cloud_file_deletion_delay;
-    rocksdb_cloud_config.purger_periodicity_millis_=
-        eloq_dss_rocksdb_cloud_purger_periodicity_secs * 1000;
-    rocksdb_cloud_config.branch_name_= ds_branch_name;
-
-    bool enable_cache_replacement_= fake_config_reader.GetBoolean(
-        "local", "enable_cache_replacement", false);
-    auto ds_factory= std::make_unique<EloqDS::RocksDBCloudDataStoreFactory>(
-        rocksdb_config, rocksdb_cloud_config, enable_cache_replacement_);
-#elif defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB)
-    INIReader fake_config_reader(nullptr, 0);
-    EloqDS::RocksDBConfig rocksdb_config(fake_config_reader, dss_data_path);
-    bool enable_cache_replacement_= fake_config_reader.GetBoolean(
-        "local", "enable_cache_replacement", false);
-    auto ds_factory= std::make_unique<EloqDS::RocksDBDataStoreFactory>(
-        rocksdb_config, enable_cache_replacement_);
-#elif defined(DATA_STORE_TYPE_ELOQDSS_ELOQSTORE)
-    EloqDS::EloqStoreConfig eloq_store_config;
-    configure_eloq_store(eloq_store_config, dss_data_path);
-    auto ds_factory= std::make_unique<EloqDS::EloqStoreDataStoreFactory>(
-        std::move(eloq_store_config));
-#endif
-
-    data_store_service_= std::make_unique<EloqDS::DataStoreService>(
-        ds_config, dss_config_file_path, dss_data_path + "/DSMigrateLog",
-        std::move(ds_factory));
-
-    // setup local data store service, the data store service will start
-    // data store if needed.
-    bool ret=
-        data_store_service_->StartService((opt_bootstrap || is_single_node));
-    if (!ret)
-    {
-      sql_print_error("Failed to start data store service");
-      DBUG_RETURN(eloq_init_abort());
-    }
-
-    // setup data store service client
-    storage_hd= std::make_unique<EloqDS::DataStoreServiceClient>(
-        catalog_factory, ds_config, data_store_service_.get());
-
-    if (!storage_hd->Connect())
-    {
-      sql_print_error("!!!!!!!! Failed to connect ELOQ_DS server, EloqDB "
-                      "startup is terminated !!!!!!!!");
-      DBUG_RETURN(eloq_init_abort());
-    }
-
-    break;
-  }
-
-#endif
-
-  default:
-    DBUG_RETURN(eloq_init_abort());
-  }
-  if (opt_bootstrap)
-  {
-    // When execute mysql_install_db.sh, eloq should run in solo mode.
-    std::vector<NodeConfig> solo_config;
-    solo_config.emplace_back(0, local_ip, local_port);
-    ng_configs.try_emplace(0, std::move(solo_config));
-  }
-  else if (!txservice::ReadClusterConfigFile(cluster_config_file, ng_configs,
-                                             cluster_config_version))
-  {
-
-    // Read cluster topology from general config file in this case
-    auto parse_res= txservice::ParseNgConfig(
-        eloq_ip_list, eloq_standby_ip_list, eloq_voter_ip_list, ng_configs,
-        eloq_node_group_replica_num, 0);
-    if (!parse_res)
-    {
-      LOG(ERROR) << "Failed to extract cluster configs from ip_port_list.";
-      DBUG_RETURN(eloq_init_abort());
-    }
-  }
-
-  bool found= false;
-  uint32_t native_ng_id= 0;
-  // check whether this node is in cluster.
-  for (auto &pair : ng_configs)
-  {
-    auto &ng_nodes= pair.second;
-    for (size_t i= 0; i < ng_nodes.size(); i++)
-    {
-      if (ng_nodes[i].host_name_ == local_ip &&
-          ng_nodes[i].port_ == local_port)
-      {
-        node_id= ng_nodes[i].node_id_;
-        found= true;
-        if (ng_nodes[i].is_candidate_)
-        {
-          // found native_ng_id.
-          native_ng_id= pair.first;
-          break;
-        }
-      }
-    }
-  }
-
-  if (!found)
-  {
-    sql_print_error("!!!!!!!! Current node does not belong to any node "
-                    "group, EloqDB "
-                    "startup is terminated !!!!!!!!");
-    DBUG_RETURN(eloq_init_abort());
-  }
-
-  // Set max rpc message size as 512mb.
-  GFLAGS_NAMESPACE::SetCommandLineOption("max_body_size", "536870912");
-  // Set bthread worker number
-  if (eloq_bthread_worker_num != 0)
-  {
-    GFLAGS_NAMESPACE::SetCommandLineOption(
-        "bthread_concurrency",
-        std::to_string(eloq_bthread_worker_num).c_str());
-  }
-  GFLAGS_NAMESPACE::SetCommandLineOption(
-      "rocksdb_scan_threads",
-      std::to_string(eloq_logserver_rocksdb_scan_thread_num).c_str());
-  std::vector<std::string> txlog_ips;
-  std::vector<uint16_t> txlog_ports;
-
-  // If eloq_txlog_service_list is empty, it means bounded txlog service
-  if (std::strlen(eloq_txlog_service_list) == 0)
-  {
-    sql_print_information("Stand-alone txlog service is not provided, start "
-                          "bounded txlog service.");
-    // initialize log service.
-    std::string txlog_path(local_path);
-    txlog_path.append("/tx_log");
-    std::string txlog_rocksdb_path;
-    // default rocksdb path is <data_home>/tx_log/rocksdb
-    if (strlen(eloq_txlog_rocksdb_storage_path) == 0)
-    {
-      // remove "local://" prefix
-      txlog_rocksdb_path= txlog_path.substr(8) + "/rocksdb";
-    }
-    else
-    {
-      txlog_rocksdb_path= eloq_txlog_rocksdb_storage_path;
-    }
-    sql_print_information("EloqDB txlog path: %s", txlog_path.c_str());
-    sql_print_information("EloqDB txlog rocksdb path: %s",
-                          txlog_rocksdb_path.c_str());
-
-    uint16_t log_server_port= local_port + 2;
-    for (uint32_t ng= 0; ng < ng_configs.size(); ng++)
-    {
-      // Use cc node port + 2 for log server
-      txlog_ports.emplace_back(ng_configs[ng][0].port_ + 2);
-      txlog_ips.emplace_back(ng_configs[ng][0].host_name_);
-    }
-
-    bool enable_txlog_request_checkpoint=
-        eloq_enable_txlog_request_checkpoint ? true : false;
-    [[maybe_unused]] uint64_t notify_checkpointer_threshold_size=
-        txlog::parse_size(eloq_notify_checkpointer_threshold_size);
-    sql_print_information(
-        "eloq_enable_txlog_request_checkpoint: %s",
-        (eloq_enable_txlog_request_checkpoint ? "ON" : "OFF"));
-    if (enable_txlog_request_checkpoint)
-    {
-      sql_print_information("eloq_check_replay_log_size_interval_sec: %d",
-                            eloq_check_replay_log_size_interval_sec);
-      sql_print_information("eloq_notify_checkpointer_threshold_size: %s",
-                            eloq_notify_checkpointer_threshold_size);
-    }
-
-#if defined(LOG_STATE_TYPE_RKDB_ALL)
-    size_t rocksdb_target_file_size_base_val=
-        txlog::parse_size(eloq_txlog_rocksdb_target_file_size_base);
-#if defined(LOG_STATE_TYPE_RKDB_CLOUD)
-    txlog::RocksDBCloudConfig rocksdb_cloud_config;
-#if defined(LOG_STATE_TYPE_RKDB_S3)
-    rocksdb_cloud_config.aws_access_key_id_= eloq_aws_access_key_id;
-    rocksdb_cloud_config.aws_secret_key_= eloq_aws_secret_key;
-#endif /* LOG_STATE_TYPE_RKDB_S3 */
-    rocksdb_cloud_config.bucket_name_= eloq_txlog_rocksdb_cloud_bucket_name;
-    rocksdb_cloud_config.bucket_prefix_=
-        eloq_txlog_rocksdb_cloud_bucket_prefix;
-    rocksdb_cloud_config.object_path_= eloq_txlog_rocksdb_cloud_object_path;
-    rocksdb_cloud_config.region_= eloq_txlog_rocksdb_cloud_region;
-    rocksdb_cloud_config.endpoint_url_= eloq_txlog_rocksdb_cloud_endpoint_url;
-    rocksdb_cloud_config.sst_file_cache_size_=
-        txlog::parse_size(eloq_txlog_rocksdb_cloud_sst_file_cache_size);
-    rocksdb_cloud_config.sst_file_cache_num_shard_bits_=
-        eloq_txlog_rocksdb_cloud_sst_file_cache_num_shard_bits;
-    rocksdb_cloud_config.db_ready_timeout_us_=
-        eloq_txlog_rocksdb_cloud_ready_timeout * 1000 * 1000;
-    rocksdb_cloud_config.db_file_deletion_delay_=
-        eloq_txlog_rocksdb_cloud_file_deletion_delay;
-
-    if (opt_bootstrap)
-    {
-      txlog_server= std::make_unique<::txlog::LogServer>(
-          node_id, log_server_port, txlog_ips, txlog_ports, txlog_path, 0,
-          eloq_txlog_group_replica_num, txlog_rocksdb_path,
-          eloq_logserver_rocksdb_scan_thread_num, rocksdb_cloud_config,
-          eloq_txlog_rocksdb_cloud_in_mem_log_size_high_watermark,
-          eloq_txlog_rocksdb_max_write_buffer_number,
-          eloq_txlog_rocksdb_max_background_jobs,
-          rocksdb_target_file_size_base_val, eloq_logserver_snapshot_interval);
-    }
-    else
-    {
-      txlog_server= std::make_unique<::txlog::LogServer>(
-          node_id, log_server_port, txlog_ips, txlog_ports, txlog_path, 0,
-          eloq_txlog_group_replica_num, txlog_rocksdb_path,
-          eloq_logserver_rocksdb_scan_thread_num, rocksdb_cloud_config,
-          eloq_txlog_rocksdb_cloud_in_mem_log_size_high_watermark,
-          eloq_txlog_rocksdb_max_write_buffer_number,
-          eloq_txlog_rocksdb_max_background_jobs,
-          rocksdb_target_file_size_base_val, eloq_logserver_snapshot_interval,
-          enable_txlog_request_checkpoint,
-          eloq_check_replay_log_size_interval_sec,
-          notify_checkpointer_threshold_size);
-    }
-#else /* LOG_STATE_TYPE_RKDB_CLOUD */
-    // LOG_STATE_TYPE_RKDB
-    size_t rocksdb_sst_files_size_limit_val=
-        txlog::parse_size(eloq_txlog_rocksdb_sst_files_size_limit);
-
-    if (opt_bootstrap)
-    {
-#if defined(OPEN_LOG_SERVICE)
-      txlog_server= std::make_unique<::txlog::LogServer>(
-          node_id, log_server_port, txlog_path, 1,
-          rocksdb_sst_files_size_limit_val,
-          eloq_txlog_rocksdb_max_write_buffer_number,
-          eloq_txlog_rocksdb_max_background_jobs,
-          rocksdb_target_file_size_base_val);
-#else
-      txlog_server= std::make_unique<::txlog::LogServer>(
-          node_id, log_server_port, txlog_ips, txlog_ports, txlog_path, 0,
-          eloq_txlog_group_replica_num, txlog_rocksdb_path,
-          eloq_logserver_rocksdb_scan_thread_num,
-          rocksdb_sst_files_size_limit_val,
-          eloq_txlog_rocksdb_max_write_buffer_number,
-          eloq_txlog_rocksdb_max_background_jobs,
-          rocksdb_target_file_size_base_val, eloq_logserver_snapshot_interval);
-#endif
-    }
-    else
-    {
-#if defined(OPEN_LOG_SERVICE)
-      txlog_server= std::make_unique<::txlog::LogServer>(
-          node_id, log_server_port, txlog_path, 1,
-          rocksdb_sst_files_size_limit_val,
-          eloq_txlog_rocksdb_max_write_buffer_number,
-          eloq_txlog_rocksdb_max_background_jobs,
-          rocksdb_target_file_size_base_val);
-#else
-      txlog_server= std::make_unique<::txlog::LogServer>(
-          node_id, log_server_port, txlog_ips, txlog_ports, txlog_path, 0,
-          eloq_txlog_group_replica_num, txlog_rocksdb_path,
-          eloq_logserver_rocksdb_scan_thread_num,
-          rocksdb_sst_files_size_limit_val,
-          eloq_txlog_rocksdb_max_write_buffer_number,
-          eloq_txlog_rocksdb_max_background_jobs,
-          rocksdb_target_file_size_base_val, eloq_logserver_snapshot_interval,
-          enable_txlog_request_checkpoint,
-          eloq_check_replay_log_size_interval_sec,
-          notify_checkpointer_threshold_size);
-#endif
-    }
-
-#endif /* LOG_STATE_TYPE_RKDB_CLOUD */
-#else  /* LOG_STATE_TYPE_MEM */
-#if defined(OPEN_LOG_SERVICE)
-    txlog_server= std::make_unique<::txlog::LogServer>(
-        node_id, log_server_port, txlog_path, 1);
-#else
-    txlog_server= std::make_unique<::txlog::LogServer>(
-        node_id, log_server_port, txlog_ips, txlog_ports, txlog_path, 0,
-        eloq_txlog_group_replica_num, eloq_logserver_snapshot_interval);
-#endif
-#endif /* LOG_STATE_TYPE_MEM */
-    err= txlog_server->Start();
-    if (err != 0)
-    {
-      // TODO: append detailed error information.
-      sql_print_error("Failed to start the tx log service in this node.");
-      DBUG_RETURN(eloq_init_abort());
-    }
-
-    sql_print_information("Bounded txlog service started.");
-  }
-  else
-  {
-    sql_print_information("Stand-alone txlog service provided: %s.",
-                          eloq_txlog_service_list);
-
-    std::string token;
-    std::istringstream txlog_ip_list_stream(eloq_txlog_service_list);
-    while (std::getline(txlog_ip_list_stream, token, ','))
-    {
-      size_t c_idx= token.find_first_of(':');
-      if (c_idx != std::string::npos)
-      {
-        txlog_ips.emplace_back(token.substr(0, c_idx));
-        uint16_t pt= std::stoi(token.substr(c_idx + 1));
-        txlog_ports.emplace_back(pt);
-      }
-      else
-      {
-        sql_print_error("Port is missing in eloq_txlog_service_list");
-        DBUG_RETURN(eloq_init_abort());
-      }
-    }
   }
 
   // fetch and print the global level cc_protocol
@@ -3027,7 +1494,7 @@ static int eloq_init_func(void *p)
     assert(false);
   };
 
-  if (eloq_enable_mvcc)
+  if (DataSubstrate::GetGlobal()->GetCoreConfig().enable_mvcc)
   {
     sql_print_information("mvcc is enabled.");
   }
@@ -3035,206 +1502,6 @@ static int eloq_init_func(void *p)
   {
     sql_print_information("mvcc is disabled.");
   }
-
-  // initialize the transaction service.
-  std::map<std::string, uint32_t> tx_service_conf;
-  tx_service_conf.insert(
-      std::pair<std::string, uint32_t>("core_num", eloq_core_num));
-  tx_service_conf.insert(std::pair<std::string, uint32_t>(
-      "range_split_worker_num", eloq_range_split_worker_num));
-  tx_service_conf.insert(std::pair<std::string, uint32_t>(
-      "checkpointer_interval", eloq_checkpointer_interval_sec));
-  tx_service_conf.insert(std::pair<std::string, uint32_t>(
-      "node_memory_limit_mb", eloq_node_memory_limit_mb));
-  tx_service_conf.insert(std::pair<std::string, uint32_t>(
-      "node_log_limit_mb", eloq_node_log_limit_mb));
-  tx_service_conf.insert(std::pair<std::string, uint32_t>(
-      "checkpointer_delay_seconds", eloq_checkpointer_delay_sec));
-  tx_service_conf.insert(std::pair<std::string, uint32_t>(
-      "collect_active_tx_ts_interval_seconds",
-      eloq_collect_active_tx_ts_interval_sec));
-  tx_service_conf.insert(std::pair<std::string, uint32_t>(
-      "realtime_sampling", eloq_realtime_sampling));
-  tx_service_conf.insert(std::pair<std::string, uint32_t>(
-      "rep_group_cnt", eloq_node_group_replica_num));
-  tx_service_conf.insert(std::pair<std::string, uint32_t>(
-      "enable_key_cache", eloq_use_key_cache ? 1 : 0));
-  tx_service_conf.insert(std::pair<std::string, uint32_t>(
-      "enable_shard_heap_defragment", eloq_enable_heap_defragment ? 1 : 0));
-  tx_service_conf.insert(std::pair<std::string, uint32_t>(
-      "bthread_worker_num", eloq_bthread_worker_num));
-  tx_service_conf.insert(std::pair<std::string, uint32_t>(
-      "kickout_data_for_test", eloq_kickout_data_for_test ? 1 : 0));
-
-  auto log_agent= std::make_unique<MyEloqLogAgent>(
-      static_cast<uint32_t>(eloq_txlog_group_replica_num));
-
-  sql_print_information("enable_metrics: %s",
-                        eloq_enable_metrics ? "ON" : "OFF");
-
-  metrics::CommonLabels empty_common_labels= {};
-  std::vector<std::tuple<metrics::Name, metrics::Type,
-                         std::vector<metrics::LabelGroup>>>
-      empty_external_metrics= {};
-  if (eloq_enable_metrics && !opt_bootstrap)
-  {
-    setenv("ELOQ_METRICS_PORT", std::to_string(eloq_metrics_port).c_str(),
-           false);
-    MetricsRegistryImpl::MetricsRegistryResult metrics_registry_result=
-        MetricsRegistryImpl::GetRegistry();
-    if (metrics_registry_result.not_ok_ != nullptr)
-    {
-      // MetricsRegistry Init error will be exit(-1);
-      sql_print_error("EloqDB enable metrics collector but "
-                      "MetricsRegistry Init ERR %s",
-                      metrics_registry_result.not_ok_);
-      DBUG_RETURN(eloq_init_abort());
-    }
-    else
-    {
-      /* parse metrics options */
-      metrics::enable_metrics= true;
-
-      // mysql metrics
-      metrics::enable_mysql_tx_metrics=
-          eloq_enable_mysql_tx_metrics ? true : false;
-      sql_print_information("enable_mysql_tx_metrics: %s",
-                            metrics::enable_mysql_tx_metrics ? "ON" : "OFF");
-
-      metrics::enable_mysql_dml_metrics=
-          eloq_enable_mysql_dml_metrics ? true : false;
-      sql_print_information("enable_mysql_dml_metrics: %s",
-                            metrics::enable_mysql_dml_metrics ? "ON" : "OFF");
-
-      // tx_service metrics
-      metrics::enable_tx_metrics= eloq_enable_tx_metrics ? true : false;
-      sql_print_information("enable_tx_metrics: %s",
-                            metrics::enable_tx_metrics ? "ON" : "OFF");
-      if (metrics::enable_tx_metrics)
-      {
-        metrics::collect_tx_duration_round= eloq_collect_tx_duration_round;
-        sql_print_information(
-            "collect `collect_tx_duration_round` every %d round(s).",
-            metrics::collect_tx_duration_round);
-      }
-
-      metrics::enable_cache_hit_rate=
-          eloq_enable_cache_hit_rate ? true : false;
-      sql_print_information("enable_cache_hit_rate: %s",
-                            metrics::enable_cache_hit_rate ? "ON" : "OFF");
-
-      metrics::enable_busy_round_metrics=
-          eloq_enable_busy_round_metrics ? true : false;
-      sql_print_information("enable_busy_round_metrics: %s",
-                            metrics::enable_busy_round_metrics ? "ON" : "OFF");
-      if (metrics::enable_busy_round_metrics)
-      {
-        metrics::busy_round_threshold= eloq_busy_round_threshold;
-        sql_print_information("busy_round_threshold %d.",
-                              metrics::busy_round_threshold);
-      }
-
-      metrics::enable_memory_usage= eloq_enable_memory_usage ? true : false;
-      sql_print_information("enable_memory_usage: %s",
-                            metrics::enable_memory_usage ? "ON" : "OFF");
-      if (metrics::enable_memory_usage)
-      {
-        metrics::collect_memory_usage_round= eloq_collect_memory_usage_round;
-        sql_print_information("collect `memory_usage` every %d round(s).",
-                              metrics::collect_memory_usage_round);
-      }
-
-      metrics::enable_remote_request_metrics=
-          eloq_enable_remote_request_metrics ? true : false;
-      sql_print_information("enable_remote_request_metrics: %s",
-                            metrics::enable_remote_request_metrics ? "ON"
-                                                                   : "OFF");
-
-      metrics::enable_kv_metrics= eloq_enable_kv_metrics ? true : false;
-      sql_print_information("enable_kv_metrics: %s",
-                            metrics::enable_kv_metrics ? "ON" : "OFF");
-
-      // log_service metrics
-      metrics::enable_log_service_metrics=
-          eloq_enable_log_service_metrics ? true : false;
-      sql_print_information("enable_log_service_metrics: %s",
-                            metrics::enable_log_service_metrics ? "ON"
-                                                                : "OFF");
-
-      metrics_registry= std::move(metrics_registry_result.metrics_registry_);
-
-      metrics::CommonLabels mysql_common_labels{};
-      mysql_common_labels["node_ip"]= local_ip;
-      mysql_common_labels["node_port"]= std::to_string(mysqld_port);
-
-      metrics::CommonLabels kv_common_labels{};
-      kv_common_labels["node_ip"]= local_ip;
-      kv_common_labels["node_port"]= std::to_string(mysqld_port);
-
-      metrics::register_mysql_metrics(metrics_registry.get(),
-                                      mysql_common_labels);
-      storage_hd->RegisterKvMetrics(metrics_registry.get(), kv_common_labels);
-
-      metrics::CommonLabels tx_service_common_labels{};
-      tx_service_common_labels["node_ip"]= local_ip;
-      tx_service_common_labels["node_port"]= std::to_string(mysqld_port);
-      tx_service_common_labels["node_id"]= std::to_string(node_id);
-
-      tx_service= std::make_unique<TxService>(
-          catalog_factory, &MariaSystemHandler::Instance(), tx_service_conf,
-          node_id, native_ng_id, &ng_configs, cluster_config_version,
-          storage_hd.get(), log_agent.get(), eloq_enable_mvcc,
-          eloq_skip_redo_log, false /*skip kv*/,
-          true /*enable cache replacement*/, true /*auto redirect */,
-          metrics_registry.get(), tx_service_common_labels);
-
-      sql_print_information("Eloq metrics collector bind port: %d",
-                            eloq_metrics_port);
-
-#ifdef EXT_TX_PROC_ENABLED
-      get_tx_service_functors= tx_service->GetTxProcFunctors();
-#endif
-    }
-  }
-  else
-  {
-    tx_service= std::make_unique<TxService>(
-        catalog_factory, &MariaSystemHandler::Instance(), tx_service_conf,
-        node_id, native_ng_id, &ng_configs, cluster_config_version,
-        storage_hd != nullptr ? storage_hd.get() : nullptr, log_agent.get(),
-        eloq_enable_mvcc, eloq_skip_redo_log, false);
-
-#ifdef EXT_TX_PROC_ENABLED
-    get_tx_service_functors= tx_service->GetTxProcFunctors();
-#endif
-  }
-
-  if (tx_service->Start(node_id, native_ng_id, &ng_configs,
-                        cluster_config_version, &txlog_ips, &txlog_ports,
-                        &hm_ip, &hm_port, &hm_bin_path, tx_service_conf,
-                        std::move(log_agent), local_path,
-                        cluster_config_file) < 0)
-  {
-    sql_print_error("!!!!!!Failed to start tx service. EloqDB startup is "
-                    "terminated!!!!!!");
-    DBUG_RETURN(eloq_init_abort());
-  }
-
-  txservice::Sequences::InitSequence(tx_service.get(), storage_hd.get());
-
-  DeadLockCheck::SetTimeInterval(eloq_deadlock_interval_sec);
-
-  storage_hd->SetTxService(tx_service != nullptr ? tx_service.get() : nullptr);
-  sql_print_information("Transaction service started.");
-  sql_print_information(
-      "Number of cores allocated for transaction service: %u", eloq_core_num);
-
-  eloq_partition_type= 1;
-  // tx_service is a distributed service, should wait for all the tx_service
-  // nodes to finish the log recovery process and setup the cc_stream_sender.
-  tx_service->WaitClusterReady();
-  // wait for the tx_service node to become the native group leader.
-  tx_service->WaitNodeBecomeNativeGroupLeader();
 
   drop_orphan_tmp_tables();
 
@@ -3245,7 +1512,8 @@ static int eloq_init_func(void *p)
 #else
       if (txlog_server)
       {
-        txlog_server->CloseBraft();
+        txlog_server->CloseBraft(); // TODO(liunyl): what is this for? can we
+                                    // remove txlog_server?
       }
 #endif
     };
@@ -3261,31 +1529,8 @@ static int eloq_done_func(void *p)
 {
   DBUG_ENTER_FUNC();
 
-  sql_print_information("Shutting down the tx service.");
-  tx_service->Shutdown();
-  sql_print_information("Tx service shut down.");
-
-  sql_print_information("Shutting down the storage handler.");
-  storage_hd= nullptr; // Wait for all in-fight requests complete.
-#if ELOQDS
-  if (data_store_service_ != nullptr)
-  {
-    data_store_service_= nullptr;
-  }
-#endif
-  sql_print_information("Storage handler shut down.");
-
-  sql_print_information("Shutting down the log service.");
-  txlog_server= nullptr;
-  sql_print_information("Log service shut down.");
-
-  txservice::Sequences::Destory();
-
-  // Guarantee shutdown. In some cases, like bootstrap,
-  // eloq_pre_shutdown() won't call.
-  MariaSystemHandler::Instance().Shutdown();
-
-  tx_service= nullptr;
+  sql_print_information("Shutting down the data substrate.");
+  // DataSubstrate::GetGlobal()->Shutdown();
 
   mysql_mutex_destroy(&mono_collation_data_mutex);
   mysql_mutex_destroy(&mono_mem_cmp_space_mutex);
@@ -3295,18 +1540,6 @@ static int eloq_done_func(void *p)
     delete it;
     it= nullptr;
   }
-
-  if (eloq_enable_metrics)
-  {
-    metrics_registry= nullptr;
-  }
-
-#if defined(DATA_STORE_TYPE_DYNAMODB) ||                                      \
-    defined(LOG_STATE_TYPE_RKDB_S3) || \
-    defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3)
-  aws_deinit();
-#endif
-
   DBUG_RETURN(0);
 }
 

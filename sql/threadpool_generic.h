@@ -29,7 +29,7 @@
 #endif
 
 #ifdef COROUTINE_ENABLED
-#include "../storage/eloq/tx_service/include/concurrent_queue_wsize.h"
+#include "../data_substrate/tx_service/include/concurrent_queue_wsize.h"
 #include <chrono>
 #include <functional>
 #include <mutex>

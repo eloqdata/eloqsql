@@ -450,10 +450,14 @@ INCLUDE(cpack_deb)
 
 SET(PYTHON_SHEBANG "/usr/bin/env python3" CACHE STRING "python shebang")
 MARK_AS_ADVANCED(PYTHON_SHEBANG)
-
 # Add storage engines and plugins.
 CONFIGURE_PLUGINS()
 
+
+# Build data substrate library first (before sql/ and storage/)
+IF(ELOQ_MODULE_ENABLED)
+  ADD_SUBDIRECTORY(data_substrate)
+ENDIF()
 ADD_SUBDIRECTORY(include)
 ADD_SUBDIRECTORY(dbug)
 ADD_SUBDIRECTORY(strings)

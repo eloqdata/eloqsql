@@ -16,6 +16,7 @@
 
 #include "sql_plugin.h"                         // Includes mariadb.h
 #include "sql_priv.h"
+#include <gflags/gflags.h>
 #include "unireg.h"
 #include <signal.h>
 #ifndef _WIN32
@@ -637,6 +638,12 @@ struct system_variables global_system_variables;
   TODO: something should be done to get rid of following variables
 */
 const char *current_dbug_option="";
+
+// Declare gflags
+DECLARE_string(eloqsql_config);
+
+// Global string to hold defaults file argument
+static std::string g_defaults_file_arg;
 
 struct system_variables max_system_variables;
 struct system_status_var global_status_var;
@@ -4032,6 +4039,8 @@ static int init_common_variables()
                      SQLCOM_END + 10);
 #endif
 
+  // Process config file options (loaded by load_defaults_or_exit)
+  // Note: argc/argv from load_defaults only contains config file values
   if (get_options(&remaining_argc, &remaining_argv))
     exit(1);
   if (IS_SYSVAR_AUTOSIZE(&server_version_ptr))
@@ -5545,11 +5554,29 @@ int mysqld_main(int argc, char **argv)
   orig_argc= argc;
   orig_argv= argv;
   my_defaults_mark_files= TRUE;
-  load_defaults_or_exit(MYSQL_CONFIG_NAME, load_default_groups, &argc, &argv);
-  defaults_argc= argc;
-  defaults_argv= argv;
-  remaining_argc= argc;
-  remaining_argv= argv;
+  
+  // Build argv for load_defaults
+  // If --eloqsql_config specified, pass as --defaults-file
+  char *load_default_argv[3];
+  int load_default_argc = 1;
+  load_default_argv[0] = argv[0];
+  
+  if (!FLAGS_eloqsql_config.empty())
+  {
+    // Pass as --defaults-file=path
+    g_defaults_file_arg = std::string("--defaults-file=") + FLAGS_eloqsql_config;
+    load_default_argv[1] = const_cast<char*>(g_defaults_file_arg.c_str());
+    load_default_argc = 2;
+  }
+  
+  char **load_default_argv_ptr = load_default_argv;
+  load_defaults_or_exit(MYSQL_CONFIG_NAME, load_default_groups, 
+                        &load_default_argc, &load_default_argv_ptr);
+  
+  defaults_argc= load_default_argc;
+  defaults_argv= load_default_argv_ptr;
+  remaining_argc= load_default_argc;
+  remaining_argv= load_default_argv_ptr;
 
   /* Must be initialized early for comparison of options name */
   system_charset_info= &my_charset_utf8mb3_general_ci;
@@ -5574,6 +5601,7 @@ int mysqld_main(int argc, char **argv)
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
   my_timer_init(&sys_timer_info);
 
+  // Process early options from config file
   int ho_error __attribute__((unused))= handle_early_options();
 
   /* fix tdc_size */

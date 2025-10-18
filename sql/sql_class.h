@@ -51,7 +51,7 @@
 #include "backup.h"
 #include "xa.h"
 #include "ddl_log.h"                            /* DDL_LOG_STATE */
-#include "../storage/eloq/eloq_metrics/include/metrics.h"
+#include "../data_substrate/eloq_metrics/include/metrics.h"
 
 extern "C"
 void set_thd_stage_info(void *thd,

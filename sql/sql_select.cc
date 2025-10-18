@@ -25,7 +25,7 @@
   @{
 */
 
-#include "eloq_errors.h"
+#include "../storage/eloq/eloq_errors.h"
 #ifdef USE_PRAGMA_IMPLEMENTATION
 #pragma implementation				// gcc: Class implementation
 #endif
