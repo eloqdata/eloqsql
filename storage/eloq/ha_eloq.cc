@@ -165,7 +165,7 @@
 #define ELOQDS 1
 #endif
 
-#if (defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3) || \
+#if (defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3) ||                     \
      defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_GCS))
 #define ELOQDS_RKDB_CLOUD 1
 #endif
@@ -212,7 +212,7 @@
 #if !defined(LOG_STATE_TYPE_RKDB_CLOUD)
 
 // Only if LOG_STATE_TYPE_RKDB_CLOUD undefined
-#if ((defined(LOG_STATE_TYPE_RKDB_S3) || defined(LOG_STATE_TYPE_RKDB_GCS)) &&  \
+#if ((defined(LOG_STATE_TYPE_RKDB_S3) || defined(LOG_STATE_TYPE_RKDB_GCS)) && \
      !defined(LOG_STATE_TYPE_RKDB))
 #define LOG_STATE_TYPE_RKDB_CLOUD 1
 #endif
@@ -222,7 +222,7 @@
 #if !defined(LOG_STATE_TYPE_RKDB_ALL)
 
 // Only if LOG_STATE_TYPE_RKDB_ALL undefined
-#if (defined(LOG_STATE_TYPE_RKDB_S3) || defined(LOG_STATE_TYPE_RKDB_GCS) ||    \
+#if (defined(LOG_STATE_TYPE_RKDB_S3) || defined(LOG_STATE_TYPE_RKDB_GCS) ||   \
      defined(LOG_STATE_TYPE_RKDB))
 #define LOG_STATE_TYPE_RKDB_ALL 1
 #endif
@@ -232,7 +232,6 @@
 #if defined(LOG_STATE_TYPE_RKDB_CLOUD)
 #include "rocksdb_cloud_config.h"
 #endif
-
 
 // Don't put this include after sql_class.h include, it will cause compile
 // error
@@ -3301,8 +3300,7 @@ static int eloq_done_func(void *p)
     metrics_registry= nullptr;
   }
 
-#if defined(DATA_STORE_TYPE_DYNAMODB) ||                                      \
-    defined(LOG_STATE_TYPE_RKDB_S3) || \
+#if defined(DATA_STORE_TYPE_DYNAMODB) || defined(LOG_STATE_TYPE_RKDB_S3) ||   \
     defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3)
   aws_deinit();
 #endif
