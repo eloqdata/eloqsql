@@ -455,9 +455,9 @@ CONFIGURE_PLUGINS()
 
 
 # Build data substrate library first (before sql/ and storage/)
-IF(ELOQ_MODULE_ENABLED)
+# IF(ELOQ_MODULE_ENABLED)
   ADD_SUBDIRECTORY(data_substrate)
-ENDIF()
+# ENDIF()
 ADD_SUBDIRECTORY(include)
 ADD_SUBDIRECTORY(dbug)
 ADD_SUBDIRECTORY(strings)

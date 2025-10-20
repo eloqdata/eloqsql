@@ -53,6 +53,12 @@ static LEX_CSTRING ELOQ_ENGINE_NAME= {STRING_WITH_LEN("ELOQ")};
  * These functions must be wrapped with extern "C", and function signature
  * must match with that defined by ELOQ_DEFINEx.
  */
+// #if defined(ELOQ_LINK_STATIC)
+// Statically linked: declare the symbol and let the linker resolve it to the
+// implementation provided in the static library (see eloq_db.cpp extern "C" block).
+// #define MONOCALL_DEFINEx(x, name, ...) \
+//   extern "C" int name(__SC_DECL##x(__VA_ARGS__));
+// #else
 #define MONOCALL_DEFINEx(x, name, ...)                                        \
   static inline int name(__SC_DECL##x(__VA_ARGS__))                           \
   {                                                                           \
@@ -71,6 +77,7 @@ static LEX_CSTRING ELOQ_ENGINE_NAME= {STRING_WITH_LEN("ELOQ")};
                                                                               \
     return ret;                                                               \
   }
+// #endif
 
 #define MONOCALL_DEFINE1(name, ...) MONOCALL_DEFINEx(1, name, __VA_ARGS__)
 #define MONOCALL_DEFINE2(name, ...) MONOCALL_DEFINEx(2, name, __VA_ARGS__)

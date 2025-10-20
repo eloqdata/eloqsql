@@ -21,6 +21,7 @@ project(eloq)
 
 set(METRICS_LIB "eloq-metrics" CACHE STRING "metrics library name.")
 
+
 # add_compile_definitions(ELOQ_MODULE_ELOQSQL)
 # if (WITH_DATA_STORE STREQUAL "ELOQDSS_ROCKSDB")
 #   find_path(ROCKSDB_INCLUDE_PATH NAMES rocksdb/db.h)
@@ -206,6 +207,23 @@ set(STATISTICS ON CACHE BOOL "Turn on STATISTICS")
 # 
 # INCLUDE(build_eloq_metrics.cmake)
 
+if(ELOQ_MODULE_ENABLED)
+    add_compile_definitions(ELOQ_MODULE_ENABLED)
+    message("ADDING ELOQ MODULE ENABLED")
+endif()
+
+if (EXT_TX_PROC_ENABLED)
+	add_compile_definitions(EXT_TX_PROC_ENABLED)
+endif()
+
+if(SMALL_RANGE)
+    add_compile_definitions(SMALL_RANGE)
+endif()
+
+if(STATISTICS)
+    add_compile_definitions(STATISTICS)
+endif()
+
 find_package(MIMALLOC REQUIRED)
 include_directories(${MIMALLOC_INCLUDE_DIR})
 
@@ -302,7 +320,7 @@ SET(MYELOQ_LIBRARY ${MYELOQ_LIBRARY} ${METRICS_LIB})
 
 MYSQL_ADD_PLUGIN(eloq ${MYELOQ_SOURCES}
 	STORAGE_ENGINE
-	#MODULE_ONLY
+	# MODULE_ONLY
   	MANDATORY
   	STATIC_ONLY
 	MODULE_OUTPUT_NAME ha_eloq
