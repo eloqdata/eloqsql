@@ -113,6 +113,9 @@
 #include <sys/prctl.h>
 #endif
 
+#include "glog/logging.h"
+#include "data_substrate.h"
+
 #include <thr_alarm.h>
 #include <ft_global.h>
 #include <errmsg.h>
@@ -641,6 +644,8 @@ const char *current_dbug_option="";
 
 // Declare gflags
 DECLARE_string(eloqsql_config);
+DECLARE_bool(bootstrap);
+DECLARE_string(data_substrate_config);
 
 // Global string to hold defaults file argument
 static std::string g_defaults_file_arg;
@@ -5041,6 +5046,10 @@ static int init_server_components()
   /* It's now safe to use thread specific memory */
   mysqld_server_initialized= 1;
 
+  // Wait for mysqld to initialize before initializing data substrate
+  // as data substrate may need to access some mysqld variables during replay.
+  DataSubstrate::InitializeGlobal(FLAGS_data_substrate_config);
+
 #ifndef EMBEDDED_LIBRARY
   wsrep_thr_init();
 #endif
@@ -5556,18 +5565,44 @@ int mysqld_main(int argc, char **argv)
   my_defaults_mark_files= TRUE;
   
   // Build argv for load_defaults
-  // If --eloqsql_config specified, pass as --defaults-file
-  char *load_default_argv[3];
-  int load_default_argc = 1;
-  load_default_argv[0] = argv[0];
+  // Copy all original arguments first, then append --eloqsql_config and --bootstrap if needed
+  int additional_args = 0;
+  if (!FLAGS_eloqsql_config.empty())
+    additional_args++;
+  if (FLAGS_bootstrap)
+    additional_args++;
   
+  char **load_default_argv = (char**)malloc((argc + additional_args + 1) * sizeof(char*));
+  if (!load_default_argv)
+  {
+    fprintf(stderr, "Failed to allocate memory for load_default_argv\n");
+    return 1;
+  }
+  
+  // Copy all original arguments
+  int load_default_argc = argc;
+  for (int i = 0; i < argc; i++)
+  {
+    load_default_argv[i] = argv[i];
+  }
+  
+  // Append --defaults-file if --eloqsql_config specified
   if (!FLAGS_eloqsql_config.empty())
   {
-    // Pass as --defaults-file=path
     g_defaults_file_arg = std::string("--defaults-file=") + FLAGS_eloqsql_config;
-    load_default_argv[1] = const_cast<char*>(g_defaults_file_arg.c_str());
-    load_default_argc = 2;
+    load_default_argv[load_default_argc] = const_cast<char*>(g_defaults_file_arg.c_str());
+    load_default_argc++;
   }
+
+  // Append --bootstrap if FLAGS_bootstrap is true
+  if (FLAGS_bootstrap)
+  {
+    load_default_argv[load_default_argc] = const_cast<char*>("--bootstrap");
+    load_default_argc++;
+  }
+  
+  // Null-terminate the array
+  load_default_argv[load_default_argc] = nullptr;
   
   char **load_default_argv_ptr = load_default_argv;
   load_defaults_or_exit(MYSQL_CONFIG_NAME, load_default_groups, 
@@ -5968,6 +6003,9 @@ int mysqld_main(int argc, char **argv)
   close_connections();
   ha_pre_shutdown();
   clean_up(1);
+  
+  // Free the temporary argv array we allocated
+  free(load_default_argv);
   sd_notify(0, "STATUS=MariaDB server is down");
 
   /* (void) pthread_attr_destroy(&connection_attrib); */
@@ -7800,6 +7838,7 @@ static int mysql_init_variables(void)
   mysql_real_data_home_len=
     (uint)(strmake_buf(mysql_real_data_home,
                 get_relative_path(MYSQL_DATADIR)) - mysql_real_data_home);
+  LOG(INFO) << "default mysql data home " << mysql_real_data_home;
   /* Replication parameters */
   master_info_file= (char*) "master.info",
     relay_log_info_file= (char*) "relay-log.info";
@@ -7986,6 +8025,7 @@ mysqld_get_one_option(const struct my_option *opt, const char *argument,
     break;
   case 'h':
     strmake_buf(mysql_real_data_home, argument);
+    LOG(INFO) << "mysql data homne " << mysql_real_data_home;
     /* Correct pointer set by my_getopt (for embedded library) */
     mysql_real_data_home_ptr= mysql_real_data_home;
     break;

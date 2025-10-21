@@ -40,7 +40,6 @@ extern int mysqld_win_main(int argc, char **argv);
 extern int mysqld_main(int argc, char **argv);
 #endif
 
-extern txservice::CatalogFactory *eloqsql_catalog_factory;
 
 int main(int argc, char **argv)
 {
@@ -54,7 +53,7 @@ int main(int argc, char **argv)
   
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-  DataSubstrate::InitializeGlobal(FLAGS_data_substrate_config);
+  // DataSubstrate::InitializeGlobal(FLAGS_data_substrate_config);
 
 
 #ifdef WITH_GLOG

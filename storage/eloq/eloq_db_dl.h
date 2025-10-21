@@ -56,27 +56,27 @@ static LEX_CSTRING ELOQ_ENGINE_NAME= {STRING_WITH_LEN("ELOQ")};
 // #if defined(ELOQ_LINK_STATIC)
 // Statically linked: declare the symbol and let the linker resolve it to the
 // implementation provided in the static library (see eloq_db.cpp extern "C" block).
-// #define MONOCALL_DEFINEx(x, name, ...) \
-//   extern "C" int name(__SC_DECL##x(__VA_ARGS__));
+#define MONOCALL_DEFINEx(x, name, ...) \
+  extern "C" int name(__SC_DECL##x(__VA_ARGS__));
 // #else
-#define MONOCALL_DEFINEx(x, name, ...)                                        \
-  static inline int name(__SC_DECL##x(__VA_ARGS__))                           \
-  {                                                                           \
-    using T= decltype(&name);                                                 \
-                                                                              \
-    int ret= 0;                                                               \
-                                                                              \
-    static_assert(std::is_same<decltype(__ARG1(__VA_ARGS__)), THD *>::value); \
-    static THD *t= __ARG1(__VA_ARGS__);                                       \
-                                                                              \
-    static plugin_ref pi= ha_resolve_by_name(t, &ELOQ_ENGINE_NAME, false);    \
-                                                                              \
-    static void *handle= plugin_handle(pi);                                   \
-    static T fp= reinterpret_cast<T>(dlsym(handle, __FUNCTION__));            \
-    ret= fp(__SC_CAST##x(__VA_ARGS__));                                       \
-                                                                              \
-    return ret;                                                               \
-  }
+// #define MONOCALL_DEFINEx(x, name, ...)                                        \
+//   static inline int name(__SC_DECL##x(__VA_ARGS__))                           \
+//   {                                                                           \
+//     using T= decltype(&name);                                                 \
+//                                                                               \
+//     int ret= 0;                                                               \
+//                                                                               \
+//     static_assert(std::is_same<decltype(__ARG1(__VA_ARGS__)), THD *>::value); \
+//     static THD *t= __ARG1(__VA_ARGS__);                                       \
+//                                                                               \
+//     static plugin_ref pi= ha_resolve_by_name(t, &ELOQ_ENGINE_NAME, false);    \
+//                                                                               \
+//     static void *handle= plugin_handle(pi);                                   \
+//     static T fp= reinterpret_cast<T>(dlsym(handle, __FUNCTION__));            \
+//     ret= fp(__SC_CAST##x(__VA_ARGS__));                                       \
+//                                                                               \
+//     return ret;                                                               \
+//   }
 // #endif
 
 #define MONOCALL_DEFINE1(name, ...) MONOCALL_DEFINEx(1, name, __VA_ARGS__)

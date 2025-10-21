@@ -185,7 +185,6 @@ void DataSubstrate::Shutdown()
 #if ELOQDS
     if (data_store_service_ != nullptr)
     {
-      data_store_service_->DisconnectDataStore();
       data_store_service_= nullptr;
     }
 #endif

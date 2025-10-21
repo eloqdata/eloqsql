@@ -209,7 +209,6 @@ set(STATISTICS ON CACHE BOOL "Turn on STATISTICS")
 
 if(ELOQ_MODULE_ENABLED)
     add_compile_definitions(ELOQ_MODULE_ENABLED)
-    message("ADDING ELOQ MODULE ENABLED")
 endif()
 
 if (EXT_TX_PROC_ENABLED)

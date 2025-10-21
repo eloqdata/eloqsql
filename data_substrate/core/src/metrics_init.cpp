@@ -11,7 +11,7 @@
 #include "log_service_metrics.h"
 #endif
 #ifdef ELOQ_MODULE_ELOQSQL
-#include "mysql_metrics.h"
+#include "mysql_metrics.h" //TDOO(liunyl): move this file to correct location
 #endif
 
 DEFINE_bool(enable_metrics, false, "Enable metrics");
