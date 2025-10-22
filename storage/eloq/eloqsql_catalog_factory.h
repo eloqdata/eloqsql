@@ -24,8 +24,8 @@
 
 #include "tx_service/include/catalog_factory.h"
 #include "tx_service/include/store/data_store_handler.h"
-#include "eloq_key.h"
-#include "eloq_schema.h"
+#include "eloqsql_key.h"
+#include "eloqsql_schema.h"
 #include "ha_eloq_macro.h"
 #include "tx_service/include/table_statistics.h"
 #include "tx_service/include/type.h" // TableName

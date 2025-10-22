@@ -302,7 +302,7 @@ IF(MARIA_WITH_GLOG)
   endif()
   include_directories(${GLOG_INCLUDE_PATH})
   set(SQL_DEP_LIBS ${SQL_DEP_LIBS} ${GLOG_LIB} gflags)
-  set(SQL_SOURCE ${SQL_SOURCE} glog_error_logging.cc)
+  #set(SQL_SOURCE ${SQL_SOURCE} glog_error_logging.cc)
 ENDIF()
 
 ADD_LIBRARY(sql STATIC ${SQL_SOURCE})
@@ -384,7 +384,22 @@ ENDIF()
 ADD_LIBRARY(sql_builtins STATIC ${CMAKE_CURRENT_BINARY_DIR}/sql_builtin.cc)
 TARGET_LINK_LIBRARIES(sql_builtins ${MYSQLD_STATIC_PLUGIN_LIBS})
 
-MYSQL_ADD_EXECUTABLE(mariadbd ${MYSQLD_SOURCE} DESTINATION ${INSTALL_SBINDIR} COMPONENT Server)
+# Export libraries for converged build
+if(BUILD_ELOQSQL_AS_LIBRARY)
+    # Make sql and sql_builtins available to parent
+    set(ELOQSQL_SQL_LIBRARY sql PARENT_SCOPE)
+    set(ELOQSQL_SQL_BUILTINS_LIBRARY sql_builtins PARENT_SCOPE)
+    set(ELOQSQL_INCLUDE_DIRS
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/sql
+        ${CMAKE_BINARY_DIR}/include
+        PARENT_SCOPE
+    )
+endif()
+
+# Make executable optional
+if(NOT BUILD_ELOQSQL_AS_LIBRARY)
+    MYSQL_ADD_EXECUTABLE(mariadbd ${MYSQLD_SOURCE} DESTINATION ${INSTALL_SBINDIR} COMPONENT Server)
 
 IF(APPLE)
   # Add CoreServices framework since some dloadable plugins may need it
@@ -432,6 +447,7 @@ IF(WITH_MYSQLD_LDFLAGS)
   SET_TARGET_PROPERTIES(mariadbd PROPERTIES LINK_FLAGS 
      "${MYSQLD_LINK_FLAGS} ${WITH_MYSQLD_LDFLAGS}")
 ENDIF()
+endif() # End of BUILD_ELOQSQL_AS_LIBRARY conditional
 
 
 # Handle out-of-source build from source package with possibly broken 

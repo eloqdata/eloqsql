@@ -107,6 +107,19 @@
 #include "semisync_master.h"
 #include "semisync_slave.h"
 
+#ifdef MYSQLD_LIBRARY_MODE
+#include "mysqld_init.h"
+
+// Define synchronization variables
+namespace mysqld_converged_sync {
+    std::mutex init_mutex;
+    std::condition_variable mysqld_basic_init_done_cv;
+    std::condition_variable data_substrate_init_done_cv;
+    bool mysqld_basic_init_done = false;
+    bool data_substrate_init_done = false;
+}
+#endif
+
 #include "transaction.h"
 
 #ifdef HAVE_SYS_PRCTL_H
@@ -5046,9 +5059,31 @@ static int init_server_components()
   /* It's now safe to use thread specific memory */
   mysqld_server_initialized= 1;
 
+#ifdef MYSQLD_LIBRARY_MODE
+  // In library mode (converged binary), use synchronization:
+  // 1. Signal that MySQL basic initialization is done
+  // 2. Wait for data substrate to be initialized by converged main
+  {
+    std::unique_lock<std::mutex> lock(mysqld_converged_sync::init_mutex);
+    mysqld_converged_sync::mysqld_basic_init_done = true;
+    mysqld_converged_sync::mysqld_basic_init_done_cv.notify_one();
+    
+    LOG(INFO) << "MySQL basic initialization complete, waiting for data substrate...";
+    
+    // Wait for data substrate initialization to complete
+    mysqld_converged_sync::data_substrate_init_done_cv.wait(lock, [] {
+        return mysqld_converged_sync::data_substrate_init_done;
+    });
+    
+    LOG(INFO) << "Data substrate initialized, MySQL continuing...";
+  }
+#else
+  // In standalone mode, initialize data substrate here
   // Wait for mysqld to initialize before initializing data substrate
   // as data substrate may need to access some mysqld variables during replay.
+  LOG(INFO) << "Standalone mode: Initializing data substrate...";
   DataSubstrate::InitializeGlobal(FLAGS_data_substrate_config);
+#endif
 
 #ifndef EMBEDDED_LIBRARY
   wsrep_thr_init();

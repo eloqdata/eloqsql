@@ -94,10 +94,18 @@ ELSE()
   SET(CMAKE_CXX_EXTENSIONS OFF)
 ENDIF()
 
+# Option to build as library for converged binary
+option(BUILD_ELOQSQL_AS_LIBRARY "Build eloqsql as library instead of executable" OFF)
+
+IF(BUILD_ELOQSQL_AS_LIBRARY)
+  SET(CMAKE_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+ENDIF()
+
 SET(CPACK_PACKAGE_NAME "MariaDB")
 SET(CPACK_PACKAGE_DESCRIPTION_SUMMARY "MariaDB: a very fast and robust SQL database server")
 SET(CPACK_PACKAGE_URL "http://mariadb.org")
 
+option(WITH_DYNAMO_DB "With DynamoDB" OFF)
 IF(BUILD_CONFIG)
   INCLUDE(
   ${CMAKE_SOURCE_DIR}/cmake/build_configurations/${BUILD_CONFIG}.cmake)
@@ -149,6 +157,8 @@ IF (NOT CPACK_GENERATOR)
     SET(CPACK_GENERATOR "TGZ")
   ENDIF(WIN32) 
 ENDIF(NOT CPACK_GENERATOR)
+
+SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 INCLUDE(FeatureSummary)
 INCLUDE(misc)
@@ -455,9 +465,16 @@ CONFIGURE_PLUGINS()
 
 
 # Build data substrate library first (before sql/ and storage/)
-# IF(ELOQ_MODULE_ENABLED)
-  ADD_SUBDIRECTORY(data_substrate)
-# ENDIF()
+if(NOT BUILD_ELOQSQL_AS_LIBRARY)
+    # Build data substrate library first (standalone mode)
+    ADD_SUBDIRECTORY(data_substrate)
+else()
+    # Use parent data_substrate (converged mode)
+    message(STATUS "EloqSQL: Using parent data_substrate")
+    # When building as library, mysqld will NOT initialize data substrate
+    # It will use synchronization with converged main instead
+    add_compile_definitions(MYSQLD_LIBRARY_MODE)
+endif()
 ADD_SUBDIRECTORY(include)
 ADD_SUBDIRECTORY(dbug)
 ADD_SUBDIRECTORY(strings)
@@ -625,4 +642,6 @@ IF(NOT WITHOUT_SERVER)
   ADD_DEPENDENCIES(smoketest minbuild)
 ENDIF()
 
-option(WITH_DYNAMO_DB "With DynamoDB" OFF)
+IF(BUILD_ELOQSQL_AS_LIBRARY)
+  SET(CMAKE_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../)
+ENDIF()

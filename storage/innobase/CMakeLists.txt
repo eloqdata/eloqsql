@@ -400,7 +400,7 @@ ENDIF()
 
 IF(NOT (PLUGIN_INNOBASE STREQUAL DYNAMIC))
   TARGET_LINK_LIBRARIES(innobase tpool mysys)
-  ADD_SUBDIRECTORY(${CMAKE_SOURCE_DIR}/extra/mariabackup ${CMAKE_BINARY_DIR}/extra/mariabackup)
+  ADD_SUBDIRECTORY(${CURRENT_SOURCE_DIR}/extra/mariabackup ${CMAKE_BINARY_DIR}/extra/mariabackup)
 ENDIF()
 
 IF(WITH_UNIT_TESTS)

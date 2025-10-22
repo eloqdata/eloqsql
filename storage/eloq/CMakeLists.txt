@@ -226,27 +226,27 @@ endif()
 find_package(MIMALLOC REQUIRED)
 include_directories(${MIMALLOC_INCLUDE_DIR})
 
-include_directories(
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_SOURCE_DIR}/data_substrate/
-    ${CMAKE_SOURCE_DIR}/data_substrate/core/include
-    ${CMAKE_SOURCE_DIR}/data_substrate/tx_service/include
-    ${CMAKE_SOURCE_DIR}/data_substrate/tx_service/include/cc
-    ${CMAKE_SOURCE_DIR}/data_substrate/tx_service/include/remote
-    ${CMAKE_SOURCE_DIR}/data_substrate/tx_service/include/fault
-    ${CMAKE_SOURCE_DIR}/data_substrate/tx_service/include/store
-    ${CMAKE_SOURCE_DIR}/data_substrate/tx_service/tx-log-protos
-    ${CMAKE_SOURCE_DIR}/data_substrate/eloq_metrics/include
-    ${CMAKE_SOURCE_DIR}/data_substrate/store_handler
-)
+# include_directories(
+#     ${CMAKE_CURRENT_SOURCE_DIR}
+#     ${CMAKE_SOURCE_DIR}/data_substrate/
+#     ${CMAKE_SOURCE_DIR}/data_substrate/core/include
+#     ${CMAKE_SOURCE_DIR}/data_substrate/tx_service/include
+#     ${CMAKE_SOURCE_DIR}/data_substrate/tx_service/include/cc
+#     ${CMAKE_SOURCE_DIR}/data_substrate/tx_service/include/remote
+#     ${CMAKE_SOURCE_DIR}/data_substrate/tx_service/include/fault
+#     ${CMAKE_SOURCE_DIR}/data_substrate/tx_service/include/store
+#     ${CMAKE_SOURCE_DIR}/data_substrate/tx_service/tx-log-protos
+#     ${CMAKE_SOURCE_DIR}/data_substrate/eloq_metrics/include
+#     ${CMAKE_SOURCE_DIR}/data_substrate/store_handler
+# )
 
-if(WITH_LOG_SERVICE)
-    if (OPEN_LOG_SERVICE)
-        include_directories(${CMAKE_SOURCE_DIR}/data_substrate/log_service/include)
-    else()
-        include_directories(${CMAKE_SOURCE_DIR}/data_substrate/eloq_log_service/include)
-    endif()
-endif()
+# if(WITH_LOG_SERVICE)
+#     if (OPEN_LOG_SERVICE)
+#         include_directories(${CMAKE_SOURCE_DIR}/data_substrate/log_service/include)
+#     else()
+#         include_directories(${CMAKE_SOURCE_DIR}/data_substrate/eloq_log_service/include)
+#     endif()
+# endif()
 
 option(SMALL_RANGE "Whether enable small range" OFF)
 message(NOTICE "SMALL_RANGE : ${SMALL_RANGE}")
@@ -259,11 +259,11 @@ SET(MYELOQ_SOURCES
 	eloq_i_s.cc
 	eloq_errors.h
 	eloq_errors.cpp
-	eloq_key.h
-	eloq_schema.h
-	eloq_schema.cpp
-	eloq_catalog_factory.h
-	eloq_catalog_factory.cpp
+	eloqsql_key.h
+	eloqsql_schema.h
+	eloqsql_schema.cpp
+	eloqsql_catalog_factory.h
+	eloqsql_catalog_factory.cpp
 	eloq_db.cpp
 	eloq_buff.h
 	eloq_key_def.h

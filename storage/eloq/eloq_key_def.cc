@@ -64,7 +64,7 @@
 #include "sql_table.h"
 #include "log.h"
 #include "mysqld_error.h"
-#include "eloq_key.h"
+#include "eloqsql_key.h"
 
 #define HA_EXIT_FAILURE 1
 #define HA_EXIT_SUCCESS 0

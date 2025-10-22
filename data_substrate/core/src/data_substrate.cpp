@@ -66,9 +66,9 @@ DEFINE_bool(
     bind_all, false,
     "Listen on all interfaces if enabled, otherwise listen on local.ip");
 DEFINE_uint32(maxclients, 10000, "maxclients");
-// DEFINE_string(log_file_name_prefix,
-//                "eloqdb.log",
-//                "Sets the prefix for log files. Default is 'eloqdb.log'");
+DEFINE_string(log_file_name_prefix,
+               "eloqdb.log",
+               "Sets the prefix for log files. Default is 'eloqdb.log'");
 // Declare as weak symbols to allow optional linking
 extern txservice::CatalogFactory *eloqsql_catalog_factory __attribute__((weak));
 extern txservice::CatalogFactory *eloqkv_catalog_factory __attribute__((weak));

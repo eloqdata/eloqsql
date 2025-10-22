@@ -141,7 +141,7 @@
 #include "mysql/service_thd_wait.h"
 
 #include "eloq_i_s.h"
-#include "eloq_catalog_factory.h"
+#include "eloqsql_catalog_factory.h"
 #include "eloq_catalog_name.h"
 #include "eloq_system_handler.h"
 #include "eloq_errors.h"
