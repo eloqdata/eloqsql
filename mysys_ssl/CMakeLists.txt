@@ -13,8 +13,8 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1335 USA
 
-INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/include
-                    ${CMAKE_SOURCE_DIR}/mysys_ssl
+INCLUDE_DIRECTORIES(${ELOQSQL_SOURCE_DIR}/include
+                    ${ELOQSQL_SOURCE_DIR}/mysys_ssl
                     ${SSL_INCLUDE_DIRS})
 
 IF(SSL_DEFINES)

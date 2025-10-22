@@ -20,7 +20,7 @@
 cmake_minimum_required(VERSION 2.8.12)
 project(mroonga)
 
-if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
+if("${ELOQSQL_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   set(MRN_BUNDLED FALSE)
 else()
   set(MRN_BUNDLED TRUE)
@@ -75,9 +75,9 @@ endif()
 set(MRN_PLUGIN_SUFFIX ${CMAKE_SHARED_LIBRARY_SUFFIX})
 
 if(MRN_BUNDLED)
-  set(MRN_SOURCE_DIR ${CMAKE_SOURCE_DIR}/storage/mroonga)
+  set(MRN_SOURCE_DIR ${ELOQSQL_SOURCE_DIR}/storage/mroonga)
 else()
-  set(MRN_SOURCE_DIR ${CMAKE_SOURCE_DIR})
+  set(MRN_SOURCE_DIR ${ELOQSQL_SOURCE_DIR})
 endif()
 
 file(READ ${MRN_SOURCE_DIR}/version_full   MRN_VERSION)
@@ -168,9 +168,9 @@ string(REGEX REPLACE "([^;]+)" "${MRN_RELATIVE_DIR_PREFIX}udf/\\1"
   MRN_UDF_SOURCES "${MRN_UDF_SOURCES}")
 
 if(MRN_BUNDLED)
-  set(MYSQL_SOURCE_DIR ${CMAKE_SOURCE_DIR})
+  set(MYSQL_SOURCE_DIR ${ELOQSQL_SOURCE_DIR})
   set(MYSQL_BUILD_DIR ${MYSQL_SOURCE_DIR})
-  set(MYSQL_CONFIG ${CMAKE_SOURCE_DIR}/scripts/mysql_config)
+  set(MYSQL_CONFIG ${ELOQSQL_SOURCE_DIR}/scripts/mysql_config)
 else()
   set(MYSQL_SOURCE_DIR "/PATH/TO/MYSQL/SOURCE/DIRECTORY/"
     CACHE PATH "MySQL source directory")
@@ -422,7 +422,7 @@ configure_file(
   "${PROJECT_SOURCE_DIR}/config.sh.in"
   "${PROJECT_BINARY_DIR}/config.sh")
 
-set(MRN_TEST_SUITE_DIR "${CMAKE_SOURCE_DIR}/mysql-test/suite/mroonga")
+set(MRN_TEST_SUITE_DIR "${ELOQSQL_SOURCE_DIR}/mysql-test/suite/mroonga")
 if(NOT EXISTS "${MRN_TEST_SUITE_DIR}")
   set(MRN_TEST_SUITE_DIR "${PROJECT_SOURCE_DIR}/mysql-test/mroonga")
 endif()

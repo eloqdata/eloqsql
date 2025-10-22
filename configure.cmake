@@ -168,7 +168,7 @@ IF(UNIX)
     HAVE_LIBWRAP)
     SET(CMAKE_REQUIRED_LIBRARIES ${SAVE_CMAKE_REQUIRED_LIBRARIES})
     IF(HAVE_LIBWRAP)
-      SET(MYSYS_LIBWRAP_SOURCE  ${CMAKE_SOURCE_DIR}/mysys/my_libwrap.c)
+      SET(MYSYS_LIBWRAP_SOURCE  ${ELOQSQL_SOURCE_DIR}/mysys/my_libwrap.c)
       SET(LIBWRAP "wrap")
     ENDIF()
   ENDIF()
@@ -679,8 +679,8 @@ IF(NOT STACK_DIRECTION)
     "or -DSTACK_DIRECTION=-1 when calling cmake.")
   ELSE()
     TRY_RUN(STACKDIR_RUN_RESULT STACKDIR_COMPILE_RESULT    
-     ${CMAKE_BINARY_DIR} 
-     ${CMAKE_SOURCE_DIR}/cmake/stack_direction.c
+     ${ELOQSQL_BINARY_DIR} 
+     ${ELOQSQL_SOURCE_DIR}/cmake/stack_direction.c
      )
      # Test program returns 0 (down) or 1 (up).
      # Convert to -1 or 1

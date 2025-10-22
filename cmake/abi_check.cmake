@@ -36,26 +36,26 @@ IF(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" AND RUN_ABI_CHECK)
     SET(COMPILER ${CMAKE_C_COMPILER})
   ENDIF()
   SET(API_PREPROCESSOR_HEADER
-    ${CMAKE_SOURCE_DIR}/include/mysql/plugin_audit.h
-    ${CMAKE_SOURCE_DIR}/include/mysql/plugin_ftparser.h
-    ${CMAKE_SOURCE_DIR}/include/mysql.h
-    ${CMAKE_SOURCE_DIR}/include/mysql/psi/psi_abi_v1.h
-    ${CMAKE_SOURCE_DIR}/include/mysql/psi/psi_abi_v2.h
-    ${CMAKE_SOURCE_DIR}/include/mysql/client_plugin.h
-    ${CMAKE_SOURCE_DIR}/include/mysql/plugin_auth.h
-    ${CMAKE_SOURCE_DIR}/include/mysql/plugin_password_validation.h
-    ${CMAKE_SOURCE_DIR}/include/mysql/plugin_encryption.h
-    ${CMAKE_SOURCE_DIR}/include/mysql/plugin_data_type.h
-    ${CMAKE_SOURCE_DIR}/include/mysql/plugin_function.h
+    ${ELOQSQL_SOURCE_DIR}/include/mysql/plugin_audit.h
+    ${ELOQSQL_SOURCE_DIR}/include/mysql/plugin_ftparser.h
+    ${ELOQSQL_SOURCE_DIR}/include/mysql.h
+    ${ELOQSQL_SOURCE_DIR}/include/mysql/psi/psi_abi_v1.h
+    ${ELOQSQL_SOURCE_DIR}/include/mysql/psi/psi_abi_v2.h
+    ${ELOQSQL_SOURCE_DIR}/include/mysql/client_plugin.h
+    ${ELOQSQL_SOURCE_DIR}/include/mysql/plugin_auth.h
+    ${ELOQSQL_SOURCE_DIR}/include/mysql/plugin_password_validation.h
+    ${ELOQSQL_SOURCE_DIR}/include/mysql/plugin_encryption.h
+    ${ELOQSQL_SOURCE_DIR}/include/mysql/plugin_data_type.h
+    ${ELOQSQL_SOURCE_DIR}/include/mysql/plugin_function.h
   )
 
   ADD_CUSTOM_TARGET(abi_check ALL
   COMMAND ${CMAKE_COMMAND} 
     -DCOMPILER=${COMPILER}
-    -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
-    -DBINARY_DIR=${CMAKE_BINARY_DIR}
+    -DSOURCE_DIR=${ELOQSQL_SOURCE_DIR}
+    -DBINARY_DIR=${ELOQSQL_BINARY_DIR}
     "-DABI_HEADERS=${API_PREPROCESSOR_HEADER}"
-    -P ${CMAKE_SOURCE_DIR}/cmake/do_abi_check.cmake
+    -P ${ELOQSQL_SOURCE_DIR}/cmake/do_abi_check.cmake
     VERBATIM
   )
 
@@ -63,20 +63,20 @@ IF(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" AND RUN_ABI_CHECK)
   COMMAND ${CMAKE_COMMAND} 
     -DCOMPILER=${COMPILER}
     -DABI_UPDATE=1
-    -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
-    -DBINARY_DIR=${CMAKE_BINARY_DIR}
+    -DSOURCE_DIR=${ELOQSQL_SOURCE_DIR}
+    -DBINARY_DIR=${ELOQSQL_BINARY_DIR}
     "-DABI_HEADERS=${API_PREPROCESSOR_HEADER}"
-    -P ${CMAKE_SOURCE_DIR}/cmake/do_abi_check.cmake
+    -P ${ELOQSQL_SOURCE_DIR}/cmake/do_abi_check.cmake
     VERBATIM
   )
 
   ADD_CUSTOM_TARGET(abi_check_all
   COMMAND ${CMAKE_COMMAND} 
     -DCOMPILER=${COMPILER} 
-    -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
-    -DBINARY_DIR=${CMAKE_BINARY_DIR}
+    -DSOURCE_DIR=${ELOQSQL_SOURCE_DIR}
+    -DBINARY_DIR=${ELOQSQL_BINARY_DIR}
     "-DABI_HEADERS=${API_PREPROCESSOR_HEADER}"
-    -P ${CMAKE_SOURCE_DIR}/cmake/do_abi_check.cmake
+    -P ${ELOQSQL_SOURCE_DIR}/cmake/do_abi_check.cmake
     VERBATIM
   )
 ENDIF()

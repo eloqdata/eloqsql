@@ -14,8 +14,8 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1335 USA
 
 INCLUDE_DIRECTORIES(
-  ${CMAKE_SOURCE_DIR}/dbug
-  ${CMAKE_SOURCE_DIR}/include 
+  ${ELOQSQL_SOURCE_DIR}/dbug
+  ${ELOQSQL_SOURCE_DIR}/include 
 )
 SET(DBUG_SOURCES dbug.c)
 ADD_CONVENIENCE_LIBRARY(dbug ${DBUG_SOURCES})

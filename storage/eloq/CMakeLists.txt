@@ -228,23 +228,23 @@ include_directories(${MIMALLOC_INCLUDE_DIR})
 
 # include_directories(
 #     ${CMAKE_CURRENT_SOURCE_DIR}
-#     ${CMAKE_SOURCE_DIR}/data_substrate/
-#     ${CMAKE_SOURCE_DIR}/data_substrate/core/include
-#     ${CMAKE_SOURCE_DIR}/data_substrate/tx_service/include
-#     ${CMAKE_SOURCE_DIR}/data_substrate/tx_service/include/cc
-#     ${CMAKE_SOURCE_DIR}/data_substrate/tx_service/include/remote
-#     ${CMAKE_SOURCE_DIR}/data_substrate/tx_service/include/fault
-#     ${CMAKE_SOURCE_DIR}/data_substrate/tx_service/include/store
-#     ${CMAKE_SOURCE_DIR}/data_substrate/tx_service/tx-log-protos
-#     ${CMAKE_SOURCE_DIR}/data_substrate/eloq_metrics/include
-#     ${CMAKE_SOURCE_DIR}/data_substrate/store_handler
+#     ${ELOQSQL_SOURCE_DIR}/data_substrate/
+#     ${ELOQSQL_SOURCE_DIR}/data_substrate/core/include
+#     ${ELOQSQL_SOURCE_DIR}/data_substrate/tx_service/include
+#     ${ELOQSQL_SOURCE_DIR}/data_substrate/tx_service/include/cc
+#     ${ELOQSQL_SOURCE_DIR}/data_substrate/tx_service/include/remote
+#     ${ELOQSQL_SOURCE_DIR}/data_substrate/tx_service/include/fault
+#     ${ELOQSQL_SOURCE_DIR}/data_substrate/tx_service/include/store
+#     ${ELOQSQL_SOURCE_DIR}/data_substrate/tx_service/tx-log-protos
+#     ${ELOQSQL_SOURCE_DIR}/data_substrate/eloq_metrics/include
+#     ${ELOQSQL_SOURCE_DIR}/data_substrate/store_handler
 # )
 
 # if(WITH_LOG_SERVICE)
 #     if (OPEN_LOG_SERVICE)
-#         include_directories(${CMAKE_SOURCE_DIR}/data_substrate/log_service/include)
+#         include_directories(${ELOQSQL_SOURCE_DIR}/data_substrate/log_service/include)
 #     else()
-#         include_directories(${CMAKE_SOURCE_DIR}/data_substrate/eloq_log_service/include)
+#         include_directories(${ELOQSQL_SOURCE_DIR}/data_substrate/eloq_log_service/include)
 #     endif()
 # endif()
 

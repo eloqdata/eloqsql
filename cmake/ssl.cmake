@@ -49,9 +49,9 @@ ENDMACRO()
 
 MACRO (MYSQL_USE_BUNDLED_SSL)
   SET(INC_DIRS
-    ${CMAKE_BINARY_DIR}/extra/wolfssl
-    ${CMAKE_SOURCE_DIR}/extra/wolfssl/wolfssl
-    ${CMAKE_SOURCE_DIR}/extra/wolfssl/wolfssl/wolfssl
+    ${ELOQSQL_BINARY_DIR}/extra/wolfssl
+    ${ELOQSQL_SOURCE_DIR}/extra/wolfssl/wolfssl
+    ${ELOQSQL_SOURCE_DIR}/extra/wolfssl/wolfssl/wolfssl
   )
   SET(SSL_LIBRARIES  wolfssl wolfcrypt)
   SET(SSL_INCLUDE_DIRS ${INC_DIRS})

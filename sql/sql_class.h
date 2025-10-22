@@ -51,7 +51,6 @@
 #include "backup.h"
 #include "xa.h"
 #include "ddl_log.h"                            /* DDL_LOG_STATE */
-#include "../data_substrate/eloq_metrics/include/metrics.h"
 
 extern "C"
 void set_thd_stage_info(void *thd,
@@ -3083,7 +3082,7 @@ public:
       }
     } start_time;
 
-    metrics::TimePoint tx_start_;
+    std::chrono::steady_clock::time_point tx_start_;
     bool tx_registered_{false};
     /*
        Tables changed in transaction (that must be invalidated in query cache).

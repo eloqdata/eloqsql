@@ -13,7 +13,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1335 USA
 
-INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/include ${ZLIB_INCLUDE_DIR})
+INCLUDE_DIRECTORIES(${ELOQSQL_SOURCE_DIR}/include ${ZLIB_INCLUDE_DIR})
 
 # Default install component for the files is Server here
 SET(MYSQL_INSTALL_COMPONENT Server)
@@ -28,23 +28,23 @@ ENDIF()
 # mysqld_error.h results in rebuild of the almost whole server)
 # To preserve timestamp, first generate a temp header file, then copy it
 # to mysqld_error.h using cmake -E copy_if_different
-ADD_CUSTOM_COMMAND(OUTPUT ${CMAKE_BINARY_DIR}/include/mysqld_error.h.tmp
+ADD_CUSTOM_COMMAND(OUTPUT ${ELOQSQL_BINARY_DIR}/include/mysqld_error.h.tmp
    COMMAND comp_err
 	--charset=${PROJECT_SOURCE_DIR}/sql/share/charsets
-	--out-dir=${CMAKE_BINARY_DIR}/sql/share/
-	--header_file=${CMAKE_BINARY_DIR}/include/mysqld_error.h.tmp
-	--name_file=${CMAKE_BINARY_DIR}/include/mysqld_ername.h.tmp
-	--state_file=${CMAKE_BINARY_DIR}/include/sql_state.h.tmp
+	--out-dir=${ELOQSQL_BINARY_DIR}/sql/share/
+	--header_file=${ELOQSQL_BINARY_DIR}/include/mysqld_error.h.tmp
+	--name_file=${ELOQSQL_BINARY_DIR}/include/mysqld_ername.h.tmp
+	--state_file=${ELOQSQL_BINARY_DIR}/include/sql_state.h.tmp
 	--in_file=${PROJECT_SOURCE_DIR}/sql/share/errmsg-utf8.txt
-   COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_BINARY_DIR}/include/mysqld_error.h.tmp ${CMAKE_BINARY_DIR}/include/mysqld_error.h
-   COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_BINARY_DIR}/include/mysqld_ername.h.tmp ${CMAKE_BINARY_DIR}/include/mysqld_ername.h
-   COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_BINARY_DIR}/include/sql_state.h.tmp ${CMAKE_BINARY_DIR}/include/sql_state.h
+   COMMAND ${CMAKE_COMMAND} -E copy_if_different ${ELOQSQL_BINARY_DIR}/include/mysqld_error.h.tmp ${ELOQSQL_BINARY_DIR}/include/mysqld_error.h
+   COMMAND ${CMAKE_COMMAND} -E copy_if_different ${ELOQSQL_BINARY_DIR}/include/mysqld_ername.h.tmp ${ELOQSQL_BINARY_DIR}/include/mysqld_ername.h
+   COMMAND ${CMAKE_COMMAND} -E copy_if_different ${ELOQSQL_BINARY_DIR}/include/sql_state.h.tmp ${ELOQSQL_BINARY_DIR}/include/sql_state.h
    DEPENDS comp_err ${PROJECT_SOURCE_DIR}/sql/share/errmsg-utf8.txt)
 
 ADD_CUSTOM_TARGET(GenError
                   ALL
                   DEPENDS
-                  ${CMAKE_BINARY_DIR}/include/mysqld_error.h.tmp)
+                  ${ELOQSQL_BINARY_DIR}/include/mysqld_error.h.tmp)
 
 MYSQL_ADD_EXECUTABLE(my_print_defaults my_print_defaults.c COMPONENT Client)
 TARGET_LINK_LIBRARIES(my_print_defaults  mysys)
@@ -67,8 +67,8 @@ ENDIF()
 IF(WITH_INNOBASE_STORAGE_ENGINE)
   # Add path to the InnoDB headers
   INCLUDE_DIRECTORIES(
-    ${CMAKE_SOURCE_DIR}/storage/innobase/include
-    ${CMAKE_SOURCE_DIR}/sql)
+    ${ELOQSQL_SOURCE_DIR}/storage/innobase/include
+    ${ELOQSQL_SOURCE_DIR}/sql)
 
   # We use the InnoDB code directly in case the code changes.
   ADD_DEFINITIONS("-DUNIV_INNOCHECKSUM")

@@ -108,8 +108,8 @@
 #include "semisync_slave.h"
 
 #ifdef MYSQLD_LIBRARY_MODE
-#include "mysqld_init.h"
-
+#include <mutex>
+#include <condition_variable>
 // Define synchronization variables
 namespace mysqld_converged_sync {
     std::mutex init_mutex;
@@ -5566,6 +5566,10 @@ static void test_lc_time_sz()
 }
 #endif//DBUG_OFF
 
+void shutdown_mysqld()
+{
+  break_connect_loop();
+}
 
 int mysqld_main(int argc, char **argv)
 {

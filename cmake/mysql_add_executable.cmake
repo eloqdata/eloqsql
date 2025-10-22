@@ -43,7 +43,7 @@ FUNCTION (MYSQL_ADD_EXECUTABLE)
   IF(MSVC)
     # Add compatibility manifest, to fix GetVersionEx on Windows 8.1 and later
     IF (CMAKE_VERSION VERSION_GREATER 3.3)
-      SET(sources ${sources} ${PROJECT_SOURCE_DIR}/cmake/win_compatibility.manifest)
+      SET(sources ${sources} ${ELOQSQL_SOURCE_DIR}/cmake/win_compatibility.manifest)
     ENDIF()
   ENDIF()
 

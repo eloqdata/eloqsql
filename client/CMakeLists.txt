@@ -15,20 +15,20 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1335 USA
 
 INCLUDE_DIRECTORIES(
-  ${CMAKE_SOURCE_DIR}/include
+  ${ELOQSQL_SOURCE_DIR}/include
   ${PCRE_INCLUDES}
-  ${CMAKE_SOURCE_DIR}/mysys_ssl
+  ${ELOQSQL_SOURCE_DIR}/mysys_ssl
   ${ZLIB_INCLUDE_DIR}
   ${SSL_INCLUDE_DIRS}
-  ${CMAKE_SOURCE_DIR}/sql
-  ${CMAKE_SOURCE_DIR}/strings
+  ${ELOQSQL_SOURCE_DIR}/sql
+  ${ELOQSQL_SOURCE_DIR}/strings
   ${MY_READLINE_INCLUDE_DIR}
   ${CMAKE_CURRENT_BINARY_DIR}
 )
 
 INCLUDE_DIRECTORIES(BEFORE
-  ${CMAKE_BINARY_DIR}/libmariadb/include
-  ${CMAKE_SOURCE_DIR}/libmariadb/include)
+  ${ELOQSQL_BINARY_DIR}/libmariadb/include
+  ${ELOQSQL_SOURCE_DIR}/libmariadb/include)
 
 ## We will need libeay32.dll and ssleay32.dll when running client executables.
 COPY_OPENSSL_DLLS(copy_openssl_client)
@@ -37,7 +37,7 @@ SET(CLIENT_LIB mariadbclient mysys)
 
 ADD_DEFINITIONS(${SSL_DEFINES})
 MYSQL_ADD_EXECUTABLE(mariadb completion_hash.cc mysql.cc readline.cc
-                           ${CMAKE_SOURCE_DIR}/sql/sql_string.cc)
+                           ${ELOQSQL_SOURCE_DIR}/sql/sql_string.cc)
 TARGET_LINK_LIBRARIES(mariadb ${CLIENT_LIB})
 IF(UNIX)
   TARGET_LINK_LIBRARIES(mariadb ${MY_READLINE_LIBRARY})
@@ -48,7 +48,7 @@ ENDIF(UNIX)
   ADD_DEFINITIONS(-DWITH_ELOQ_STORAGE_ENGINE)
 # ENDIF()
 
-MYSQL_ADD_EXECUTABLE(mariadb-test mysqltest.cc ${CMAKE_SOURCE_DIR}/sql/sql_string.cc COMPONENT Test)
+MYSQL_ADD_EXECUTABLE(mariadb-test mysqltest.cc ${ELOQSQL_SOURCE_DIR}/sql/sql_string.cc COMPONENT Test)
 SET_SOURCE_FILES_PROPERTIES(mysqltest.cc PROPERTIES COMPILE_FLAGS "-DTHREADS ${PCRE2_DEBIAN_HACK}")
 TARGET_LINK_LIBRARIES(mariadb-test  ${CLIENT_LIB} pcre2-posix pcre2-8)
 SET_TARGET_PROPERTIES(mariadb-test PROPERTIES ENABLE_EXPORTS TRUE)
@@ -85,7 +85,7 @@ SET_SOURCE_FILES_PROPERTIES(mysqlslap.c PROPERTIES COMPILE_FLAGS "-DTHREADS")
 TARGET_LINK_LIBRARIES(mariadb-slap ${CLIENT_LIB})
 
 MYSQL_ADD_EXECUTABLE(mariadb-conv mariadb-conv.cc
-                     ${CMAKE_SOURCE_DIR}/sql/sql_string.cc)
+                     ${ELOQSQL_SOURCE_DIR}/sql/sql_string.cc)
 TARGET_LINK_LIBRARIES(mariadb-conv mysys strings)
 
 IF(WIN32)
