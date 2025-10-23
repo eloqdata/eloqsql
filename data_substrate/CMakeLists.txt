@@ -17,13 +17,15 @@ option(EXT_TX_PROC_ENABLED "Allows external threads to move forward the tx servi
 option(ELOQ_MODULE_ENABLED "Register the tx service as an ELOQ module." OFF)
 
 
-# TODO: Remove this after testing
-add_compile_definitions(ELOQ_MODULE_ELOQSQL)
-
 message(NOTICE "WITH_DATA_STORE: ${WITH_DATA_STORE}")
 message(NOTICE "WITH_LOG_SERVICE: ${WITH_LOG_SERVICE}")
 message(NOTICE "OPEN_LOG_SERVICE: ${OPEN_LOG_SERVICE}")
+option(USE_ONE_ELOQDSS_PARTITION_ENABLED "Whether use one partition for kv store" OFF)
+message(NOTICE "USE_ONE_ELOQDSS_PARTITION_ENABLED : ${USE_ONE_ELOQDSS_PARTITION_ENABLED}")
 
+if(USE_ONE_ELOQDSS_PARTITION_ENABLED)
+    add_compile_definitions(USE_ONE_ELOQDSS_PARTITION)
+endif()
 # Add compile definitions based on options
 if(WITH_DATA_STORE STREQUAL "DYNAMODB")
     set(KV_STORAGE_VAL 1 CACHE STRING "dynamodb" FORCE)
@@ -156,7 +158,6 @@ if(STATISTICS)
     add_compile_definitions(STATISTICS)
 endif()
 
-add_compile_definitions(ELOQ_MODULE_ELOQSQL)
 
 # Include build files for subcomponents
 INCLUDE(build_tx_service.cmake)
@@ -278,6 +279,7 @@ TARGET_LINK_LIBRARIES(${DATA_SUBSTRATE_LIB} ${DATA_SUBSTRATE_LINK_LIBS})
 
 # Export include directories for other targets
 TARGET_INCLUDE_DIRECTORIES(${DATA_SUBSTRATE_LIB} PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/core/include
     ${CMAKE_CURRENT_SOURCE_DIR}/tx_service/include
     ${CMAKE_CURRENT_SOURCE_DIR}/eloq_metrics/include

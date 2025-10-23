@@ -20,14 +20,8 @@
   On Windows, might do some service handling.
 */
 #include <gflags/gflags.h>
-#include <data_substrate.h>
 
-// Only MySQL-related CLI flag we accept
-DEFINE_string(eloqsql_config, "", 
-  "Path to MySQL configuration file. All MySQL options must be in this config file.");
 
-DEFINE_string(data_substrate_config, "", 
-  "Path to data substrate configuration file.");
 
 #ifdef WITH_GLOG
 #include "glog_error_logging.h"
@@ -40,7 +34,6 @@ extern int mysqld_win_main(int argc, char **argv);
 extern int mysqld_main(int argc, char **argv);
 #endif
 
-
 int main(int argc, char **argv)
 {
   // Initialize gflags - will error on unknown flags
@@ -50,12 +43,8 @@ int main(int argc, char **argv)
     "Data substrate flags can be passed on command line.\n"
     "Use --help to see all available flags.");
   
-  
   gflags::ParseCommandLineFlags(&argc, &argv, true);
-
-  // DataSubstrate::InitializeGlobal(FLAGS_data_substrate_config);
-
-
+  
 #ifdef WITH_GLOG
   InitGoogleLogging(argv);
 #endif /* WITH_GLOG */

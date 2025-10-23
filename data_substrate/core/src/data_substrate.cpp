@@ -171,6 +171,10 @@ DataSubstrate::~DataSubstrate()
 
 void DataSubstrate::Shutdown()
 {
+#ifdef ELOQ_MODULE_ELOQSQL
+  system_handler_->Shutdown();
+  system_handler_ = nullptr;
+#endif
   if (tx_service_ != nullptr)
   {
     LOG(INFO) << "Shutting down the tx service.";
@@ -200,9 +204,6 @@ void DataSubstrate::Shutdown()
   }
 #endif
   txservice::Sequences::Destory();
-// #ifdef ELOQ_MODULE_ELOQSQL
-//   MyEloq::MariaSystemHandler::Instance().Shutdown();
-// #endif
 
 #if defined(DATA_STORE_TYPE_DYNAMODB) ||                                      \
     defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3) ||                      \
@@ -219,6 +220,7 @@ bool DataSubstrate::RegisterEngines()
   engines_[1]= {nullptr, txservice::TableEngine::EloqKv, false};
   engines_[2]= {nullptr, txservice::TableEngine::EloqDoc, false};
 
+  prebuilt_tables_.try_emplace(txservice::Sequences::table_name_, std::string(txservice::Sequences::table_name_sv_));
 #ifdef ELOQ_MODULE_ELOQSQL
   engines_[0].enable_engine= true;
   if (eloqsql_catalog_factory) {
@@ -486,10 +488,11 @@ bool DataSubstrate::LoadCoreAndNetworkConfig(const INIReader &config_reader)
   // Set bthread concurrency
   GFLAGS_NAMESPACE::SetCommandLineOption(
       "bthread_concurrency", std::to_string(core_config_.core_num).c_str());
-  // TODO(liunyl): wrap with eloq module macro?
+#ifdef ELOQ_MODULE_ENABLED
   GFLAGS_NAMESPACE::SetCommandLineOption("worker_polling_time_us", "1000");
   GFLAGS_NAMESPACE::SetCommandLineOption("brpc_worker_as_ext_processor",
                                          "true");
+#endif
   GFLAGS_NAMESPACE::SetCommandLineOption("use_pthread_event_dispatcher",
                                          "true");
   GFLAGS_NAMESPACE::SetCommandLineOption("max_body_size", "536870912");

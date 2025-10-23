@@ -107,18 +107,6 @@
 #include "semisync_master.h"
 #include "semisync_slave.h"
 
-#ifdef MYSQLD_LIBRARY_MODE
-#include <mutex>
-#include <condition_variable>
-// Define synchronization variables
-namespace mysqld_converged_sync {
-    std::mutex init_mutex;
-    std::condition_variable mysqld_basic_init_done_cv;
-    std::condition_variable data_substrate_init_done_cv;
-    bool mysqld_basic_init_done = false;
-    bool data_substrate_init_done = false;
-}
-#endif
 
 #include "transaction.h"
 
@@ -127,7 +115,6 @@ namespace mysqld_converged_sync {
 #endif
 
 #include "glog/logging.h"
-#include "data_substrate.h"
 
 #include <thr_alarm.h>
 #include <ft_global.h>
@@ -656,12 +643,10 @@ struct system_variables global_system_variables;
 const char *current_dbug_option="";
 
 // Declare gflags
-DECLARE_string(eloqsql_config);
+DEFINE_string(eloqsql_config, "", 
+  "Path to MySQL configuration file. All MySQL options must be in this config file.");
 DECLARE_bool(bootstrap);
-DECLARE_string(data_substrate_config);
 
-// Global string to hold defaults file argument
-static std::string g_defaults_file_arg;
 
 struct system_variables max_system_variables;
 struct system_status_var global_status_var;
@@ -5059,32 +5044,6 @@ static int init_server_components()
   /* It's now safe to use thread specific memory */
   mysqld_server_initialized= 1;
 
-#ifdef MYSQLD_LIBRARY_MODE
-  // In library mode (converged binary), use synchronization:
-  // 1. Signal that MySQL basic initialization is done
-  // 2. Wait for data substrate to be initialized by converged main
-  {
-    std::unique_lock<std::mutex> lock(mysqld_converged_sync::init_mutex);
-    mysqld_converged_sync::mysqld_basic_init_done = true;
-    mysqld_converged_sync::mysqld_basic_init_done_cv.notify_one();
-    
-    LOG(INFO) << "MySQL basic initialization complete, waiting for data substrate...";
-    
-    // Wait for data substrate initialization to complete
-    mysqld_converged_sync::data_substrate_init_done_cv.wait(lock, [] {
-        return mysqld_converged_sync::data_substrate_init_done;
-    });
-    
-    LOG(INFO) << "Data substrate initialized, MySQL continuing...";
-  }
-#else
-  // In standalone mode, initialize data substrate here
-  // Wait for mysqld to initialize before initializing data substrate
-  // as data substrate may need to access some mysqld variables during replay.
-  LOG(INFO) << "Standalone mode: Initializing data substrate...";
-  DataSubstrate::InitializeGlobal(FLAGS_data_substrate_config);
-#endif
-
 #ifndef EMBEDDED_LIBRARY
   wsrep_thr_init();
 #endif
@@ -5626,10 +5585,11 @@ int mysqld_main(int argc, char **argv)
   }
   
   // Append --defaults-file if --eloqsql_config specified
+  std::string defaults_file_arg;
   if (!FLAGS_eloqsql_config.empty())
   {
-    g_defaults_file_arg = std::string("--defaults-file=") + FLAGS_eloqsql_config;
-    load_default_argv[load_default_argc] = const_cast<char*>(g_defaults_file_arg.c_str());
+    defaults_file_arg = std::string("--defaults-file=") + FLAGS_eloqsql_config;
+    load_default_argv[load_default_argc] = const_cast<char*>(defaults_file_arg.c_str());
     load_default_argc++;
   }
 

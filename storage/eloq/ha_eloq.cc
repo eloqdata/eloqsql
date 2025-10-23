@@ -183,9 +183,21 @@
 #include "tx_service/include/type.h"
 #include "tx_service/include/tx_execution.h"
 #include "tx_service/include/tx_service.h"
-// #include "tx_service/include/tx_service_metrics.h"
 #include "tx_service/include/tx_request.h"
 #include "tx_service/include/util.h"
+
+#ifdef MYSQLD_LIBRARY_MODE
+#include <mutex>
+#include <condition_variable>
+// Define synchronization variables
+namespace mysqld_converged_sync {
+    std::mutex init_mutex;
+    std::condition_variable mysqld_basic_init_done_cv;
+    std::condition_variable data_substrate_init_done_cv;
+    bool mysqld_basic_init_done = false;
+    bool data_substrate_init_done = false;
+}
+#endif
 
 #define DEFAULT_SCAN_TUPLE_SIZE 128
 // eloq_debug_set prefix "+d,eloq;"
@@ -197,6 +209,9 @@
 
 using namespace MyEloq;
 using namespace txservice;
+
+DEFINE_string(config, "", 
+  "Path to data substrate configuration file.");
 
 MariaCatalogFactory maria_catalog_factory;
 txservice::CatalogFactory *eloqsql_catalog_factory= &maria_catalog_factory;
@@ -1333,7 +1348,7 @@ static void eloq_pre_shutdown(void)
   // MariaSystemHandler::ReloadCache() may create a temporary THD, whose
   // constructor depends on global_system_variables.table_plugin. However, it
   // will be set to NULL during plugin_shutdown().
-  MariaSystemHandler::Instance().Shutdown();
+  // MariaSystemHandler::Instance().Shutdown();
 
   DBUG_VOID_RETURN;
 }
@@ -1436,6 +1451,31 @@ static int eloq_init_func(void *p)
                    MY_MUTEX_INIT_FAST);
   mysql_mutex_init(mono_mem_cmp_space_mutex_key, &mono_mem_cmp_space_mutex,
                    MY_MUTEX_INIT_FAST);
+#ifdef MYSQLD_LIBRARY_MODE
+  // In library mode (converged binary), use synchronization:
+  // 1. Signal that MySQL basic initialization is done
+  // 2. Wait for data substrate to be initialized by converged main
+  {
+    std::unique_lock<std::mutex> lock(mysqld_converged_sync::init_mutex);
+    mysqld_converged_sync::mysqld_basic_init_done = true;
+    mysqld_converged_sync::mysqld_basic_init_done_cv.notify_one();
+    
+    LOG(INFO) << "MySQL basic initialization complete, waiting for data substrate...";
+    
+    // Wait for data substrate initialization to complete
+    mysqld_converged_sync::data_substrate_init_done_cv.wait(lock, [] {
+        return mysqld_converged_sync::data_substrate_init_done;
+    });
+    
+    LOG(INFO) << "Data substrate initialized, MySQL continuing...";
+  }
+#else
+  // In standalone mode, initialize data substrate here
+  // Wait for mysqld to initialize before initializing data substrate
+  // as data substrate may need to access some mysqld variables during replay.
+  LOG(INFO) << "Standalone mode: Initializing data substrate...";
+  DataSubstrate::InitializeGlobal(FLAGS_config);
+#endif
 
   eloq_hton= (handlerton *) p;
   eloq_hton->create= eloq_create_handler;

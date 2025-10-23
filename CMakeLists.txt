@@ -43,10 +43,10 @@ MESSAGE(STATUS "Running cmake version ${CMAKE_VERSION}")
 # Option to build as library for converged binary
 option(BUILD_ELOQSQL_AS_LIBRARY "Build eloqsql as library instead of executable" OFF)
 
-IF(BUILD_ELOQSQL_AS_LIBRARY)
+# IF(BUILD_ELOQSQL_AS_LIBRARY)
   SET(ELOQSQL_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
   SET(ELOQSQL_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
-ENDIF()
+# ENDIF()
 
 SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}
   ${ELOQSQL_SOURCE_DIR}/cmake ${ELOQSQL_SOURCE_DIR}/cmake/Internal/CPack)
@@ -461,7 +461,7 @@ MARK_AS_ADVANCED(PYTHON_SHEBANG)
 # Add storage engines and plugins.
 CONFIGURE_PLUGINS()
 
-
+add_compile_definitions(ELOQ_MODULE_ELOQSQL)
 # Build data substrate library first (before sql/ and storage/)
 if(NOT BUILD_ELOQSQL_AS_LIBRARY)
     # Build data substrate library first (standalone mode)
