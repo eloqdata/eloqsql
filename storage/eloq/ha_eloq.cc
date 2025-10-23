@@ -1569,8 +1569,10 @@ static int eloq_done_func(void *p)
 {
   DBUG_ENTER_FUNC();
 
+#ifndef MYSQLD_LIBRARY_MODE
   sql_print_information("Shutting down the data substrate.");
-  // DataSubstrate::GetGlobal()->Shutdown();
+  DataSubstrate::GetGlobal()->Shutdown();
+#endif
 
   mysql_mutex_destroy(&mono_collation_data_mutex);
   mysql_mutex_destroy(&mono_mem_cmp_space_mutex);

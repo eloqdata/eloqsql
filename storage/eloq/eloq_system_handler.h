@@ -40,7 +40,7 @@ public:
 
   void ReloadCache(std::function<void(bool)> done) override;
 
-  void Shutdown();
+  void Shutdown() override;
 
 private:
   MariaSystemHandler();
