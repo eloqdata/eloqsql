@@ -190,13 +190,14 @@
 #include <mutex>
 #include <condition_variable>
 // Define synchronization variables
-namespace mysqld_converged_sync {
-    std::mutex init_mutex;
-    std::condition_variable mysqld_basic_init_done_cv;
-    std::condition_variable data_substrate_init_done_cv;
-    bool mysqld_basic_init_done = false;
-    bool data_substrate_init_done = false;
-}
+namespace mysqld_converged_sync
+{
+std::mutex init_mutex;
+std::condition_variable mysqld_basic_init_done_cv;
+std::condition_variable data_substrate_init_done_cv;
+bool mysqld_basic_init_done= false;
+bool data_substrate_init_done= false;
+} // namespace mysqld_converged_sync
 #endif
 
 #define DEFAULT_SCAN_TUPLE_SIZE 128
@@ -210,8 +211,7 @@ namespace mysqld_converged_sync {
 using namespace MyEloq;
 using namespace txservice;
 
-DEFINE_string(config, "", 
-  "Path to data substrate configuration file.");
+DEFINE_string(config, "", "Path to data substrate configuration file.");
 
 MariaCatalogFactory maria_catalog_factory;
 txservice::CatalogFactory *eloqsql_catalog_factory= &maria_catalog_factory;
@@ -421,13 +421,13 @@ static MYSQL_SYSVAR_INT(signal_monitor, eloq_signal_monitor,
                         nullptr, nullptr, 0, 0, INT_MAX, 0);
 
 static struct st_mysql_sys_var *eloq_system_variables[]= {
-    MYSQL_SYSVAR(cc_protocol),         MYSQL_SYSVAR(enum_var),
-    MYSQL_SYSVAR(ulong_var),           MYSQL_SYSVAR(int_var),
-    MYSQL_SYSVAR(double_var),          MYSQL_SYSVAR(double_thdvar),
-    MYSQL_SYSVAR(varopt_default),      MYSQL_SYSVAR(insert_semantic),
-    MYSQL_SYSVAR(auto_increment),      MYSQL_SYSVAR(invalidate_cache_once),
-    MYSQL_SYSVAR(random_scan_sort),    MYSQL_SYSVAR(report_debug_info),
-    MYSQL_SYSVAR(signal_monitor),      NULL};
+    MYSQL_SYSVAR(cc_protocol),      MYSQL_SYSVAR(enum_var),
+    MYSQL_SYSVAR(ulong_var),        MYSQL_SYSVAR(int_var),
+    MYSQL_SYSVAR(double_var),       MYSQL_SYSVAR(double_thdvar),
+    MYSQL_SYSVAR(varopt_default),   MYSQL_SYSVAR(insert_semantic),
+    MYSQL_SYSVAR(auto_increment),   MYSQL_SYSVAR(invalidate_cache_once),
+    MYSQL_SYSVAR(random_scan_sort), MYSQL_SYSVAR(report_debug_info),
+    MYSQL_SYSVAR(signal_monitor),   NULL};
 
 /**
   Structure for CREATE TABLE options (table options).
@@ -1457,16 +1457,16 @@ static int eloq_init_func(void *p)
   // 2. Wait for data substrate to be initialized by converged main
   {
     std::unique_lock<std::mutex> lock(mysqld_converged_sync::init_mutex);
-    mysqld_converged_sync::mysqld_basic_init_done = true;
+    mysqld_converged_sync::mysqld_basic_init_done= true;
     mysqld_converged_sync::mysqld_basic_init_done_cv.notify_one();
-    
-    LOG(INFO) << "MySQL basic initialization complete, waiting for data substrate...";
-    
+
+    LOG(INFO) << "MySQL basic initialization complete, waiting for data "
+                 "substrate...";
+
     // Wait for data substrate initialization to complete
-    mysqld_converged_sync::data_substrate_init_done_cv.wait(lock, [] {
-        return mysqld_converged_sync::data_substrate_init_done;
-    });
-    
+    mysqld_converged_sync::data_substrate_init_done_cv.wait(
+        lock, [] { return mysqld_converged_sync::data_substrate_init_done; });
+
     LOG(INFO) << "Data substrate initialized, MySQL continuing...";
   }
 #else
@@ -1506,6 +1506,9 @@ static int eloq_init_func(void *p)
   storage_hd= DataSubstrate::GetGlobal()->GetStoreHandler();
 
   node_id= DataSubstrate::GetGlobal()->GetNetworkConfig().node_id;
+#ifdef EXT_TX_PROC_ENABLED
+  get_tx_service_functors= tx_service->GetTxProcFunctors();
+#endif
   sql_print_information("MariaDB data home: %s", mysql_real_data_home_ptr);
 
   // initialize monogrpah specific error message.

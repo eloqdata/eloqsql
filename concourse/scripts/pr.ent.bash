@@ -34,7 +34,7 @@ git submodule sync
 git submodule update --init --recursive
 pr_branch_name=$(cat .git/resource/metadata.json | jq -r '.[] | select(.name=="head_name") | .value')
 
-cd /home/$current_user/workspace/eloqsql/storage/eloq
+cd /home/$current_user/workspace/eloqsql/data_substrate
 ln -s $WORKSPACE/logservice_src eloq_log_service
 
 cd eloq_log_service
@@ -183,7 +183,7 @@ echo "installing"
 cmake --install . --config Debug
 
 echo "building dss_server"
-cd /home/$current_user/workspace/eloqsql/storage/eloq/store_handler/eloq_data_store_service
+cd /home/$current_user/workspace/eloqsql/data_substrate/store_handler/eloq_data_store_service
 mkdir bld && cd bld
 cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DWITH_DATA_STORE=ELOQDSS_ROCKSDB_CLOUD_S3 ../
 cmake --build . --config Debug -j8
@@ -191,7 +191,7 @@ echo "installing dss_server"
 cp dss_server /home/$current_user/workspace/eloqsql/install/bin/
 
 echo "building log_server"
-cd /home/$current_user/workspace/eloqsql/storage/eloq/eloq_log_service
+cd /home/$current_user/workspace/eloqsql/data_substrate/eloq_log_service
 mkdir bld && cd bld
 cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DWITH_LOG_STATE=ROCKSDB_CLOUD_S3 ../
 cmake --build . --config Debug -j8

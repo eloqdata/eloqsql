@@ -7837,7 +7837,6 @@ static int mysql_init_variables(void)
   mysql_real_data_home_len=
     (uint)(strmake_buf(mysql_real_data_home,
                 get_relative_path(MYSQL_DATADIR)) - mysql_real_data_home);
-  LOG(INFO) << "default mysql data home " << mysql_real_data_home;
   /* Replication parameters */
   master_info_file= (char*) "master.info",
     relay_log_info_file= (char*) "relay-log.info";
@@ -8024,7 +8023,6 @@ mysqld_get_one_option(const struct my_option *opt, const char *argument,
     break;
   case 'h':
     strmake_buf(mysql_real_data_home, argument);
-    LOG(INFO) << "mysql data homne " << mysql_real_data_home;
     /* Correct pointer set by my_getopt (for embedded library) */
     mysql_real_data_home_ptr= mysql_real_data_home;
     break;
