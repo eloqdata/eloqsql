@@ -666,8 +666,7 @@ private:
   void AddPushedDownCondition(Item *cond_item);
 
   std::string PushedConditionString(
-      const std::vector<txservice::store::DataStoreSearchCond>
-          &pushdown_condition);
+      const std::vector<txservice::DataStoreSearchCond> &pushdown_condition);
 
   int MatchIcp(uchar *table_record, const EloqKey &sk, const EloqRecord &rec,
                const EloqKeySchema *sk_schema);
@@ -744,7 +743,7 @@ private:
     Item_literal *val_field_;
   };
 
-  std::vector<txservice::store::DataStoreSearchCond> BindPushedCond();
+  std::vector<txservice::DataStoreSearchCond> BindPushedCond();
 
   int BulkInsert(const uchar *buf, std::unique_ptr<EloqKey> eloq_key,
                  std::unique_ptr<EloqRecord> eloq_rec);

@@ -684,7 +684,7 @@ MariaCatalogFactory::CreateRangeCcmScanner(
 {
   assert(range_table_name.Type() == txservice::TableType::RangePartition);
   return std::make_unique<
-      txservice::TemplateCcScanner<EloqKey, txservice::RangeRecord>>(
+      txservice::HashParitionCcScanner<EloqKey, txservice::RangeRecord>>(
       direction,
       range_table_name.IsBase() ? txservice::ScanIndexType::Primary
                                 : txservice::ScanIndexType::Secondary,
