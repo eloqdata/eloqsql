@@ -224,6 +224,7 @@ IF(UNIX AND NOT WITHOUT_SERVER)
     COMPONENT Server)
 
   INSTALL_LINK(mariadb-install-db mysql_install_db ${INSTALL_SCRIPTDIR} Server)
+  INSTALL_LINK(mariadb-install-db eloqsql-install-db ${INSTALL_SCRIPTDIR} Server)
 ENDIF()
 
 SET(prefix "${CMAKE_INSTALL_PREFIX}")

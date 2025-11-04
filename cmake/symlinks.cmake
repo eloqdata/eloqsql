@@ -52,3 +52,30 @@ MACRO(GET_SYMLINK name out)
     list(GET MARIADB_SYMLINK_TOS ${_index} ${out})
   endif()
 ENDMACRO()
+
+
+if(COMMAND REGISTER_ELOQSQL_SYMLINK)
+  return()
+endif()
+
+macro(REGISTER_ELOQSQL_SYMLINK from to)
+  list(APPEND ELOQSQL_SYMLINK_FROMS ${from})
+  list(APPEND ELOQSQL_SYMLINK_TOS ${to})
+endmacro()
+
+REGISTER_ELOQSQL_SYMLINK("mariadbd" "eloqsql")
+REGISTER_ELOQSQL_SYMLINK("mariadb" "eloqsql-cli")
+REGISTER_ELOQSQL_SYMLINK("mariadbd-safe" "eloqsql-safe")
+REGISTER_ELOQSQL_SYMLINK("mariadbd-safe-helper" "eloqsql-safe-helper")
+REGISTER_ELOQSQL_SYMLINK("mariadb-install-db" "eloqsql-install-db")
+
+
+
+
+MACRO(GET_ELOQSQL_SYMLINK name out)
+  set(${out})
+  list(FIND ELOQSQL_SYMLINK_FROMS ${name} _index)
+  if (${_index} GREATER -1)
+    list(GET ELOQSQL_SYMLINK_TOS ${_index} ${out})
+  endif()
+ENDMACRO()

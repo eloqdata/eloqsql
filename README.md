@@ -195,7 +195,7 @@ sudo ${INSTALL_DIR}/bin/mysql -u root -S /tmp/mysqld3316.sock
 ### 9. Run mtr test locally
 Shutdown EloqSQL before running mtr tests.
 
-#### 1. mono_basic and mono_main:
+#### 1. eloq_basic and eloq_main:
 Edit eloqsql/concourse/scripts/mtr_bootstrap.cnf with the following example settings:
 ```ini
 [mariadb]
@@ -234,7 +234,7 @@ eloq_dss_rocksdb_cloud_sst_file_cache_size = 20GB
 
 ```
 
-Run mono_basic and mono_main test
+Run eloq_basic and eloq_main test
 ```bash
 pkill -9 dss_server
 rm -rf dss_data
@@ -245,11 +245,11 @@ mc alias set ${minio_server_alias} http://127.0.0.1:9000 minioadmin minioadmin
 mc rb ${minio_server_alias}/dss-eloqsql-mtr-test --force
 mc rb ${minio_server_alias}/txlog-eloqsql-mtr-test --force
 
-build/mysql-test/mtr --clean-txlog-bucket-restart --suite=mono_basic,mono_main --testcase-timeout=30 --bootstrap-defaults-file=concourse/scripts/mtr_bootstrap.cnf
+build/mysql-test/mtr --clean-txlog-bucket-restart --suite=eloq_basic,eloq_main --testcase-timeout=30 --bootstrap-defaults-file=concourse/scripts/mtr_bootstrap.cnf
 
 ```
 
-#### 2. mono_multi:
+#### 2. eloq_multi:
 
 Edit eloqsql/concourse/scripts/mtr_multi_bootstrap.cnf with the following example settings:
 ```ini
@@ -267,7 +267,7 @@ eloq_dss_rocksdb_cloud_endpoint_url=http://127.0.0.1:9000
 eloq_dss_rocksdb_cloud_bucket_name = eloqsql-mtr-test
 eloq_dss_rocksdb_cloud_bucket_prefix = dss-
 eloq_dss_rocksdb_cloud_region = ap-northeast-1
-eloq_dss_peer_node=localhost:9100 # add this line for mono_multi
+eloq_dss_peer_node=localhost:9100 # add this line for eloq_multi
 
 ...
 
@@ -304,12 +304,12 @@ eloq_dss_rocksdb_cloud_endpoint_url=http://127.0.0.1:9000
 eloq_dss_rocksdb_cloud_bucket_name = eloqsql-mtr-test
 eloq_dss_rocksdb_cloud_bucket_prefix = dss-
 eloq_dss_rocksdb_cloud_region = ap-northeast-1
-eloq_dss_peer_node = localhost:9100 # add this line for mono_multi
+eloq_dss_peer_node = localhost:9100 # add this line for eloq_multi
 eloq_dss_rocksdb_cloud_sst_file_cache_size = 20GB
 
 ```
 
-Run mono_multi test
+Run eloq_multi test
 ```bash
 pkill -9 dss_server
 rm -rf dss_data
@@ -322,7 +322,7 @@ mc rb ${minio_server_alias}/txlog-eloqsql-mtr-test --force
 
 nohup ${INSTALL_DIR}/bin/dss_server --config=concourse/scripts/dss_server.ini &
 
-build/mysql-test/mtr --clean-txlog-bucket-restart --suite=mono_multi --bootstrap-defaults-file=concourse/scripts/mtr_multi_bootstrap.cnf
+build/mysql-test/mtr --clean-txlog-bucket-restart --suite=eloq_multi --bootstrap-defaults-file=concourse/scripts/mtr_multi_bootstrap.cnf
 
 ```
 
