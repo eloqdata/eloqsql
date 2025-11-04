@@ -27,6 +27,7 @@
 #include "eloqsql_key.h"
 #include "eloqsql_schema.h"
 #include "ha_eloq_macro.h"
+#include "data_substrate.h"
 #include "tx_service/include/table_statistics.h"
 #include "tx_service/include/type.h" // TableName
 
@@ -116,7 +117,9 @@ public:
   void SetKVCatalogInfo(const std::string &kv_info) override
   {
     size_t offset= 0;
-    kv_info_= storage_hd->DeserializeKVCatalogInfo(kv_info, offset);
+    kv_info_= DataSubstrate::GetGlobal()
+                  ->GetStoreHandler()
+                  ->DeserializeKVCatalogInfo(kv_info, offset);
   }
 
   txservice::KVCatalogInfo *GetKVCatalogInfo() const override

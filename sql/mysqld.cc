@@ -5263,7 +5263,7 @@ static int init_server_components()
       We need to eat any 'loose' arguments first before we conclude
       that there are unprocessed options.
     */
-    my_getopt_skip_unknown= 0;
+    my_getopt_skip_unknown= TRUE;
 #ifdef WITH_WSREP
     if (wsrep_recovery)
       my_getopt_skip_unknown= TRUE;
@@ -5281,12 +5281,12 @@ static int init_server_components()
     if (!wsrep_recovery)
     {
 #endif
-      if (remaining_argc > 1)
-      {
-        fprintf(stderr, "%s: Too many arguments (first extra is '%s').\n",
-                my_progname, remaining_argv[1]);
-        unireg_abort(1);
-      }
+      // if (remaining_argc > 1)
+      // {
+      //   fprintf(stderr, "%s: Too many arguments (first extra is '%s').\n",
+      //           my_progname, remaining_argv[1]);
+      //   unireg_abort(1);
+      // }
 #ifdef WITH_WSREP
     }
 #endif

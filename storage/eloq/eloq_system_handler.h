@@ -44,7 +44,14 @@ public:
 
 private:
   MariaSystemHandler();
-  ~MariaSystemHandler()= default;
+  ~MariaSystemHandler()
+  {
+    Shutdown();
+    if (thd_.joinable())
+    {
+      thd_.join();
+    }
+  }
 
   void SubmitWork(std::packaged_task<bool()> work);
 

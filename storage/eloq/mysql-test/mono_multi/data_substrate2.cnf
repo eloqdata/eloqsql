@@ -1,0 +1,13 @@
+[local]
+core_number=2
+enable_mvcc=false
+txlog_rocksdb_scan_threads=3
+hm_bin_path=../../../../data_substrate/host_manager
+tx_ip=127.0.0.1
+tx_port=8010
+
+[cluster]
+ip_port_list=127.0.0.1:8000,127.0.0.1:8010,127.0.0.1:8020
+
+[store]
+eloq_dss_peer_node=127.0.0.1:9100

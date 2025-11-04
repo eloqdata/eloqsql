@@ -1,0 +1,6 @@
+[local]
+core_number=1
+enable_mvcc=false
+deadlock_check_interval_seconds=10
+checkpointer_interval=10
+hm_bin_path=../../../../data_substrate/host_manager

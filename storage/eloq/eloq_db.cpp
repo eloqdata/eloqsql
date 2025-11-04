@@ -587,26 +587,22 @@ static int load_view_fetch_func()
   std::string schema_image;
   bool ok= storage_hd->FetchTable(VIEW_TABLE_NAME, schema_image, exists,
                                   version_ts);
-  LOG(INFO) << "load_view_fetch_func " << ok << " exists: " << exists << " version_ts: " << version_ts;
   if (ok)
   {
     if (exists)
     {
       eloq_fetch_view_impl= eloq_fetch_view_normal;
-      LOG(INFO) << "eloq_fetch_view_impl= eloq_fetch_view_normal";
       ret= 0;
     }
     else
     {
       eloq_fetch_view_impl= eloq_fetch_view_bootstrap;
-      LOG(INFO) << "eloq_fetch_view_impl= eloq_fetch_view_bootstrap";
       ret= HA_ERR_KEY_NOT_FOUND;
     }
   }
   else
   {
     eloq_fetch_view_impl= eloq_fetch_view_error;
-    LOG(INFO) << "eloq_fetch_view_impl= eloq_fetch_view_error";
     ret= HA_ERR_INTERNAL_ERROR;
   }
   return ret;
@@ -616,7 +612,6 @@ static int eloq_fetch_view_bootstrap(THD *thd, LEX_CSTRING db,
                                      LEX_CSTRING view, LEX_CSTRING &frm_binary)
 {
   DBUG_ENTER_FUNC();
-  LOG(INFO) << "eloq_fetch_view_bootstrap " << db.str << " " << view.str << ", opt bootstrap: " << opt_bootstrap;
   int err= load_view_fetch_func();
   if (err == 0)
   {
@@ -636,7 +631,6 @@ static int eloq_fetch_view_normal(THD *thd, LEX_CSTRING db, LEX_CSTRING view,
                                   LEX_CSTRING &frm_binary)
 {
   DBUG_ENTER_FUNC();
-  LOG(INFO) << "eloq_fetch_view_normal " << db.str << " " << view.str;
 
   int ret= 0;
 

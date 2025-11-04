@@ -43,7 +43,16 @@ int main(int argc, char **argv)
     "Data substrate flags can be passed on command line.\n"
     "Use --help to see all available flags.");
   
+#ifdef MYSQLD_LIBRARY_MODE
+  // When compiled as library mode, only accept flags that are defined in the data substrate
   gflags::ParseCommandLineFlags(&argc, &argv, true);
+#else
+  // When compiled as standalone mode, allow unrecognized flags to be passed through to MySQL
+  gflags::AllowCommandLineReparsing();
+  // Allow all MySQL-specific flags to pass through without error
+  gflags::SetCommandLineOption("undefok", "*");
+  gflags::ParseCommandLineNonHelpFlags(&argc, &argv, false);
+#endif
   
 #ifdef WITH_GLOG
   InitGoogleLogging(argv);

@@ -1,5 +1,4 @@
 --source include/have_eloq.inc
---source include/have_range_partition.inc
 --sleep 2 #Here is bug, If not sleep, the mysqld will not return result.
 
 --disable_warnings

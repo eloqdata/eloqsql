@@ -211,12 +211,11 @@ bool data_substrate_init_done= false;
 using namespace MyEloq;
 using namespace txservice;
 
-DEFINE_string(config, "", "Path to data substrate configuration file.");
+DECLARE_string(eloq_data_path);
 
 MariaCatalogFactory maria_catalog_factory;
 txservice::CatalogFactory *eloqsql_catalog_factory= &maria_catalog_factory;
-txservice::SystemHandler *eloqsql_system_handler=
-    &MyEloq::MariaSystemHandler::Instance();
+txservice::SystemHandler *eloqsql_system_handler= nullptr;
 extern my_bool opt_bootstrap; // Defined in Mariadb context.
 extern std::function<void(int)> terminate_hook;
 
@@ -238,6 +237,7 @@ static handler *eloq_create_handler(handlerton *hton, TABLE_SHARE *table,
 
 handlerton *eloq_hton;
 
+static char *eloq_config= nullptr;
 static char *eloq_insert_semantic= nullptr;
 static char *eloq_auto_increment= nullptr;
 static char *eloq_invalidate_cache_once= nullptr;
@@ -280,6 +280,10 @@ static MYSQL_SYSVAR_ENUM(enum_var,                       // name
                          0,                              // def
                          &enum_var_typelib);             // typelib
 
+
+static MYSQL_SYSVAR_STR(config, eloq_config, PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+                        "Path to data substrate configuration file.", nullptr, nullptr,
+                        "");
 static MYSQL_SYSVAR_STR(insert_semantic, eloq_insert_semantic,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
                         "Insert semantic: insert or upsert", nullptr, nullptr,
@@ -427,7 +431,7 @@ static struct st_mysql_sys_var *eloq_system_variables[]= {
     MYSQL_SYSVAR(varopt_default),   MYSQL_SYSVAR(insert_semantic),
     MYSQL_SYSVAR(auto_increment),   MYSQL_SYSVAR(invalidate_cache_once),
     MYSQL_SYSVAR(random_scan_sort), MYSQL_SYSVAR(report_debug_info),
-    MYSQL_SYSVAR(signal_monitor),   NULL};
+    MYSQL_SYSVAR(signal_monitor),   MYSQL_SYSVAR(config), NULL};
 
 /**
   Structure for CREATE TABLE options (table options).
@@ -1451,6 +1455,7 @@ static int eloq_init_func(void *p)
                    MY_MUTEX_INIT_FAST);
   mysql_mutex_init(mono_mem_cmp_space_mutex_key, &mono_mem_cmp_space_mutex,
                    MY_MUTEX_INIT_FAST);
+  eloqsql_system_handler= &MyEloq::MariaSystemHandler::Instance();
 #ifdef MYSQLD_LIBRARY_MODE
   // In library mode (converged binary), use synchronization:
   // 1. Signal that MySQL basic initialization is done
@@ -1470,11 +1475,13 @@ static int eloq_init_func(void *p)
     LOG(INFO) << "Data substrate initialized, MySQL continuing...";
   }
 #else
+  // Set the data substrate data path to mysql home directory in standalone mode.
+  FLAGS_eloq_data_path= mysql_real_data_home_ptr;
   // In standalone mode, initialize data substrate here
   // Wait for mysqld to initialize before initializing data substrate
   // as data substrate may need to access some mysqld variables during replay.
   LOG(INFO) << "Standalone mode: Initializing data substrate...";
-  DataSubstrate::InitializeGlobal(FLAGS_config);
+  DataSubstrate::InitializeGlobal(eloq_config);
 #endif
 
   eloq_hton= (handlerton *) p;

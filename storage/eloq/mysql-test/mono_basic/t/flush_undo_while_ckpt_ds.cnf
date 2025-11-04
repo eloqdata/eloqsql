@@ -1,0 +1,8 @@
+[local]
+core_number=1
+enable_mvcc=true
+deadlock_check_interval_seconds=10
+checkpointer_interval=10
+checkpointer_delay_seconds=0
+txlog_rocksdb_scan_threads=3
+hm_bin_path=../../../../data_substrate/host_manager
