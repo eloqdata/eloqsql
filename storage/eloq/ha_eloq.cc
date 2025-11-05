@@ -2803,6 +2803,13 @@ static int eloq_init_func(void *p)
     }
     else
     {
+      if (ng_configs.size() > 1)
+      {
+        sql_print_error("EloqDS multi-node cluster must specify "
+                        "eloq_dss_peer_node.");
+        DBUG_RETURN(eloq_init_abort());
+      }
+
       EloqDS::DataStoreServiceClient::TxConfigsToDssClusterConfig(
           dss_node_id, native_ng_id, ng_configs, dss_leader_id, ds_config);
     }
@@ -2813,8 +2820,18 @@ static int eloq_init_func(void *p)
 
     // setup local data store service, the data store service will start
     // data store if needed.
-    bool ret= data_store_service_->StartService(
-        (opt_bootstrap || is_single_node), dss_leader_id, dss_node_id);
+    bool ret= true;
+#if defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB)
+    // For non shared storage like rocksdb,
+    // we always set create_if_missing to true
+    // since non conflicts will happen under
+    // multi-node deployment.
+    ret= data_store_service_->StartService(true, dss_leader_id, dss_node_id);
+#else
+    ret= data_store_service_->StartService((opt_bootstrap || is_single_node),
+                                           dss_leader_id, dss_node_id);
+#endif
+
     if (!ret)
     {
       sql_print_error("Failed to start data store service");
