@@ -2743,9 +2743,9 @@ static int eloq_init_func(void *p)
       if (!EloqDS::DataStoreService::FetchConfigFromPeer(eloq_dss_peer_node,
                                                          ds_config))
       {
-        LOG(ERROR) << "Failed to fetch config from peer node: "
-                   << eloq_dss_peer_node;
-        return false;
+        sql_print_error("Failed to fetch DSS config from peer node: %s",
+                        eloq_dss_peer_node);
+        DBUG_RETURN(eloq_init_abort());
       }
     }
     else
