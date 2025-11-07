@@ -54,6 +54,10 @@ drop table t1;
 --error ER_NO_SUCH_TABLE
 select * from t1;
 SET SESSION debug_dbug="-d,eloq;kv_upsert_table;node_id=1";
+# Sleep for replay work finished to avoid ww conflict
+--disable_result_log
+--sleep 3
+--enable_result_log
 create table t1(i int primary key, j int) engine= eloq;
 select * from t1;
 drop table t1;
