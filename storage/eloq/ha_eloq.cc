@@ -2568,6 +2568,59 @@ static int eloq_init_func(void *p)
 
   std::string store_keyspace_name(eloq_keyspace_name);
 
+  if (opt_bootstrap)
+  {
+    // When execute mysql_install_db.sh, eloq should run in solo mode.
+    std::vector<NodeConfig> solo_config;
+    solo_config.emplace_back(0, local_ip, local_port);
+    ng_configs.try_emplace(0, std::move(solo_config));
+  }
+  else if (!txservice::ReadClusterConfigFile(cluster_config_file, ng_configs,
+                                             cluster_config_version))
+  {
+
+    // Read cluster topology from general config file in this case
+    auto parse_res= txservice::ParseNgConfig(
+        eloq_ip_list, eloq_standby_ip_list, eloq_voter_ip_list, ng_configs,
+        eloq_node_group_replica_num, 0);
+    if (!parse_res)
+    {
+      LOG(ERROR) << "Failed to extract cluster configs from ip_port_list.";
+      DBUG_RETURN(eloq_init_abort());
+    }
+  }
+
+  bool found= false;
+  uint32_t native_ng_id= 0;
+  // check whether this node is in cluster.
+  for (auto &pair : ng_configs)
+  {
+    auto &ng_nodes= pair.second;
+    for (size_t i= 0; i < ng_nodes.size(); i++)
+    {
+      if (ng_nodes[i].host_name_ == local_ip &&
+          ng_nodes[i].port_ == local_port)
+      {
+        node_id= ng_nodes[i].node_id_;
+        found= true;
+        if (ng_nodes[i].is_candidate_)
+        {
+          // found native_ng_id.
+          native_ng_id= pair.first;
+          break;
+        }
+      }
+    }
+  }
+
+  if (!found)
+  {
+    sql_print_error("!!!!!!!! Current node does not belong to any node "
+                    "group, EloqDB "
+                    "startup is terminated !!!!!!!!");
+    DBUG_RETURN(eloq_init_abort());
+  }
+
   switch (eloq_kv_storage)
   {
 #if defined(DATA_STORE_TYPE_DYNAMODB)
@@ -2624,58 +2677,6 @@ static int eloq_init_func(void *p)
       sql_print_error("Failed to create dir: %s", dss_data_path.c_str());
       DBUG_RETURN(eloq_init_abort());
     }
-    std::string dss_config_file_path= eloq_dss_config_file_path;
-    if (dss_config_file_path.empty())
-    {
-      dss_config_file_path= dss_data_path + "/dss_config.ini";
-    }
-
-    EloqDS::DataStoreServiceClusterManager ds_config;
-    if (!ds_config.Load(dss_config_file_path))
-    {
-      if (!ds_peer_node.empty())
-      {
-        ds_config.SetThisNode(local_ip, local_port + 7);
-        // Fetch ds topology from peer node
-        if (!EloqDS::DataStoreService::FetchConfigFromPeer(ds_peer_node,
-                                                           ds_config))
-        {
-          sql_print_error("Failed to fetch config from peer node: %s",
-                          ds_peer_node.c_str());
-          DBUG_RETURN(eloq_init_abort());
-        }
-
-        // Save the fetched config to the local file
-        if (!ds_config.Save(dss_config_file_path))
-        {
-          sql_print_error("Failed to save config to file: %s",
-                          dss_config_file_path.c_str());
-          DBUG_RETURN(eloq_init_abort());
-        }
-      }
-      else if (opt_bootstrap || is_single_node)
-      {
-        // Initialize the data store service config
-        ds_config.Initialize(local_ip, local_port + 7);
-        if (!ds_config.Save(dss_config_file_path))
-        {
-          sql_print_error("Failed to save config to file: %s",
-                          dss_config_file_path.c_str());
-          DBUG_RETURN(eloq_init_abort());
-        }
-      }
-      else
-      {
-        sql_print_error("Failed to load data store service config file: %s",
-                        dss_config_file_path.c_str());
-        DBUG_RETURN(eloq_init_abort());
-      }
-    }
-    else
-    {
-      sql_print_information("EloqDataStoreService loaded config file %s",
-                            dss_config_file_path.c_str());
-    }
 
 #if defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3) ||                      \
     defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_GCS)
@@ -2721,14 +2722,63 @@ static int eloq_init_func(void *p)
         std::move(eloq_store_config));
 #endif
 
+    std::string dss_config_file_path= "";
+    EloqDS::DataStoreServiceClusterManager ds_config;
+    uint32_t dss_leader_id= EloqDS::UNKNOWN_DSS_LEADER_NODE_ID;
+
+    // use tx node id as the dss node id
+    // since they are deployed together
+    uint32_t dss_node_id= node_id;
+    if (opt_bootstrap || is_single_node)
+    {
+      dss_leader_id= node_id;
+    }
+
+    if (!ds_peer_node.empty())
+    {
+      ds_config.SetThisNode(
+          local_ip,
+          EloqDS::DataStoreServiceClient::TxPort2DssPort(local_port));
+      // Fetch ds topology from peer node
+      if (!EloqDS::DataStoreService::FetchConfigFromPeer(eloq_dss_peer_node,
+                                                         ds_config))
+      {
+        sql_print_error("Failed to fetch DSS config from peer node: %s",
+                        eloq_dss_peer_node);
+        DBUG_RETURN(eloq_init_abort());
+      }
+    }
+    else
+    {
+      if (ng_configs.size() > 1)
+      {
+        sql_print_error("EloqDS multi-node cluster must specify "
+                        "eloq_dss_peer_node.");
+        DBUG_RETURN(eloq_init_abort());
+      }
+
+      EloqDS::DataStoreServiceClient::TxConfigsToDssClusterConfig(
+          dss_node_id, native_ng_id, ng_configs, dss_leader_id, ds_config);
+    }
+
     data_store_service_= std::make_unique<EloqDS::DataStoreService>(
         ds_config, dss_config_file_path, dss_data_path + "/DSMigrateLog",
         std::move(ds_factory));
 
     // setup local data store service, the data store service will start
     // data store if needed.
-    bool ret=
-        data_store_service_->StartService((opt_bootstrap || is_single_node));
+    bool ret= true;
+#if defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB)
+    // For non shared storage like rocksdb,
+    // we always set create_if_missing to true
+    // since non conflicts will happen under
+    // multi-node deployment.
+    ret= data_store_service_->StartService(true, dss_leader_id, dss_node_id);
+#else
+    ret= data_store_service_->StartService((opt_bootstrap || is_single_node),
+                                           dss_leader_id, dss_node_id);
+#endif
+
     if (!ret)
     {
       sql_print_error("Failed to start data store service");
@@ -2752,58 +2802,6 @@ static int eloq_init_func(void *p)
 #endif
 
   default:
-    DBUG_RETURN(eloq_init_abort());
-  }
-  if (opt_bootstrap)
-  {
-    // When execute mysql_install_db.sh, eloq should run in solo mode.
-    std::vector<NodeConfig> solo_config;
-    solo_config.emplace_back(0, local_ip, local_port);
-    ng_configs.try_emplace(0, std::move(solo_config));
-  }
-  else if (!txservice::ReadClusterConfigFile(cluster_config_file, ng_configs,
-                                             cluster_config_version))
-  {
-
-    // Read cluster topology from general config file in this case
-    auto parse_res= txservice::ParseNgConfig(
-        eloq_ip_list, eloq_standby_ip_list, eloq_voter_ip_list, ng_configs,
-        eloq_node_group_replica_num, 0);
-    if (!parse_res)
-    {
-      LOG(ERROR) << "Failed to extract cluster configs from ip_port_list.";
-      DBUG_RETURN(eloq_init_abort());
-    }
-  }
-
-  bool found= false;
-  uint32_t native_ng_id= 0;
-  // check whether this node is in cluster.
-  for (auto &pair : ng_configs)
-  {
-    auto &ng_nodes= pair.second;
-    for (size_t i= 0; i < ng_nodes.size(); i++)
-    {
-      if (ng_nodes[i].host_name_ == local_ip &&
-          ng_nodes[i].port_ == local_port)
-      {
-        node_id= ng_nodes[i].node_id_;
-        found= true;
-        if (ng_nodes[i].is_candidate_)
-        {
-          // found native_ng_id.
-          native_ng_id= pair.first;
-          break;
-        }
-      }
-    }
-  }
-
-  if (!found)
-  {
-    sql_print_error("!!!!!!!! Current node does not belong to any node "
-                    "group, EloqDB "
-                    "startup is terminated !!!!!!!!");
     DBUG_RETURN(eloq_init_abort());
   }
 
