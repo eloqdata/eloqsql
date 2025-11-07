@@ -2678,59 +2678,6 @@ static int eloq_init_func(void *p)
       DBUG_RETURN(eloq_init_abort());
     }
 
-    // std::string dss_config_file_path= eloq_dss_config_file_path;
-    // if (dss_config_file_path.empty())
-    // {
-    //   dss_config_file_path= dss_data_path + "/dss_config.ini";
-    // }
-    //
-    // EloqDS::DataStoreServiceClusterManager ds_config;
-    // if (!ds_config.Load(dss_config_file_path))
-    // {
-    //   if (!ds_peer_node.empty())
-    //   {
-    //     ds_config.SetThisNode(local_ip, local_port + 7);
-    //     // Fetch ds topology from peer node
-    //     if (!EloqDS::DataStoreService::FetchConfigFromPeer(ds_peer_node,
-    //                                                        ds_config))
-    //     {
-    //       sql_print_error("Failed to fetch config from peer node: %s",
-    //                       ds_peer_node.c_str());
-    //       DBUG_RETURN(eloq_init_abort());
-    //     }
-    //
-    //     // Save the fetched config to the local file
-    //     if (!ds_config.Save(dss_config_file_path))
-    //     {
-    //       sql_print_error("Failed to save config to file: %s",
-    //                       dss_config_file_path.c_str());
-    //       DBUG_RETURN(eloq_init_abort());
-    //     }
-    //   }
-    //   else if (opt_bootstrap || is_single_node)
-    //   {
-    //     // Initialize the data store service config
-    //     ds_config.Initialize(local_ip, local_port + 7);
-    //     if (!ds_config.Save(dss_config_file_path))
-    //     {
-    //       sql_print_error("Failed to save config to file: %s",
-    //                       dss_config_file_path.c_str());
-    //       DBUG_RETURN(eloq_init_abort());
-    //     }
-    //   }
-    //   else
-    //   {
-    //     sql_print_error("Failed to load data store service config file: %s",
-    //                     dss_config_file_path.c_str());
-    //     DBUG_RETURN(eloq_init_abort());
-    //   }
-    // }
-    // else
-    // {
-    //   sql_print_information("EloqDataStoreService loaded config file %s",
-    //                         dss_config_file_path.c_str());
-    // }
-
 #if defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_S3) ||                      \
     defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB_CLOUD_GCS)
     // std::string ds_rocksdb_config_file_path=
