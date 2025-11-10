@@ -5639,7 +5639,8 @@ int ha_eloq::BulkUniqueCheck(size_t bulk_size)
 
     BatchReadTxRequest batch_read_req(
         &table_name, schema_version, batch_tuples, true, false, false,
-        coro_functors.first, coro_functors.second, my_tx->Txm(), 0, true);
+        coro_functors.first, coro_functors.second, my_tx->Txm(), true, 0,
+        true);
 
     my_tx->Txm()->Execute(&batch_read_req);
     batch_read_req.Wait();
@@ -6832,7 +6833,7 @@ int ha_eloq::SkIndexScanNext(uchar *table_record)
   BatchReadTxRequest batch_req(GetBaseTableNameFromTableSchema(),
                                pk_key_version, sk_pk_scan_batch_, for_update,
                                for_share, false, coro_functors.first,
-                               coro_functors.second, txm);
+                               coro_functors.second, txm, true);
   txm->Execute(&batch_req);
   batch_req.Wait();
 
@@ -9427,7 +9428,7 @@ int ha_eloq::batch_load_records(std::vector<uchar *> &vct_key)
   BatchReadTxRequest batch_req(GetBaseTableNameFromTableSchema(),
                                pk_key_version, sk_pk_scan_batch_, for_update,
                                for_share, false, coro_functors.first,
-                               coro_functors.second, my_tx->Txm());
+                               coro_functors.second, my_tx->Txm(), true);
   TransactionExecution *txm= my_tx->Txm();
   txm->Execute(&batch_req);
   batch_req.Wait();
