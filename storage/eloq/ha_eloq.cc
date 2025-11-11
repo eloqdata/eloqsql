@@ -2298,7 +2298,11 @@ Aws::SDKOptions aws_options;
 static int aws_init()
 {
   DBUG_ENTER("aws_init");
+#if !defined(DBUG_OFF)
+  aws_options.loggingOptions.logLevel= Aws::Utils::Logging::LogLevel::Debug;
+#else
   aws_options.loggingOptions.logLevel= Aws::Utils::Logging::LogLevel::Info;
+#endif
   Aws::InitAPI(aws_options);
   DBUG_RETURN(0);
 }
@@ -2660,7 +2664,6 @@ static int eloq_init_func(void *p)
 
 #elif ELOQDS
   case KV_ELOQDS: {
-    bool is_single_node= true;
     std::string ds_peer_node= eloq_dss_peer_node;
     std::string ds_branch_name= eloq_dss_branch_name;
     std::string dss_data_path= mysql_real_data_home_ptr;
@@ -2724,15 +2727,7 @@ static int eloq_init_func(void *p)
 
     std::string dss_config_file_path= "";
     EloqDS::DataStoreServiceClusterManager ds_config;
-    uint32_t dss_leader_id= EloqDS::UNKNOWN_DSS_LEADER_NODE_ID;
-
-    // use tx node id as the dss node id
-    // since they are deployed together
-    uint32_t dss_node_id= node_id;
-    if (opt_bootstrap || is_single_node)
-    {
-      dss_leader_id= node_id;
-    }
+    bool is_single_node= false;
 
     if (!ds_peer_node.empty())
     {
@@ -2747,18 +2742,88 @@ static int eloq_init_func(void *p)
                         eloq_dss_peer_node);
         DBUG_RETURN(eloq_init_abort());
       }
+      is_single_node=
+          (ng_configs.size() == 1 && ng_configs.begin()->second.size() == 1);
     }
     else
     {
-      if (ng_configs.size() > 1)
-      {
-        sql_print_error("EloqDS multi-node cluster must specify "
-                        "eloq_dss_peer_node.");
-        DBUG_RETURN(eloq_init_abort());
-      }
+      // Bind dss leaders with TxService ng leaders.
+      std::unordered_map<uint32_t, uint32_t> ng_leaders;
 
-      EloqDS::DataStoreServiceClient::TxConfigsToDssClusterConfig(
-          dss_node_id, native_ng_id, ng_configs, dss_leader_id, ds_config);
+      if (opt_bootstrap)
+      {
+        // Must parse all node groups to generate data store shards configs.
+        std::unordered_map<uint32_t, std::vector<NodeConfig>> tmp_ng_configs;
+        uint64_t tmp_cluster_version= 2;
+        if (!txservice::ReadClusterConfigFile(
+                cluster_config_file, tmp_ng_configs, tmp_cluster_version))
+        {
+
+          // Read cluster topology from general config file in this case
+          auto parse_res= txservice::ParseNgConfig(
+              eloq_ip_list, eloq_standby_ip_list, eloq_voter_ip_list,
+              tmp_ng_configs, eloq_node_group_replica_num, 0);
+          if (!parse_res)
+          {
+            LOG(ERROR)
+                << "Failed to extract cluster configs from ip_port_list.";
+            DBUG_RETURN(eloq_init_abort());
+          }
+        }
+
+        bool found= false;
+        uint32_t tmp_node_id;
+        // check whether this node is in cluster.
+        for (auto &pair : tmp_ng_configs)
+        {
+          auto &ng_nodes= pair.second;
+          for (size_t i= 0; i < ng_nodes.size(); i++)
+          {
+            if (ng_nodes[i].host_name_ == local_ip &&
+                ng_nodes[i].port_ == local_port)
+            {
+              tmp_node_id= ng_nodes[i].node_id_;
+              found= true;
+              break;
+            }
+          }
+          if (found)
+          {
+            break;
+          }
+        }
+        if (!found)
+        {
+          sql_print_error("!!!!!!!! Current node does not belong to any node "
+                          "group, EloqDB "
+                          "startup is terminated !!!!!!!!");
+          DBUG_RETURN(eloq_init_abort());
+        }
+
+        // For bootstrap, start all data store shards in current node.
+        for (auto &ng : tmp_ng_configs)
+        {
+          ng_leaders.emplace(ng.first, tmp_node_id);
+        }
+
+        EloqDS::DataStoreServiceClient::TxConfigsToDssClusterConfig(
+            tmp_node_id, tmp_ng_configs, ng_leaders, ds_config);
+      }
+      else
+      {
+        is_single_node=
+            (ng_configs.size() == 1 && ng_configs.begin()->second.size() == 1);
+        if (is_single_node)
+        {
+          for (const auto &[ng_id, ng_config] : ng_configs)
+          {
+            ng_leaders.emplace(ng_id, node_id);
+          }
+        }
+
+        EloqDS::DataStoreServiceClient::TxConfigsToDssClusterConfig(
+            node_id, ng_configs, ng_leaders, ds_config);
+      }
     }
 
     data_store_service_= std::make_unique<EloqDS::DataStoreService>(
@@ -2773,10 +2838,9 @@ static int eloq_init_func(void *p)
     // we always set create_if_missing to true
     // since non conflicts will happen under
     // multi-node deployment.
-    ret= data_store_service_->StartService(true, dss_leader_id, dss_node_id);
+    ret= data_store_service_->StartService(true);
 #else
-    ret= data_store_service_->StartService((opt_bootstrap || is_single_node),
-                                           dss_leader_id, dss_node_id);
+    ret= data_store_service_->StartService((opt_bootstrap || is_single_node));
 #endif
 
     if (!ret)
@@ -2787,7 +2851,13 @@ static int eloq_init_func(void *p)
 
     // setup data store service client
     storage_hd= std::make_unique<EloqDS::DataStoreServiceClient>(
-        catalog_factory, ds_config, data_store_service_.get());
+#if defined(DATA_STORE_TYPE_ELOQDSS_ROCKSDB)
+        true,
+#else
+        (opt_bootstrap || is_single_node),
+#endif
+        catalog_factory, ds_config, ds_peer_node.empty(),
+        data_store_service_.get());
 
     if (!storage_hd->Connect())
     {
