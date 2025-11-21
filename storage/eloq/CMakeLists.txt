@@ -305,6 +305,7 @@ elseif(WITH_DATA_STORE STREQUAL "ELOQDSS_ROCKSDB_CLOUD_S3" OR WITH_DATA_STORE ST
 		  store_handler/eloq_data_store_service/rocksdb_cloud_data_store.cpp
       store_handler/eloq_data_store_service/purger_event_listener.cpp
       store_handler/eloq_data_store_service/purger_sliding_window.cpp
+      store_handler/eloq_data_store_service/s3_file_downloader.cpp
     )
   elseif (WITH_DATA_STORE STREQUAL "ELOQDSS_ROCKSDB")
     SET(MYELOQ_SOURCES
