@@ -38,10 +38,10 @@ select * from t2;
 Begin;
 update t2 set j=3;
 
-# The row(1,1) is located on server-2, then restart it to trigger changing node term. 
-# Here will restart server 2. It will decide which node to restart
+# The row(1,1) is located on server-3, then restart it to trigger changing node term. 
+# Here will restart server-3. It will decide which node to restart
 # according to the current connection.
---connection serv_2
+--connection serv_3
 --source include/restart_mysqld.inc
 
 --connection serv_1
