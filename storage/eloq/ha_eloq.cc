@@ -5794,6 +5794,7 @@ int ha_eloq::BulkUniqueCheck(size_t bulk_size)
             std::get<1>(index_it->second.second[idx]));
         batch_tuples.at(idx).status_= RecordStatus::Unknown;
         batch_tuples.at(idx).version_ts_= 0;
+        batch_tuples.at(idx).object_type_= -1;
       }
       else
       {
@@ -6861,7 +6862,7 @@ int ha_eloq::SkIndexScanNext(uchar *table_record)
         // into new tuple.
         const auto &tuple= scan_batch_[scan_batch_idx_ - 1];
         tmp_scan_batch.emplace_back(TxKey(), nullptr, tuple.status_,
-                                    tuple.version_ts_, tuple.cce_addr_);
+                                    tuple.version_ts_, -1, tuple.cce_addr_);
       }
     }
   } while (ccm_scan_open_ || store_key != nullptr);
@@ -6893,7 +6894,7 @@ int ha_eloq::SkIndexScanNext(uchar *table_record)
     KeyOrder &order= vct_key_order[i];
     batch_key_[i]= std::move(order.key_);
     sk_pk_scan_batch_.emplace_back(TxKey(&batch_key_[i]), &batch_rec_[i],
-                                   RecordStatus::Unknown, order.ts_);
+                                   RecordStatus::Unknown, order.ts_, -1);
     batch_order_[order.pos_]= i;
   }
 
