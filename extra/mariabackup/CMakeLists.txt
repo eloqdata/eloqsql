@@ -14,7 +14,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1335  USA
 
 
-OPTION(WITH_MARIABACKUP "Include mariabackup" ON)
+OPTION(WITH_MARIABACKUP "Include mariabackup" OFF)
 ADD_FEATURE_INFO(MARIABACKUP WITH_MARIABACKUP "MariaDB Backup Utility")
 
 IF(NOT WITH_MARIABACKUP)
@@ -29,8 +29,8 @@ IF(NOT WIN32)
 ENDIF()
 
 INCLUDE_DIRECTORIES(
-  ${CMAKE_SOURCE_DIR}/include
-  ${CMAKE_SOURCE_DIR}/sql
+  ${ELOQSQL_SOURCE_DIR}/include
+  ${ELOQSQL_SOURCE_DIR}/sql
   ${CMAKE_CURRENT_SOURCE_DIR}/quicklz
   ${CMAKE_CURRENT_SOURCE_DIR}
   )

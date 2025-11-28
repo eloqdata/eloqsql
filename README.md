@@ -5,7 +5,7 @@ A MySQL-compatible, high performance, elastic, distributed SQL database.
 ---
 
 ## Overview
-EloqSQL is a distributed SQL database designed to combine MySQL compatibility with the scalability and performance of modern distributed systems. Built on top of [Data Substrate](https://www.eloqdata.com/blog/2024/08/11/data-substrate), it replaces traditional storage engines like InnoDB with a flexible, distributed and high-performance eloq engine: [Transaction Service](https://github.com/eloqdata/tx_service). It has distributed buffer pool and support Cassandra, ScyllaDB and DynamoDB as the underlying data store.
+EloqSQL is a distributed SQL database designed to combine MySQL compatibility with the scalability and performance of modern distributed systems. Built on top of [Data Substrate](https://www.eloqdata.com/blog/2024/08/11/data-substrate), it replaces traditional storage engines like InnoDB with a flexible, distributed and high-performance eloq engine: [Transaction Service](https://github.com/eloqdata/tx_service). It has distributed buffer pool and support **RocksDB**, **RocksDB-Cloud**, and **DynamoDB** as storage.
 
 EloqSQL delivers full ACID transactions, elastic scaling, and efficient resource utilization, making it ideal for demanding workloads.
 
@@ -129,9 +129,9 @@ cmake --install . --config RelWithDebInfo
 ```
 
 ### 4. Set Up Storage Backend
-EloqSQL use s3 as storage backends. For testing, just deploy a s3 emulator.
+EloqSQL relies on S3-compatible object storage for durable data. In development you can emulate this by running [MinIO](https://min.io/).
 
-Download and start a MINIO instance:
+Download and start a MinIO instance:
 
 ```bash
 wget https://dl.min.io/server/minio/release/linux-amd64/minio
@@ -140,7 +140,12 @@ chmod +x minio
 ```
 
 ### 5. Configure EloqSQL
-Edit my-config.cnf with the following example settings:
+EloqSQL now uses **two** configuration files:
+
+1. A MySQL config (`my-config.cnf`) for server/bootstrap settings.
+2. A Data Substrate config (`data_substrate.cnf`) that contains data substrate related settings. This file must be in INI format, and MySQL references it through the `eloq_config` system variable.
+
+#### MySQL config (`my-config.cnf`)
 
 ```
 [mariadb]
@@ -153,15 +158,33 @@ socket=/tmp/mysqld3316.sock
 plugin_load_add=ha_eloq
 eloq
 eloq_kv_storage=eloqds
-eloq_dss_rocksdb_cloud_endpoint_url=http://127.0.0.1:9000
-eloq_dss_rocksdb_cloud_bucket_name=eloqsql
-eloq_dss_rocksdb_cloud_bucket_prefix=dss-
-eloq_dss_rocksdb_cloud_region=ap-northeast-1
-eloq_aws_access_key_id=minioadmin
-eloq_aws_secret_key=minioadmin
-eloq_local_ip=127.0.0.1:8000
-eloq_ip_list=127.0.0.1:8000
+eloq_config=${HOME}/data_substrate.cnf
 ```
+
+> **Note:** `eloq_config` must point to an absolute path that the `mysqld` process can read. Without this file, the Data Substrate initialization fails and the server will not start.
+
+#### Data Substrate config (`data_substrate.cnf`)
+
+```
+[local]
+tx_ip=127.0.0.1
+tx_port=8000
+txlog_rocksdb_cloud_s3_endpoint_url=http://127.0.0.1:9000
+txlog_rocksdb_cloud_bucket_name=eloqsql
+txlog_rocksdb_cloud_bucket_prefix=txlog-
+txlog_rocksdb_cloud_region=ap-northeast-1
+
+[store]
+aws_access_key_id=minioadmin
+aws_secret_key=minioadmin
+rocksdb_cloud_s3_endpoint_url=http://127.0.0.1:9000
+rocksdb_cloud_bucket_name=eloqsql
+rocksdb_cloud_bucket_prefix=dss-
+rocksdb_cloud_region=ap-northeast-1
+eloq_dss_config_file_path=
+```
+
+You can copy `storage/eloq/mysql-test/mono_main/data_substrate.cnf` as a starting point and then set the values to match your environment. Any option related to Data Substrate (TX service, storage backends, AWS credentials, etc.) must live in this INI file so that the `eloq_config` pointer can load it during server startup.
 
 ### 6. Bootstrap EloqSQL Node
 Initialize the database:
@@ -193,46 +216,38 @@ sudo ${INSTALL_DIR}/bin/mysql -u root -S /tmp/mysqld3316.sock
 ---
 
 ### 9. Run mtr test locally
-Shutdown EloqSQL before running mtr tests.
+MariaDB’s **mysql-test-runner (mtr)** suite still works with EloqSQL. Stop any running server before launching tests so the harness can manage its own instances.
 
 #### 1. mono_basic and mono_main:
-Edit eloqsql/concourse/scripts/mtr_bootstrap.cnf with the following example settings:
+Edit `eloqsql/concourse/scripts/mtr_bootstrap.cnf` to point at the shared Data Substrate template. Example:
 ```ini
 [mariadb]
 
 ...
 
-eloq_aws_access_key_id=minioadmin
-eloq_aws_secret_key=minioadmin
-eloq_txlog_rocksdb_cloud_endpoint_url=http://127.0.0.1:9000
-eloq_txlog_rocksdb_cloud_bucket_name = eloqsql-mtr-test
-eloq_txlog_rocksdb_cloud_bucket_prefix = txlog-
-eloq_txlog_rocksdb_cloud_region = ap-northeast-1
-eloq_dss_rocksdb_cloud_endpoint_url=http://127.0.0.1:9000
-eloq_dss_rocksdb_cloud_bucket_name = eloqsql-mtr-test
-eloq_dss_rocksdb_cloud_bucket_prefix = dss-
-eloq_dss_rocksdb_cloud_region = ap-northeast-1
-
-...
-
+eloq_config=/abs/path/to/eloqsql/concourse/scripts/mtr_bootstrap_ds.cnf
 ```
 
-Edit eloqsql/mysql-test/include/eloq_kv_dss.cnf with the following example settings:
+Then populate `eloqsql/concourse/scripts/mtr_bootstrap_ds.cnf` with your S3/Dynamo/AWS credentials:
 ```ini
-[mysqld]
-eloq_aws_access_key_id=minioadmin
-eloq_aws_secret_key=minioadmin
-eloq_txlog_rocksdb_cloud_endpoint_url=http://127.0.0.1:9000
-eloq_txlog_rocksdb_cloud_bucket_name = eloqsql-mtr-test
-eloq_txlog_rocksdb_cloud_bucket_prefix = txlog-
-eloq_txlog_rocksdb_cloud_region = ap-northeast-1
-eloq_dss_rocksdb_cloud_endpoint_url=http://127.0.0.1:9000
-eloq_dss_rocksdb_cloud_bucket_name = eloqsql-mtr-test
-eloq_dss_rocksdb_cloud_bucket_prefix = dss-
-eloq_dss_rocksdb_cloud_region = ap-northeast-1
-eloq_dss_rocksdb_cloud_sst_file_cache_size = 20GB
+[local]
+tx_ip=127.0.0.1
+tx_port=8000
+txlog_rocksdb_cloud_s3_endpoint_url=http://127.0.0.1:9000
+txlog_rocksdb_cloud_bucket_name=eloqsql-mtr-test
+txlog_rocksdb_cloud_bucket_prefix=txlog-
+txlog_rocksdb_cloud_region=ap-northeast-1
 
+[store]
+aws_access_key_id=minioadmin
+aws_secret_key=minioadmin
+rocksdb_cloud_s3_endpoint_url=http://127.0.0.1:9000
+rocksdb_cloud_bucket_name=eloqsql-mtr-test
+rocksdb_cloud_bucket_prefix=dss-
+rocksdb_cloud_region=ap-northeast-1
 ```
+
+> Tip: the same values should be copied into `storage/eloq/mysql-test/mono_basic/data_substrate.cnf` and `storage/eloq/mysql-test/mono_main/data_substrate.cnf` so the suite-specific configs stay consistent.
 
 Run mono_basic and mono_main test
 ```bash
@@ -251,26 +266,29 @@ build/mysql-test/mtr --clean-txlog-bucket-restart --suite=mono_basic,mono_main -
 
 #### 2. mono_multi:
 
-Edit eloqsql/concourse/scripts/mtr_multi_bootstrap.cnf with the following example settings:
+Edit `eloqsql/concourse/scripts/mtr_multi_bootstrap.cnf` so that `eloq_config` references `concourse/scripts/mtr_multi_bootstrap_ds.cnf` (same pattern as mono_basic).
+
+Configure `eloqsql/concourse/scripts/mtr_multi_bootstrap_ds.cnf` with the multi-node Data Substrate details:
 ```ini
-[mariadb]
+[local]
+tx_ip=127.0.0.1
+tx_port=8000
+txlog_rocksdb_cloud_s3_endpoint_url=http://127.0.0.1:9000
+txlog_rocksdb_cloud_bucket_name=eloqsql-mtr-test
+txlog_rocksdb_cloud_bucket_prefix=txlog-
+txlog_rocksdb_cloud_region=ap-northeast-1
 
-...
+[cluster]
+tx_ip_port_list=127.0.0.1:8000
+eloq_dss_peer_node=localhost:9100
 
-eloq_aws_access_key_id=minioadmin
-eloq_aws_secret_key=minioadmin
-eloq_txlog_rocksdb_cloud_endpoint_url=http://127.0.0.1:9000
-eloq_txlog_rocksdb_cloud_bucket_name = eloqsql-mtr-test
-eloq_txlog_rocksdb_cloud_bucket_prefix = txlog-
-eloq_txlog_rocksdb_cloud_region = ap-northeast-1
-eloq_dss_rocksdb_cloud_endpoint_url=http://127.0.0.1:9000
-eloq_dss_rocksdb_cloud_bucket_name = eloqsql-mtr-test
-eloq_dss_rocksdb_cloud_bucket_prefix = dss-
-eloq_dss_rocksdb_cloud_region = ap-northeast-1
-eloq_dss_peer_node=localhost:9100 # add this line for mono_multi
-
-...
-
+[store]
+aws_access_key_id=minioadmin
+aws_secret_key=minioadmin
+rocksdb_cloud_s3_endpoint_url=http://127.0.0.1:9000
+rocksdb_cloud_bucket_name=eloqsql-mtr-test
+rocksdb_cloud_bucket_prefix=dss-
+rocksdb_cloud_region=ap-northeast-1
 ```
 
 Edit eloqsql/concourse/scripts/dss_server.ini with the following example settings:
@@ -291,23 +309,7 @@ aws_secret_key=minioadmin
 
 ```
 
-Edit eloqsql/mysql-test/include/eloq_kv_dss.cnf with the following example settings:
-```ini
-[mysqld]
-eloq_aws_access_key_id=minioadmin
-eloq_aws_secret_key=minioadmin
-eloq_txlog_rocksdb_cloud_endpoint_url=http://127.0.0.1:9000
-eloq_txlog_rocksdb_cloud_bucket_name = eloqsql-mtr-test
-eloq_txlog_rocksdb_cloud_bucket_prefix = txlog-
-eloq_txlog_rocksdb_cloud_region = ap-northeast-1
-eloq_dss_rocksdb_cloud_endpoint_url=http://127.0.0.1:9000
-eloq_dss_rocksdb_cloud_bucket_name = eloqsql-mtr-test
-eloq_dss_rocksdb_cloud_bucket_prefix = dss-
-eloq_dss_rocksdb_cloud_region = ap-northeast-1
-eloq_dss_peer_node = localhost:9100 # add this line for mono_multi
-eloq_dss_rocksdb_cloud_sst_file_cache_size = 20GB
-
-```
+Each `storage/eloq/mysql-test/mono_multi/data_substrate*.cnf` file also mirrors these values for the individual mysqld instances in the suite.
 
 Run mono_multi test
 ```bash

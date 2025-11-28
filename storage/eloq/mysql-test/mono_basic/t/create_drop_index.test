@@ -1,6 +1,5 @@
 --source include/have_eloq.inc
 --source include/long_test.inc
---source include/have_range_partition.inc
 set @@default_storage_engine= eloq;
 #
 # test of left outer join (from join_outer.test)

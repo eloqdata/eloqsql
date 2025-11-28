@@ -395,8 +395,9 @@ int eloq_create_database(THD *thd, LEX_CSTRING db,
     DBUG_RETURN(ret);
   }
 
+  auto [yield_func, resume_func]= thd_get_coro_functors(thd);
   bool ok=
-      storage_hd->UpsertDatabase(key, {opt_binary.str, opt_binary.length});
+      storage_hd->UpsertDatabase(key, {opt_binary.str, opt_binary.length}, yield_func, resume_func);
   if (!ok)
   {
     my_printf_error(HA_ERR_INTERNAL_ERROR, "Eloq upsert database '%s' failed",
@@ -437,8 +438,9 @@ int eloq_update_database(THD *thd, LEX_CSTRING db,
     DBUG_RETURN(ret);
   }
 
+  auto [yield_func, resume_func]= thd_get_coro_functors(thd);
   bool ok=
-      storage_hd->UpsertDatabase(key, {opt_binary.str, opt_binary.length});
+      storage_hd->UpsertDatabase(key, {opt_binary.str, opt_binary.length}, yield_func, resume_func);
   if (!ok)
   {
     my_printf_error(HA_ERR_INTERNAL_ERROR, "Eloq upsert database '%s' failed",
@@ -461,7 +463,8 @@ int eloq_drop_database(THD *thd, LEX_CSTRING db)
     DBUG_RETURN(ret);
   }
 
-  bool ok= storage_hd->DropDatabase(key);
+  auto [yield_func, resume_func]= thd_get_coro_functors(thd);
+  bool ok= storage_hd->DropDatabase(key, yield_func, resume_func);
   if (!ok)
   {
     my_printf_error(HA_ERR_INTERNAL_ERROR, "Eloq drop database '%s' failed",
@@ -1295,9 +1298,10 @@ int eloq_fetch_frm(THD *thd, LEX_CSTRING db, LEX_CSTRING frm_name,
   bool exists= false;
   std::string data;
   uint64_t commit_ts;
+  auto [yield_func, resume_func]= thd_get_coro_functors(thd);
   bool ok= storage_hd->FetchTable(
       TableName(key, TableType::Catalog, TableEngine::EloqSql), data, exists,
-      commit_ts);
+      commit_ts, yield_func, resume_func);
   if (!ok)
   {
     my_printf_error(HA_ERR_INTERNAL_ERROR, "Eloq fetch frm './%s/%s' failed",

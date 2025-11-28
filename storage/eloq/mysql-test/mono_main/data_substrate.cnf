@@ -1,0 +1,24 @@
+[local]
+core_number=2
+enable_mvcc=false
+checkpointer_interval=86400
+txlog_rocksdb_scan_threads=3
+hm_bin_path=../../../../data_substrate/host_manager
+tx_ip=127.0.0.1
+tx_port=8000
+txlog_rocksdb_cloud_s3_endpoint_url=http://127.0.0.1:9900
+txlog_rocksdb_cloud_bucket_name = eloqsql-mtr-test
+txlog_rocksdb_cloud_bucket_prefix = txlog-
+txlog_rocksdb_cloud_region = ap-northeast-1
+[store]
+aws_secret_key=XXXXXXXXXX
+aws_access_key_id=XXXXXXXXXXXXXXXXXXXXX
+
+dynamodb_endpoint=http://127.0.0.1:8000
+bigtable_project_id=XXXXXXXX
+bigtable_instance_id=XXXXXXXX
+rocksdb_cloud_s3_endpoint_url=http://127.0.0.1:9900
+rocksdb_cloud_bucket_name = eloqsql-mtr-test
+rocksdb_cloud_bucket_prefix = dss-
+rocksdb_cloud_region = ap-northeast-1
+eloq_dss_config_file_path =

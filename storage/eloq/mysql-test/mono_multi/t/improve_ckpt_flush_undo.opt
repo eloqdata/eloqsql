@@ -1,0 +1,1 @@
+--enable_mvcc=true --thread_pool_size=1 --core_number=1 --checkpointer_delay_seconds=0

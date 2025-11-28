@@ -16,6 +16,7 @@
 
 #include "sql_plugin.h"                         // Includes mariadb.h
 #include "sql_priv.h"
+#include <gflags/gflags.h>
 #include "unireg.h"
 #include <signal.h>
 #ifndef _WIN32
@@ -106,11 +107,14 @@
 #include "semisync_master.h"
 #include "semisync_slave.h"
 
+
 #include "transaction.h"
 
 #ifdef HAVE_SYS_PRCTL_H
 #include <sys/prctl.h>
 #endif
+
+#include "glog/logging.h"
 
 #include <thr_alarm.h>
 #include <ft_global.h>
@@ -637,6 +641,12 @@ struct system_variables global_system_variables;
   TODO: something should be done to get rid of following variables
 */
 const char *current_dbug_option="";
+
+// Declare gflags
+DEFINE_string(eloqsql_config, "", 
+  "Path to MySQL configuration file. All MySQL options must be in this config file.");
+DECLARE_bool(bootstrap);
+
 
 struct system_variables max_system_variables;
 struct system_status_var global_status_var;
@@ -4032,6 +4042,8 @@ static int init_common_variables()
                      SQLCOM_END + 10);
 #endif
 
+  // Process config file options (loaded by load_defaults_or_exit)
+  // Note: argc/argv from load_defaults only contains config file values
   if (get_options(&remaining_argc, &remaining_argv))
     exit(1);
   if (IS_SYSVAR_AUTOSIZE(&server_version_ptr))
@@ -5251,7 +5263,7 @@ static int init_server_components()
       We need to eat any 'loose' arguments first before we conclude
       that there are unprocessed options.
     */
-    my_getopt_skip_unknown= 0;
+    my_getopt_skip_unknown= TRUE;
 #ifdef WITH_WSREP
     if (wsrep_recovery)
       my_getopt_skip_unknown= TRUE;
@@ -5269,12 +5281,12 @@ static int init_server_components()
     if (!wsrep_recovery)
     {
 #endif
-      if (remaining_argc > 1)
-      {
-        fprintf(stderr, "%s: Too many arguments (first extra is '%s').\n",
-                my_progname, remaining_argv[1]);
-        unireg_abort(1);
-      }
+      // if (remaining_argc > 1)
+      // {
+      //   fprintf(stderr, "%s: Too many arguments (first extra is '%s').\n",
+      //           my_progname, remaining_argv[1]);
+      //   unireg_abort(1);
+      // }
 #ifdef WITH_WSREP
     }
 #endif
@@ -5513,6 +5525,10 @@ static void test_lc_time_sz()
 }
 #endif//DBUG_OFF
 
+void shutdown_mysqld()
+{
+  break_connect_loop();
+}
 
 int mysqld_main(int argc, char **argv)
 {
@@ -5545,11 +5561,56 @@ int mysqld_main(int argc, char **argv)
   orig_argc= argc;
   orig_argv= argv;
   my_defaults_mark_files= TRUE;
-  load_defaults_or_exit(MYSQL_CONFIG_NAME, load_default_groups, &argc, &argv);
-  defaults_argc= argc;
-  defaults_argv= argv;
-  remaining_argc= argc;
-  remaining_argv= argv;
+  
+  // Build argv for load_defaults
+  // Copy all original arguments first, then append --eloqsql_config and --bootstrap if needed
+  int additional_args = 0;
+  if (!FLAGS_eloqsql_config.empty())
+    additional_args++;
+  if (FLAGS_bootstrap)
+    additional_args++;
+  
+  char **load_default_argv = (char**)malloc((argc + additional_args + 1) * sizeof(char*));
+  if (!load_default_argv)
+  {
+    fprintf(stderr, "Failed to allocate memory for load_default_argv\n");
+    return 1;
+  }
+  
+  // Copy all original arguments
+  int load_default_argc = argc;
+  for (int i = 0; i < argc; i++)
+  {
+    load_default_argv[i] = argv[i];
+  }
+  
+  // Append --defaults-file if --eloqsql_config specified
+  std::string defaults_file_arg;
+  if (!FLAGS_eloqsql_config.empty())
+  {
+    defaults_file_arg = std::string("--defaults-file=") + FLAGS_eloqsql_config;
+    load_default_argv[load_default_argc] = const_cast<char*>(defaults_file_arg.c_str());
+    load_default_argc++;
+  }
+
+  // Append --bootstrap if FLAGS_bootstrap is true
+  if (FLAGS_bootstrap)
+  {
+    load_default_argv[load_default_argc] = const_cast<char*>("--bootstrap");
+    load_default_argc++;
+  }
+  
+  // Null-terminate the array
+  load_default_argv[load_default_argc] = nullptr;
+  
+  char **load_default_argv_ptr = load_default_argv;
+  load_defaults_or_exit(MYSQL_CONFIG_NAME, load_default_groups, 
+                        &load_default_argc, &load_default_argv_ptr);
+  
+  defaults_argc= load_default_argc;
+  defaults_argv= load_default_argv_ptr;
+  remaining_argc= load_default_argc;
+  remaining_argv= load_default_argv_ptr;
 
   /* Must be initialized early for comparison of options name */
   system_charset_info= &my_charset_utf8mb3_general_ci;
@@ -5574,6 +5635,7 @@ int mysqld_main(int argc, char **argv)
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
   my_timer_init(&sys_timer_info);
 
+  // Process early options from config file
   int ho_error __attribute__((unused))= handle_early_options();
 
   /* fix tdc_size */
@@ -5940,6 +6002,9 @@ int mysqld_main(int argc, char **argv)
   close_connections();
   ha_pre_shutdown();
   clean_up(1);
+  
+  // Free the temporary argv array we allocated
+  free(load_default_argv);
   sd_notify(0, "STATUS=MariaDB server is down");
 
   /* (void) pthread_attr_destroy(&connection_attrib); */

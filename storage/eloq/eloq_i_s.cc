@@ -31,7 +31,7 @@ using namespace MyEloq;
 using namespace txservice;
 
 extern std::unique_ptr<TxService> tx_service;
-extern std::unique_ptr<store::DataStoreHandler> storage_hd;
+extern store::DataStoreHandler *storage_hd;
 
 extern std::pair<const std::function<void()> *, const std::function<void()> *>
 thd_get_coro_functors(const THD *thd);

@@ -40,15 +40,15 @@ IF(EXISTS ${PROJECT_SOURCE_DIR}/storage/mysql_storage_engine.cmake)
   INCLUDE("${PROJECT_SOURCE_DIR}/storage/mysql_storage_engine.cmake")
 
   INCLUDE_DIRECTORIES(
-    ${CMAKE_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/sql
-    ${CMAKE_SOURCE_DIR}/regex)
+    ${ELOQSQL_SOURCE_DIR}/include
+    ${ELOQSQL_SOURCE_DIR}/sql
+    ${ELOQSQL_SOURCE_DIR}/regex)
 
   MYSQL_STORAGE_ENGINE(SPIDER)
 ELSEIF(PLUGIN_PARTITION MATCHES "^NO$")
   MESSAGE(STATUS "Spider is skipped because partitioning is disabled")
 ELSE()
-  INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/storage/spider/hs_client)
+  INCLUDE_DIRECTORIES(${ELOQSQL_SOURCE_DIR}/storage/spider/hs_client)
 
   IF(DEB)
     SET(extra_options COMPONENT spider-engine)

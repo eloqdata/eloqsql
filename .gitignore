@@ -544,6 +544,7 @@ compile_commands.json
 
 # Visual Studio Code workspace
 .vscode/
+.cursor/
 
 # Clion && other JetBrains ides
 /.idea/

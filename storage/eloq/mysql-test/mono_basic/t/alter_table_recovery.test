@@ -1,7 +1,6 @@
 #
 --source include/have_eloq.inc
 --source include/long_test.inc
---source include/have_range_partition.inc
 
 --disable_warnings
 DROP DATABASE IF EXISTS mono_test;

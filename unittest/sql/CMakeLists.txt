@@ -15,10 +15,10 @@
 
 MY_ADD_TESTS(my_apc LINK_LIBRARIES mysys EXT cc)
 
-INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/sql
-                    ${CMAKE_SOURCE_DIR}/include
-                    ${CMAKE_SOURCE_DIR}/unittest/mytap
-                    ${CMAKE_SOURCE_DIR}/extra/yassl/include)
+INCLUDE_DIRECTORIES(${ELOQSQL_SOURCE_DIR}/sql
+                    ${ELOQSQL_SOURCE_DIR}/include
+                    ${ELOQSQL_SOURCE_DIR}/unittest/mytap
+                    ${ELOQSQL_SOURCE_DIR}/extra/yassl/include)
 ADD_EXECUTABLE(explain_filename-t explain_filename-t.cc  dummy_builtins.cc)
 
 

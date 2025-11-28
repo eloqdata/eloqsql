@@ -5,7 +5,7 @@ SET(WITH_PCRE "auto" CACHE STRING
    "Which pcre to use (possible values are 'bundled', 'system', or 'auto')")
 
 MACRO(BUNDLE_PCRE2)
-  SET(dir "${CMAKE_BINARY_DIR}/extra/pcre2")
+  SET(dir "${ELOQSQL_BINARY_DIR}/extra/pcre2")
   SET(PCRE_INCLUDES ${dir}/src/pcre2-build ${dir}/src/pcre2/src)
   SET(byproducts)
   FOREACH(lib pcre2-posix pcre2-8)

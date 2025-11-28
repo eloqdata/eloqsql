@@ -42,8 +42,8 @@ MACRO(MYSQL_ADD_PLUGIN)
   IF(NOT WITHOUT_SERVER OR ARG_CLIENT)
 
   # Add common include directories
-  INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/include 
-                    ${CMAKE_SOURCE_DIR}/sql
+  INCLUDE_DIRECTORIES(${ELOQSQL_SOURCE_DIR}/include 
+                    ${ELOQSQL_SOURCE_DIR}/sql
                     ${PCRE_INCLUDES}
                     ${SSL_INCLUDE_DIRS}
                     ${ZLIB_INCLUDE_DIR})
@@ -215,7 +215,7 @@ MACRO(MYSQL_ADD_PLUGIN)
     TARGET_LINK_LIBRARIES (${target} mysqlservices ${ARG_LINK_LIBRARIES})
 
     IF(CMAKE_SYSTEM_NAME MATCHES AIX)
-      TARGET_LINK_OPTIONS(${target} PRIVATE "-Wl,-bE:${CMAKE_SOURCE_DIR}/libservices/mysqlservices_aix.def")
+      TARGET_LINK_OPTIONS(${target} PRIVATE "-Wl,-bE:${ELOQSQL_SOURCE_DIR}/libservices/mysqlservices_aix.def")
     ENDIF()
 
     # Server plugins use symbols defined in mysqld executable.
@@ -267,8 +267,8 @@ MACRO(MYSQL_ADD_PLUGIN)
             FILE(WRITE ${ARG_CONFIG} "[mariadb]\nplugin-load-add=${ARG_MODULE_OUTPUT_NAME}.so\n")
           ENDIF()
           SET(CPACK_RPM_${ARG_COMPONENT}_USER_FILELIST ${ignored} "%config(noreplace) ${INSTALL_SYSCONF2DIR}/*" PARENT_SCOPE)
-          SET(CPACK_RPM_${ARG_COMPONENT}_POST_INSTALL_SCRIPT_FILE ${CMAKE_SOURCE_DIR}/support-files/rpm/plugin-postin.sh PARENT_SCOPE)
-          SET(CPACK_RPM_${ARG_COMPONENT}_POST_TRANS_SCRIPT_FILE ${CMAKE_SOURCE_DIR}/support-files/rpm/server-posttrans.sh PARENT_SCOPE)
+          SET(CPACK_RPM_${ARG_COMPONENT}_POST_INSTALL_SCRIPT_FILE ${ELOQSQL_SOURCE_DIR}/support-files/rpm/plugin-postin.sh PARENT_SCOPE)
+          SET(CPACK_RPM_${ARG_COMPONENT}_POST_TRANS_SCRIPT_FILE ${ELOQSQL_SOURCE_DIR}/support-files/rpm/server-posttrans.sh PARENT_SCOPE)
         ENDIF()
       ENDIF()
     ELSE()
@@ -308,10 +308,10 @@ ENDMACRO()
 # subdirectories, configure sql_builtins.cc
 MACRO(CONFIGURE_PLUGINS)
   IF(NOT WITHOUT_SERVER)
-    FILE(GLOB dirs_storage ${CMAKE_SOURCE_DIR}/storage/*)
+    FILE(GLOB dirs_storage ${ELOQSQL_SOURCE_DIR}/storage/*)
   ENDIF()
 
-  FILE(GLOB dirs_plugin ${CMAKE_SOURCE_DIR}/plugin/*)
+  FILE(GLOB dirs_plugin ${ELOQSQL_SOURCE_DIR}/plugin/*)
   FOREACH(dir ${dirs_storage} ${dirs_plugin})
     IF (EXISTS ${dir}/CMakeLists.txt)
       ADD_SUBDIRECTORY(${dir})

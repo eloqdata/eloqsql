@@ -14,7 +14,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1335 USA
 
-INCLUDE_DIRECTORIES(${ZLIB_INCLUDE_DIR} ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/mysys)
+INCLUDE_DIRECTORIES(${ZLIB_INCLUDE_DIR} ${ELOQSQL_SOURCE_DIR}/include ${ELOQSQL_SOURCE_DIR}/mysys)
 
 SET(MYSYS_SOURCES  array.c charset-def.c charset.c my_default.c
                 get_password.c

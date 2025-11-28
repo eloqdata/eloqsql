@@ -228,15 +228,15 @@ IF(WITH_WSREP)
     "coreutils" "findutils" "tar")
 ENDIF()
 
-SET(CPACK_RPM_server_PRE_INSTALL_SCRIPT_FILE ${CMAKE_SOURCE_DIR}/support-files/rpm/server-prein.sh)
-SET(CPACK_RPM_server_PRE_UNINSTALL_SCRIPT_FILE ${CMAKE_SOURCE_DIR}/support-files/rpm/server-preun.sh)
-SET(CPACK_RPM_server_POST_INSTALL_SCRIPT_FILE ${CMAKE_SOURCE_DIR}/support-files/rpm/server-postin.sh)
-SET(CPACK_RPM_server_POST_UNINSTALL_SCRIPT_FILE ${CMAKE_SOURCE_DIR}/support-files/rpm/server-postun.sh)
-SET(CPACK_RPM_server_POST_TRANS_SCRIPT_FILE ${CMAKE_SOURCE_DIR}/support-files/rpm/server-posttrans.sh)
-SET(CPACK_RPM_shared_POST_INSTALL_SCRIPT_FILE ${CMAKE_SOURCE_DIR}/support-files/rpm/shared-post.sh)
-SET(CPACK_RPM_shared_POST_UNINSTALL_SCRIPT_FILE ${CMAKE_SOURCE_DIR}/support-files/rpm/shared-post.sh)
-SET(CPACK_RPM_compat_POST_INSTALL_SCRIPT_FILE ${CMAKE_SOURCE_DIR}/support-files/rpm/shared-post.sh)
-SET(CPACK_RPM_compat_POST_UNINSTALL_SCRIPT_FILE ${CMAKE_SOURCE_DIR}/support-files/rpm/shared-post.sh)
+SET(CPACK_RPM_server_PRE_INSTALL_SCRIPT_FILE ${ELOQSQL_SOURCE_DIR}/support-files/rpm/server-prein.sh)
+SET(CPACK_RPM_server_PRE_UNINSTALL_SCRIPT_FILE ${ELOQSQL_SOURCE_DIR}/support-files/rpm/server-preun.sh)
+SET(CPACK_RPM_server_POST_INSTALL_SCRIPT_FILE ${ELOQSQL_SOURCE_DIR}/support-files/rpm/server-postin.sh)
+SET(CPACK_RPM_server_POST_UNINSTALL_SCRIPT_FILE ${ELOQSQL_SOURCE_DIR}/support-files/rpm/server-postun.sh)
+SET(CPACK_RPM_server_POST_TRANS_SCRIPT_FILE ${ELOQSQL_SOURCE_DIR}/support-files/rpm/server-posttrans.sh)
+SET(CPACK_RPM_shared_POST_INSTALL_SCRIPT_FILE ${ELOQSQL_SOURCE_DIR}/support-files/rpm/shared-post.sh)
+SET(CPACK_RPM_shared_POST_UNINSTALL_SCRIPT_FILE ${ELOQSQL_SOURCE_DIR}/support-files/rpm/shared-post.sh)
+SET(CPACK_RPM_compat_POST_INSTALL_SCRIPT_FILE ${ELOQSQL_SOURCE_DIR}/support-files/rpm/shared-post.sh)
+SET(CPACK_RPM_compat_POST_UNINSTALL_SCRIPT_FILE ${ELOQSQL_SOURCE_DIR}/support-files/rpm/shared-post.sh)
 
 MACRO(ALTERNATIVE_NAME real alt)
   IF(${ARGC} GREATER 2)
@@ -303,15 +303,15 @@ SET(PYTHON_SHEBANG "/usr/bin/python3" CACHE STRING "python shebang")
 
 # If we want to build build MariaDB-shared-compat,
 # extract compat libraries from MariaDB-shared-5.3 rpm
-FILE(GLOB compat53 RELATIVE ${CMAKE_SOURCE_DIR}
-    "${CMAKE_SOURCE_DIR}/../MariaDB-shared-5.3.*.rpm")
-FILE(GLOB compat101 RELATIVE ${CMAKE_SOURCE_DIR}
-    "${CMAKE_SOURCE_DIR}/../MariaDB-shared-10.1.*.rpm")
+FILE(GLOB compat53 RELATIVE ${ELOQSQL_SOURCE_DIR}
+    "${ELOQSQL_SOURCE_DIR}/../MariaDB-shared-5.3.*.rpm")
+FILE(GLOB compat101 RELATIVE ${ELOQSQL_SOURCE_DIR}
+    "${ELOQSQL_SOURCE_DIR}/../MariaDB-shared-10.1.*.rpm")
 IF(compat53 AND compat101)
   FOREACH(compat_rpm "${compat53}" "${compat101}")
     MESSAGE(STATUS "Using ${compat_rpm} to build MariaDB-compat")
     INSTALL(CODE "EXECUTE_PROCESS(
-                   COMMAND rpm2cpio ${CMAKE_SOURCE_DIR}/${compat_rpm}
+                   COMMAND rpm2cpio ${ELOQSQL_SOURCE_DIR}/${compat_rpm}
                    COMMAND cpio --extract --make-directories */libmysqlclient*.so.* -
                    WORKING_DIRECTORY \$ENV{DESTDIR})
                   EXECUTE_PROCESS(
@@ -321,11 +321,11 @@ IF(compat53 AND compat101)
   ENDFOREACH()
 
   EXECUTE_PROCESS(
-    COMMAND rpm -q --provides -p "${CMAKE_SOURCE_DIR}/${compat101}"
+    COMMAND rpm -q --provides -p "${ELOQSQL_SOURCE_DIR}/${compat101}"
     ERROR_QUIET
     OUTPUT_VARIABLE compat_provides)
   EXECUTE_PROCESS(
-    COMMAND rpm -q --obsoletes -p "${CMAKE_SOURCE_DIR}/${compat101}"
+    COMMAND rpm -q --obsoletes -p "${ELOQSQL_SOURCE_DIR}/${compat101}"
     ERROR_QUIET
     OUTPUT_VARIABLE compat_obsoletes)
 

@@ -20,7 +20,7 @@ IF(MSVC_CRT_TYPE MATCHES "/MD")
   # FORCE static CRT and MFC for upgrade wizard,
   # so we do not have to redistribute MFC.
   FORCE_STATIC_CRT()
-  SET(UPGRADE_WIZARD_SOURCES  ${CMAKE_SOURCE_DIR}/sql/winservice.c)
+  SET(UPGRADE_WIZARD_SOURCES  ${ELOQSQL_SOURCE_DIR}/sql/winservice.c)
 ELSE()
   SET(UPGRADE_WIZARD_LINK_LIBRARIES winservice)
 ENDIF()
@@ -31,7 +31,7 @@ SET(CMAKE_MFC_FLAG 1)
 # Enable exception handling (avoids warnings)
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc -DNO_WARN_MBCS_MFC_DEPRECATION")
 
-INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/sql)
+INCLUDE_DIRECTORIES(${ELOQSQL_SOURCE_DIR}/sql)
 MYSQL_ADD_EXECUTABLE(mariadb-upgrade-wizard
   upgrade.cpp upgradeDlg.cpp upgrade.rc ${UPGRADE_WIZARD_SOURCES}
   COMPONENT Server)

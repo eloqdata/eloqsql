@@ -18,11 +18,11 @@ ADD_DEFINITIONS(-DMYSQL_SERVER -DEMBEDDED_LIBRARY
  ${SSL_DEFINES})
 
 INCLUDE_DIRECTORIES(
-${CMAKE_SOURCE_DIR}/include 
-${CMAKE_SOURCE_DIR}/libmysqld
-${CMAKE_SOURCE_DIR}/sql
-${CMAKE_SOURCE_DIR}/tpool
-${CMAKE_BINARY_DIR}/sql 
+${ELOQSQL_SOURCE_DIR}/include 
+${ELOQSQL_SOURCE_DIR}/libmysqld
+${ELOQSQL_SOURCE_DIR}/sql
+${ELOQSQL_SOURCE_DIR}/tpool
+${ELOQSQL_BINARY_DIR}/sql 
 ${PCRE_INCLUDES}
 ${ZLIB_INCLUDE_DIR}
 ${SSL_INCLUDE_DIRS}
@@ -30,11 +30,11 @@ ${SSL_INTERNAL_INCLUDE_DIRS}
 )
 
 SET(GEN_SOURCES
-${CMAKE_BINARY_DIR}/sql/sql_yacc.hh 
-${CMAKE_BINARY_DIR}/sql/yy_mariadb.cc
-${CMAKE_BINARY_DIR}/sql/yy_oracle.hh
-${CMAKE_BINARY_DIR}/sql/yy_oracle.cc
-${CMAKE_BINARY_DIR}/sql/lex_hash.h 
+${ELOQSQL_BINARY_DIR}/sql/sql_yacc.hh 
+${ELOQSQL_BINARY_DIR}/sql/yy_mariadb.cc
+${ELOQSQL_BINARY_DIR}/sql/yy_oracle.hh
+${ELOQSQL_BINARY_DIR}/sql/yy_oracle.cc
+${ELOQSQL_BINARY_DIR}/sql/lex_hash.h 
 )
 
 SET_SOURCE_FILES_PROPERTIES(${GEN_SOURCES} PROPERTIES GENERATED TRUE)
@@ -99,7 +99,7 @@ SET(SQL_EMBEDDED_SOURCES emb_qcache.cc libmysqld.c lib_sql.cc
            ../sql/event_parse_data.cc
            ../sql/sql_signal.cc
            ../sql/sys_vars.cc
-           ${CMAKE_BINARY_DIR}/sql/sql_builtin.cc
+           ${ELOQSQL_BINARY_DIR}/sql/sql_builtin.cc
            ../sql/mdl.cc ../sql/transaction.cc
            ../sql/sql_join_cache.cc
            ../sql/multi_range_read.cc

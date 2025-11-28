@@ -14,8 +14,8 @@ fi
 cd $HOME
 ln -s ${WORKSPACE}/eloqsql_src eloqsql
 cd eloqsql
-ln -s $WORKSPACE/logservice_src storage/eloq/eloq_log_service
-pushd storage/eloq/tx_service
+ln -s $WORKSPACE/logservice_src data_substrate/eloq_log_service
+pushd data_substrate/tx_service
 ln -s $WORKSPACE/raft_host_manager_src raft_host_manager
 popd
 
