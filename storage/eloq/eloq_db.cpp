@@ -396,8 +396,8 @@ int eloq_create_database(THD *thd, LEX_CSTRING db,
   }
 
   auto [yield_func, resume_func]= thd_get_coro_functors(thd);
-  bool ok=
-      storage_hd->UpsertDatabase(key, {opt_binary.str, opt_binary.length}, yield_func, resume_func);
+  bool ok= storage_hd->UpsertDatabase(key, {opt_binary.str, opt_binary.length},
+                                      yield_func, resume_func);
   if (!ok)
   {
     my_printf_error(HA_ERR_INTERNAL_ERROR, "Eloq upsert database '%s' failed",
@@ -439,8 +439,8 @@ int eloq_update_database(THD *thd, LEX_CSTRING db,
   }
 
   auto [yield_func, resume_func]= thd_get_coro_functors(thd);
-  bool ok=
-      storage_hd->UpsertDatabase(key, {opt_binary.str, opt_binary.length}, yield_func, resume_func);
+  bool ok= storage_hd->UpsertDatabase(key, {opt_binary.str, opt_binary.length},
+                                      yield_func, resume_func);
   if (!ok)
   {
     my_printf_error(HA_ERR_INTERNAL_ERROR, "Eloq upsert database '%s' failed",

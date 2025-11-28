@@ -435,9 +435,9 @@ MysqlTableSchema::MysqlTableSchema(const txservice::TableName &table_name,
   }
 
   size_t offset= 0;
-  kv_info_= DataSubstrate::GetGlobal()
-                ->GetStoreHandler()
-                ->DeserializeKVCatalogInfo(kv_info, offset);
+  kv_info_=
+      DataSubstrate::GetGlobal()->GetStoreHandler()->DeserializeKVCatalogInfo(
+          kv_info, offset);
   record_schema_= EloqRecordSchema(&mysql_table_share_);
 }
 
