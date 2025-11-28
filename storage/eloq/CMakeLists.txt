@@ -19,9 +19,11 @@ set(WITH_DATA_STORE "ELOQDSS_ROCKSDB" CACHE STRING "Which key-value storage to u
 set_property(CACHE WITH_DATA_STORE PROPERTY STRINGS  "DYNAMODB" "BIGTABLE" "ELOQDSS_ROCKSDB_CLOUD_S3" "ELOQDSS_ELOQSTORE" "ELOQDSS_ROCKSDB")
 message(NOTICE "WITH_DATA_STORE" : ${WITH_DATA_STORE})
 
-set(METRICS_LIB "eloq-metrics" CACHE STRING "metrics library name.")
-
 option(WITH_LOG_SERVICE "Compile with built-in log service." ON)
+
+if(BUILD_ELOQSQL_AS_LIBRARY)
+    add_compile_definitions(MYSQLD_LIBRARY_MODE)
+endif()
 
 if(WITH_LOG_SERVICE)
 	message("WITH_LOG_SERVICE: " ${WITH_LOG_SERVICE})
@@ -121,12 +123,6 @@ else()
     message(FATAL_ERROR "Unset WITH_DATA_STORE")
 endif()
 add_compile_definitions(WITH_DATA_STORE=${KV_STORAGE_VAL})
-
-if(USE_ONE_DATA_STORE_SHARD_ENABLED)
-	# add preprocessor defition USE_ONE_DATA_STORE_SHARD
-	add_compile_definitions(USE_ONE_DATA_STORE_SHARD)
-endif()
-
 
 MYSQL_ADD_PLUGIN(eloq ${MYELOQ_SOURCES}
 	STORAGE_ENGINE

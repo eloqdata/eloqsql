@@ -643,8 +643,7 @@ struct system_variables global_system_variables;
 const char *current_dbug_option="";
 
 // Declare gflags
-DEFINE_string(eloqsql_config, "", 
-  "Path to MySQL configuration file. All MySQL options must be in this config file.");
+DECLARE_string(eloqsql_config);
 DECLARE_bool(bootstrap);
 
 
@@ -5565,10 +5564,12 @@ int mysqld_main(int argc, char **argv)
   // Build argv for load_defaults
   // Copy all original arguments first, then append --eloqsql_config and --bootstrap if needed
   int additional_args = 0;
+#ifdef MYSQLD_LIBRARY_MODE
   if (!FLAGS_eloqsql_config.empty())
     additional_args++;
   if (FLAGS_bootstrap)
     additional_args++;
+#endif
   
   char **load_default_argv = (char**)malloc((argc + additional_args + 1) * sizeof(char*));
   if (!load_default_argv)
@@ -5583,7 +5584,8 @@ int mysqld_main(int argc, char **argv)
   {
     load_default_argv[i] = argv[i];
   }
-  
+
+#ifdef MYSQLD_LIBRARY_MODE
   // Append --defaults-file if --eloqsql_config specified
   std::string defaults_file_arg;
   if (!FLAGS_eloqsql_config.empty())
@@ -5599,6 +5601,7 @@ int mysqld_main(int argc, char **argv)
     load_default_argv[load_default_argc] = const_cast<char*>("--bootstrap");
     load_default_argc++;
   }
+#endif
   
   // Null-terminate the array
   load_default_argv[load_default_argc] = nullptr;
