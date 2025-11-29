@@ -52,8 +52,9 @@ template <class Elem> class Dynamic_array;
  * must match with that defined by ELOQ_DEFINEx.
  */
 // Statically linked: declare the symbol and let the linker resolve it to the
-// implementation provided in the static library (see eloq_db.cpp extern "C" block).
-#define MONOCALL_DEFINEx(x, name, ...) \
+// implementation provided in the static library (see eloq_db.cpp extern "C"
+// block).
+#define MONOCALL_DEFINEx(x, name, ...)                                        \
   extern "C" int name(__SC_DECL##x(__VA_ARGS__));
 #define MONOCALL_DEFINE1(name, ...) MONOCALL_DEFINEx(1, name, __VA_ARGS__)
 #define MONOCALL_DEFINE2(name, ...) MONOCALL_DEFINEx(2, name, __VA_ARGS__)

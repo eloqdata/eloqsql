@@ -281,10 +281,10 @@ static MYSQL_SYSVAR_ENUM(enum_var,                       // name
                          0,                              // def
                          &enum_var_typelib);             // typelib
 
-
-static MYSQL_SYSVAR_STR(config, eloq_config, PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-                        "Path to data substrate configuration file.", nullptr, nullptr,
-                        "");
+static MYSQL_SYSVAR_STR(config, eloq_config,
+                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+                        "Path to data substrate configuration file.", nullptr,
+                        nullptr, "");
 static MYSQL_SYSVAR_STR(insert_semantic, eloq_insert_semantic,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
                         "Insert semantic: insert or upsert", nullptr, nullptr,
@@ -426,13 +426,21 @@ static MYSQL_SYSVAR_INT(signal_monitor, eloq_signal_monitor,
                         nullptr, nullptr, 0, 0, INT_MAX, 0);
 
 static struct st_mysql_sys_var *eloq_system_variables[]= {
-    MYSQL_SYSVAR(cc_protocol),      MYSQL_SYSVAR(enum_var),
-    MYSQL_SYSVAR(ulong_var),        MYSQL_SYSVAR(int_var),
-    MYSQL_SYSVAR(double_var),       MYSQL_SYSVAR(double_thdvar),
-    MYSQL_SYSVAR(varopt_default),   MYSQL_SYSVAR(insert_semantic),
-    MYSQL_SYSVAR(auto_increment),   MYSQL_SYSVAR(invalidate_cache_once),
-    MYSQL_SYSVAR(random_scan_sort), MYSQL_SYSVAR(report_debug_info),
-    MYSQL_SYSVAR(signal_monitor),   MYSQL_SYSVAR(config), NULL};
+    MYSQL_SYSVAR(cc_protocol),
+    MYSQL_SYSVAR(enum_var),
+    MYSQL_SYSVAR(ulong_var),
+    MYSQL_SYSVAR(int_var),
+    MYSQL_SYSVAR(double_var),
+    MYSQL_SYSVAR(double_thdvar),
+    MYSQL_SYSVAR(varopt_default),
+    MYSQL_SYSVAR(insert_semantic),
+    MYSQL_SYSVAR(auto_increment),
+    MYSQL_SYSVAR(invalidate_cache_once),
+    MYSQL_SYSVAR(random_scan_sort),
+    MYSQL_SYSVAR(report_debug_info),
+    MYSQL_SYSVAR(signal_monitor),
+    MYSQL_SYSVAR(config),
+    NULL};
 
 /**
   Structure for CREATE TABLE options (table options).
@@ -1436,7 +1444,8 @@ static int eloq_init_func(void *p)
     LOG(INFO) << "Data substrate initialized, MySQL continuing...";
   }
 #else
-  // Set the data substrate data path to mysql home directory in standalone mode.
+  // Set the data substrate data path to mysql home directory in standalone
+  // mode.
   FLAGS_eloq_data_path= mysql_real_data_home_ptr;
   // In standalone mode, initialize data substrate here
   // Wait for mysqld to initialize before initializing data substrate
