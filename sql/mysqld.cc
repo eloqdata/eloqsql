@@ -1934,7 +1934,9 @@ static void mysqld_exit(int exit_code)
   my_report_svc_status(SERVICE_STOPPED, exit_code, 0);
 #endif
   sd_notify(0, "STATUS=MariaDB server is down");
+#ifndef MYSQLD_LIBRARY_MODE
   exit(exit_code); /* purecov: inspected */
+#endif
 }
 
 #endif /* !EMBEDDED_LIBRARY */

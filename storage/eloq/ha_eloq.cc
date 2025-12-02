@@ -190,15 +190,7 @@
 #ifdef MYSQLD_LIBRARY_MODE
 #include <mutex>
 #include <condition_variable>
-// Define synchronization variables
-namespace mysqld_converged_sync
-{
-std::mutex init_mutex;
-std::condition_variable mysqld_basic_init_done_cv;
-std::condition_variable data_substrate_init_done_cv;
-bool mysqld_basic_init_done= false;
-bool data_substrate_init_done= false;
-} // namespace mysqld_converged_sync
+#include <chrono>
 #endif
 
 #define DEFAULT_SCAN_TUPLE_SIZE 128
@@ -215,8 +207,6 @@ using namespace txservice;
 DECLARE_string(eloq_data_path);
 
 MariaCatalogFactory maria_catalog_factory;
-txservice::CatalogFactory *eloqsql_catalog_factory= &maria_catalog_factory;
-txservice::SystemHandler *eloqsql_system_handler= nullptr;
 extern my_bool opt_bootstrap; // Defined in Mariadb context.
 extern std::function<void(int)> terminate_hook;
 
@@ -684,7 +674,7 @@ static bool fetch_tx_isolation_level(THD *const thd, CcProtocol cc_protocol,
     // eloq can distinguish there two different isolation levels. To make
     // it consistent with Mysql, we convert user set RepeatableRead isolation
     // level to Snapshot Isolation if mvcc is enabled in Eloq engine.
-    if (DataSubstrate::GetGlobal()->GetCoreConfig().enable_mvcc)
+    if (DataSubstrate::Instance().GetCoreConfig().enable_mvcc)
     {
       iso_level= IsolationLevel::Snapshot;
     }
@@ -1366,55 +1356,9 @@ static void eloq_pre_shutdown(void)
   DBUG_VOID_RETURN;
 }
 
-static int8_t PRINT_ELOQ_CONFIG_COLUMN_WIDTH= 20;
-
-static void PrintEloqConfig()
-{
-  std::cout << std::endl;
-  std::cout << std::left << std::setfill('-')
-            << std::setw(PRINT_ELOQ_CONFIG_COLUMN_WIDTH * 2) << "-"
-            << std::endl;
-  std::cout << std::setfill(' ');
-  std::cout << std::left << "Eloq Build Configurations:" << std::endl;
-  std::cout << std::left << std::setfill('-')
-            << std::setw(PRINT_ELOQ_CONFIG_COLUMN_WIDTH * 2) << "-"
-            << std::endl;
-  std::cout << std::setfill(' ');
-
-#if !defined(DBUG_OFF) && !defined(_lint)
-  std::cout << std::left << std::setw(20) << "Fault inject" << std::left
-            << std::setw(PRINT_ELOQ_CONFIG_COLUMN_WIDTH) << "ON" << std::endl;
-#else
-  std::cout << std::left << std::setw(20) << "Fault inject" << std::left
-            << std::setw(PRINT_ELOQ_CONFIG_COLUMN_WIDTH) << "OFF" << std::endl;
-#endif
-
-  std::cout << std::left << std::setw(PRINT_ELOQ_CONFIG_COLUMN_WIDTH)
-            << "Range partition" << std::left
-            << std::setw(PRINT_ELOQ_CONFIG_COLUMN_WIDTH) << "ON" << std::endl;
-
-#if !defined(TX_TRACE_DISABLED)
-  std::cout << std::left << std::setw(PRINT_ELOQ_CONFIG_COLUMN_WIDTH)
-            << "Tx trace" << std::left
-            << std::setw(PRINT_ELOQ_CONFIG_COLUMN_WIDTH) << "ON" << std::endl;
-#else
-  std::cout << std::left << std::setw(PRINT_ELOQ_CONFIG_COLUMN_WIDTH)
-            << "Tx trace" << std::left
-            << std::setw(PRINT_ELOQ_CONFIG_COLUMN_WIDTH) << "OFF" << std::endl;
-#endif
-
-  std::cout << std::left << std::setfill('-')
-            << std::setw(PRINT_ELOQ_CONFIG_COLUMN_WIDTH * 2) << "-"
-            << std::endl;
-  std::cout << std::setfill(' ');
-  std::cout << std::endl;
-}
-
 static int eloq_init_func(void *p)
 {
   DBUG_ENTER_FUNC();
-
-  PrintEloqConfig();
 
   sql_print_information("Eloq initializing.");
 
@@ -1424,26 +1368,7 @@ static int eloq_init_func(void *p)
                    MY_MUTEX_INIT_FAST);
   mysql_mutex_init(mono_mem_cmp_space_mutex_key, &mono_mem_cmp_space_mutex,
                    MY_MUTEX_INIT_FAST);
-  eloqsql_system_handler= &MyEloq::MariaSystemHandler::Instance();
-#ifdef MYSQLD_LIBRARY_MODE
-  // In library mode (converged binary), use synchronization:
-  // 1. Signal that MySQL basic initialization is done
-  // 2. Wait for data substrate to be initialized by converged main
-  {
-    std::unique_lock<std::mutex> lock(mysqld_converged_sync::init_mutex);
-    mysqld_converged_sync::mysqld_basic_init_done= true;
-    mysqld_converged_sync::mysqld_basic_init_done_cv.notify_one();
-
-    LOG(INFO) << "MySQL basic initialization complete, waiting for data "
-                 "substrate...";
-
-    // Wait for data substrate initialization to complete
-    mysqld_converged_sync::data_substrate_init_done_cv.wait(
-        lock, [] { return mysqld_converged_sync::data_substrate_init_done; });
-
-    LOG(INFO) << "Data substrate initialized, MySQL continuing...";
-  }
-#else
+#ifndef MYSQLD_LIBRARY_MODE
   // Set the data substrate data path to mysql home directory in standalone
   // mode.
   FLAGS_eloq_data_path= mysql_real_data_home_ptr;
@@ -1451,7 +1376,49 @@ static int eloq_init_func(void *p)
   // Wait for mysqld to initialize before initializing data substrate
   // as data substrate may need to access some mysqld variables during replay.
   LOG(INFO) << "Standalone mode: Initializing data substrate...";
-  DataSubstrate::InitializeGlobal(eloq_config);
+
+  if (!DataSubstrate::Instance().Init(eloq_config))
+  {
+    sql_print_error("Failed to initialize DataSubstrate");
+    DBUG_RETURN(1);
+  }
+
+  DataSubstrate::Instance().EnableEngine(txservice::TableEngine::EloqSql);
+#endif
+  auto &ds= DataSubstrate::Instance();
+
+  // Currently no EloqSQL-specific prebuilt tables are required.
+  std::vector<std::pair<txservice::TableName, std::string>>
+      prebuilt_tables_sql;
+
+  // EloqSQL-specific engine metrics can be added here in the future if
+  // needed. For now, pass an empty list.
+  std::vector<std::tuple<metrics::Name, metrics::Type,
+                         std::vector<metrics::LabelGroup>>>
+      engine_metrics_sql;
+
+  if (!ds.RegisterEngine(
+          txservice::TableEngine::EloqSql, &maria_catalog_factory,
+          &MyEloq::MariaSystemHandler::Instance(),
+          std::move(prebuilt_tables_sql), std::move(engine_metrics_sql)))
+  {
+    sql_print_error("Failed to register EloqSQL engine with DataSubstrate");
+    DBUG_RETURN(1);
+  }
+
+#ifdef MYSQLD_LIBRARY_MODE
+  if (!ds.WaitForDataSubstrateStarted(std::chrono::milliseconds(600000)))
+  {
+    sql_print_error("Timed out waiting for DataSubstrate to start (EloqSQL)");
+    DBUG_RETURN(1);
+  }
+#else
+  if (!ds.Start())
+  {
+    sql_print_error("Failed to start DataSubstrate");
+    DBUG_RETURN(1);
+  }
+
 #endif
 
   eloq_hton= (handlerton *) p;
@@ -1478,11 +1445,11 @@ static int eloq_init_func(void *p)
     is_insert_semantic_= false;
   }
 
-  tx_service= DataSubstrate::GetGlobal()->GetTxService();
-  txlog_server= DataSubstrate::GetGlobal()->GetLogServer();
-  storage_hd= DataSubstrate::GetGlobal()->GetStoreHandler();
+  tx_service= DataSubstrate::Instance().GetTxService();
+  txlog_server= DataSubstrate::Instance().GetLogServer();
+  storage_hd= DataSubstrate::Instance().GetStoreHandler();
 
-  node_id= DataSubstrate::GetGlobal()->GetNetworkConfig().node_id;
+  node_id= DataSubstrate::Instance().GetNetworkConfig().node_id;
 #ifdef EXT_TX_PROC_ENABLED
   get_tx_service_functors= tx_service->GetTxProcFunctors();
 #endif
@@ -1514,7 +1481,7 @@ static int eloq_init_func(void *p)
     assert(false);
   };
 
-  if (DataSubstrate::GetGlobal()->GetCoreConfig().enable_mvcc)
+  if (DataSubstrate::Instance().GetCoreConfig().enable_mvcc)
   {
     sql_print_information("mvcc is enabled.");
   }
@@ -1551,7 +1518,7 @@ static int eloq_done_func(void *p)
 
 #ifndef MYSQLD_LIBRARY_MODE
   sql_print_information("Shutting down the data substrate.");
-  DataSubstrate::GetGlobal()->Shutdown();
+  DataSubstrate::Instance().Shutdown();
 #endif
 
   mysql_mutex_destroy(&mono_collation_data_mutex);
