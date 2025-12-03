@@ -117,9 +117,9 @@ public:
   void SetKVCatalogInfo(const std::string &kv_info) override
   {
     size_t offset= 0;
-    kv_info_= DataSubstrate::GetGlobal()
-                  ->GetStoreHandler()
-                  ->DeserializeKVCatalogInfo(kv_info, offset);
+    kv_info_=
+        DataSubstrate::Instance().GetStoreHandler()->DeserializeKVCatalogInfo(
+            kv_info, offset);
   }
 
   txservice::KVCatalogInfo *GetKVCatalogInfo() const override
