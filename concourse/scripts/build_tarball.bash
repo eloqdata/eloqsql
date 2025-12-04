@@ -126,6 +126,7 @@ elif [ "${DATA_STORE_TYPE}" = "ELOQDSS_ROCKSDB" ]; then
     DATA_STORE_ID="eloqdss_rocksdb"
 elif [ "${DATA_STORE_TYPE}" = "ELOQDSS_ELOQSTORE" ]; then
     DATA_STORE_ID="eloqdss_eloqstore"
+    CMAKE_ARGS="${CMAKE_ARGS} -DWITH_LOG_STATE=ROCKSDB"
 else
     echo "Unsupported DATA_STORE_TYPE: ${DATA_STORE_TYPE}"
     exit 1
@@ -203,7 +204,6 @@ cmake -DCMAKE_INSTALL_PREFIX="${DEST_DIR}" \
       -DOPEN_LOG_SERVICE=OFF \
       -DFORK_HM_PROCESS=ON \
       -DELOQ_MODULE_ENABLED=ON \
-      -DWITH_LOG_STATE=ROCKSDB \
       ../
 
 cmake --build . --config ${BUILD_TYPE} -j4
