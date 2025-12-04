@@ -124,6 +124,7 @@ elif [ "${DATA_STORE_TYPE}" = "ELOQDSS_ROCKSDB_CLOUD_GCS" ]; then
     DATA_STORE_ID="rocks_gcs"
 elif [ "${DATA_STORE_TYPE}" = "ELOQDSS_ROCKSDB" ]; then
     DATA_STORE_ID="eloqdss_rocksdb"
+    CMAKE_ARGS="${CMAKE_ARGS} -DWITH_LOG_STATE=ROCKSDB"
 elif [ "${DATA_STORE_TYPE}" = "ELOQDSS_ELOQSTORE" ]; then
     DATA_STORE_ID="eloqdss_eloqstore"
     CMAKE_ARGS="${CMAKE_ARGS} -DWITH_LOG_STATE=ROCKSDB"
