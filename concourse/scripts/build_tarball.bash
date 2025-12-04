@@ -22,10 +22,28 @@ sudo chown -R $current_user $HOME/workspace 2>/dev/null || true
 cd $HOME
 ln -s ${WORKSPACE}/eloqsql_src eloqsql
 cd eloqsql
-ln -s $WORKSPACE/logservice_src storage/eloq/eloq_log_service
-pushd storage/eloq/tx_service
+git submodule sync
+git submodule update --init --recursive
+
+ln -s $WORKSPACE/logservice_src data_substrate/eloq_log_service
+pushd data_substrate/eloq_log_service
+git submodule sync
+git submodule update --init --recursive
+popd
+
+pushd data_substrate/tx_service
 ln -s $WORKSPACE/raft_host_manager_src raft_host_manager
 popd
+
+if [ "${DATA_STORE_TYPE}" = "ELOQDSS_ELOQSTORE" ]; then
+    pushd data_substrate/store_handler/eloq_data_store_service
+    ln -s $WORKSPACE/eloqstore_src eloqstore
+    cd eloqstore
+    git submodule sync
+    git submodule update --init --recursive
+    popd
+fi
+
 ELOQSQL_SRC=${PWD}
 
 export LD_LIBRARY_PATH=/usr/local/lib:/usr/local/lib64:$LD_LIBRARY_PATH
@@ -163,16 +181,6 @@ EOF
 echo "$LICENSE_CONTENT" >"${DEST_DIR}/LICENSE.txt"
 
 # build eloqsql
-cd $ELOQSQL_SRC
-git submodule sync
-git submodule update --init --recursive
-
-# Init and sync submodules in required locations
-cd storage/eloq/eloq_log_service
-git submodule sync
-git submodule update --init --recursive
-cd $ELOQSQL_SRC
-
 if [ ! -d "bld" ]; then mkdir bld; fi
 cd bld
 
@@ -194,6 +202,8 @@ cmake -DCMAKE_INSTALL_PREFIX="${DEST_DIR}" \
       -DIOURING_ENABLED=${IOURING_ENABLED} \
       -DOPEN_LOG_SERVICE=OFF \
       -DFORK_HM_PROCESS=ON \
+      -DELOQ_MODULE_ENABLED=ON \
+      -DWITH_LOG_STATE=ROCKSDB \
       ../
 
 cmake --build . --config ${BUILD_TYPE} -j4
@@ -211,9 +221,12 @@ else
 fi
 
 if [ -n "${DSS_TYPE}" ]; then
-    cd ${ELOQSQL_SRC}/storage/eloq/store_handler/eloq_data_store_service
+    cd ${ELOQSQL_SRC}/data_substrate/store_handler/eloq_data_store_service
     mkdir -p build && cd build
-    cmake .. -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DWITH_DATA_STORE=${DSS_TYPE} -DUSE_ONE_ELOQDSS_PARTITION_ENABLED=OFF
+    if [ "${DATA_STORE_TYPE}" = "ELOQDSS_ELOQSTORE" ]; then
+        DSS_CMAKE_ARGS="${DSS_CMAKE_ARGS} -DELOQ_MODULE_ENABLED=ON"
+    fi
+    cmake .. -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DWITH_DATA_STORE=${DSS_TYPE} -DUSE_ONE_ELOQDSS_PARTITION_ENABLED=OFF ${DSS_CMAKE_ARGS}
     cmake --build . --config ${BUILD_TYPE} -j4
     copy_libraries dss_server ${DEST_DIR}/lib
     mv dss_server ${DEST_DIR}/bin/
@@ -221,7 +234,7 @@ if [ -n "${DSS_TYPE}" ]; then
 fi
 
 # Build and install log_server (launch_sv)
-cd ${ELOQSQL_SRC}/storage/eloq/eloq_log_service
+cd ${ELOQSQL_SRC}/data_substrate/eloq_log_service
 mkdir bld && cd bld
 cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ${CMAKE_ARGS} ../
 cmake --build . --config ${BUILD_TYPE} -j4
@@ -248,9 +261,9 @@ fi
 rm -rf eloqsql.tar.gz
 cd $ELOQSQL_SRC
 rm -rf bld
-rm -rf storage/eloq/store_handler/eloq_data_store_service/bld
-rm -rf storage/eloq/store_handler/eloq_data_store_service/build
-rm -rf storage/eloq/eloq_log_service/bld
+rm -rf data_substrate/store_handler/eloq_data_store_service/bld
+rm -rf data_substrate/store_handler/eloq_data_store_service/build
+rm -rf data_substrate/eloq_log_service/bld
 rm -rf ${DEST_DIR}
 
 build_upload_log_srv() {
@@ -260,7 +273,7 @@ build_upload_log_srv() {
     fi
     local log_tarball=$1
     local ds_type=$2
-    log_sv_src=${ELOQSQL_SRC}/storage/eloq/eloq_log_service
+    log_sv_src=${ELOQSQL_SRC}/data_substrate/eloq_log_service
     cd ${log_sv_src}
     mkdir -p LogService/bin
     mkdir build && cd build

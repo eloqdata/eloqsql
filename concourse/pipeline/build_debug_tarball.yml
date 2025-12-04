@@ -25,6 +25,13 @@ resources:
     private_key: ((git-key))
     uri: git@github.com:eloqdata/raft_host_manager.git
 
+- name: eloqstore_src_main
+  type: git
+  source:
+    branch: main
+    private_key: ((git-key))
+    uri: git@github.com:eloqdata/eloqstore.git
+
 jobs:
 - name: ubuntu2204-main
   plan:
@@ -37,8 +44,26 @@ jobs:
         resource: logservice_src_main
       - get: raft_host_manager_src
         resource: raft_host_manager_src_main
+      - get: eloqstore_src
+        resource: eloqstore_src_main
       - get: image_ubuntu2204
         resource: image_ubuntu2204_main
+
+  - task: build-eloqstore-type
+    file: eloqsql_src/concourse/tasks/build_debug_tarball.yml
+    image: image_ubuntu2204
+    params:
+      ASAN: "ON"
+      TAGGED: ""
+      GIT_SSH_KEY: ((git-key))
+      AWS_ACCESS_KEY_ID: ((aws_access_key_id))
+      AWS_DEFAULT_REGION: ((aws-region))
+      AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
+      BUILD_LOG_SRV: "true"
+      BUILD_TYPE: Debug
+      DATA_STORE_TYPE: ELOQDSS_ELOQSTORE
+      OUT_NAME: debug
+      CLOUDFRONT_DIST: ((cloudfront-dist))
 
   - task: build-rocksdb-cloud-s3-type
     file: eloqsql_src/concourse/tasks/build_debug_tarball.yml
