@@ -538,7 +538,6 @@ compile_commands.json
 .clang-format
 .kscope/
 .vimrc
-.editorconfig
 .kateconfig
 *.kdev4
 
