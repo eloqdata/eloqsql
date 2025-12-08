@@ -4152,6 +4152,7 @@ int ha_eloq::PkIndexScanOpen(const txservice::TxKey *start_key,
   bool require_recs= decode_flag_ > 0;
   bool require_sort= eloq_random_scan_sort ||
                      (active_index != MAX_INDEXES && decode_flag_ > 0);
+  end_specified_= end_key != nullptr;
 
   auto [yield_func, resume_func]= my_tx->CoroFunctors();
 
@@ -4211,6 +4212,7 @@ int ha_eloq::SkIndexScanOpen(const txservice::TxKey *start_index_key,
   bool is_require_keys= has_hidden_pk(table) || decode_flag_ > 0;
   bool is_require_recs= is_require_keys;
   bool is_require_sort= is_require_keys;
+  end_specified_= end_index_key != nullptr;
 
   auto [yield_func, resume_func]= my_tx->CoroFunctors();
 
@@ -5212,7 +5214,7 @@ int ha_eloq::IndexScanClose()
   ccm_scan_key_= nullptr;
   ccm_scan_rec_= nullptr;
   ccm_scan_rec_status_= txservice::RecordStatus::Unknown;
-
+  end_specified_= false;
   scan_batch_idx_= UINT64_MAX;
   if (scan_batch_.size() > DEFAULT_SCAN_TUPLE_SIZE)
   {
