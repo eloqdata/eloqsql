@@ -51,6 +51,13 @@ resources:
     private_key: ((git-key))
     uri: git@github.com:eloqdata/raft_host_manager.git
 
+- name: eloqstore_src_main
+  type: git
+  source:
+    branch: main
+    private_key: ((git-key))
+    uri: git@github.com:eloqdata/eloqstore.git
+
 jobs:
 - name: ubuntu2004-main
   plan:
@@ -63,10 +70,12 @@ jobs:
         resource: logservice_src_main
       - get: raft_host_manager_src
         resource: raft_host_manager_src_main
+      - get: eloqstore_src
+        resource: eloqstore_src_main
       - get: image_ubuntu2004
         resource: image_ubuntu2004_main
 
-  - task: build-rocksdb-cloud-s3-type
+  - task: build-eloqdss-rocksdb-cloud-s3-type
     file: eloqsql_src/concourse/tasks/build_release_tarball.yml
     image: image_ubuntu2004
     params:
@@ -78,6 +87,7 @@ jobs:
       BUILD_LOG_SRV: "true"
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB_CLOUD_S3
+      WITH_LOG_STATE: ROCKSDB_CLOUD_S3
       CLOUDFRONT_DIST: ((cloudfront-dist))
       PG_CONN: ((pg-conn))
     privileged: true
@@ -94,11 +104,12 @@ jobs:
       BUILD_LOG_SRV: "true"
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB
+      WITH_LOG_STATE: ROCKSDB
       CLOUDFRONT_DIST: ((cloudfront-dist))
       PG_CONN: ((pg-conn))
     privileged: true
 
-  - task: build-eloqstore-type
+  - task: build-eloqdss-eloqstore-type
     file: eloqsql_src/concourse/tasks/build_release_tarball.yml
     image: image_ubuntu2004
     params:
@@ -110,6 +121,7 @@ jobs:
       BUILD_LOG_SRV: "true"
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ELOQSTORE
+      WITH_LOG_STATE: ROCKSDB_CLOUD_GCS
       CLOUDFRONT_DIST: ((cloudfront-dist))
       PG_CONN: ((pg-conn))
     privileged: true
@@ -128,10 +140,12 @@ jobs:
         resource: logservice_src_main
       - get: raft_host_manager_src
         resource: raft_host_manager_src_main
+      - get: eloqstore_src
+        resource: eloqstore_src_main
       - get: image_ubuntu2204
         resource: image_ubuntu2204_main
 
-  - task: build-rocksdb-cloud-s3-type
+  - task: build-eloqdss-rocksdb-cloud-s3-type
     file: eloqsql_src/concourse/tasks/build_release_tarball.yml
     image: image_ubuntu2204
     params:
@@ -143,6 +157,7 @@ jobs:
       BUILD_LOG_SRV: "true"
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB_CLOUD_S3
+      WITH_LOG_STATE: ROCKSDB_CLOUD_S3
       CLOUDFRONT_DIST: ((cloudfront-dist))
       PG_CONN: ((pg-conn))
     privileged: true
@@ -159,11 +174,12 @@ jobs:
       BUILD_LOG_SRV: "true"
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB
+      WITH_LOG_STATE: ROCKSDB
       CLOUDFRONT_DIST: ((cloudfront-dist))
       PG_CONN: ((pg-conn))
     privileged: true
 
-  - task: build-eloqstore-type
+  - task: build-eloqdss-eloqstore-type
     file: eloqsql_src/concourse/tasks/build_release_tarball.yml
     image: image_ubuntu2204
     params:
@@ -175,6 +191,7 @@ jobs:
       BUILD_LOG_SRV: "true"
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ELOQSTORE
+      WITH_LOG_STATE: ROCKSDB_CLOUD_GCS
       CLOUDFRONT_DIST: ((cloudfront-dist))
       PG_CONN: ((pg-conn))
     privileged: true
@@ -192,10 +209,12 @@ jobs:
         resource: logservice_src_main
       - get: raft_host_manager_src
         resource: raft_host_manager_src_main
+      - get: eloqstore_src
+        resource: eloqstore_src_main
       - get: image_ubuntu2404
         resource: image_ubuntu2404_main
 
-  - task: build-rocksdb-cloud-s3-type
+  - task: build-eloqdss-rocksdb-cloud-s3-type
     file: eloqsql_src/concourse/tasks/build_release_tarball.yml
     image: image_ubuntu2404
     params:
@@ -207,6 +226,7 @@ jobs:
       BUILD_LOG_SRV: "true"
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB_CLOUD_S3
+      WITH_LOG_STATE: ROCKSDB_CLOUD_S3
       CLOUDFRONT_DIST: ((cloudfront-dist))
       PG_CONN: ((pg-conn))
     privileged: true
@@ -223,11 +243,12 @@ jobs:
       BUILD_LOG_SRV: "true"
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB
+      WITH_LOG_STATE: ROCKSDB
       CLOUDFRONT_DIST: ((cloudfront-dist))
       PG_CONN: ((pg-conn))
     privileged: true
 
-  - task: build-eloqstore-type
+  - task: build-eloqdss-eloqstore-type
     file: eloqsql_src/concourse/tasks/build_release_tarball.yml
     image: image_ubuntu2404
     params:
@@ -239,6 +260,7 @@ jobs:
       BUILD_LOG_SRV: "true"
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ELOQSTORE
+      WITH_LOG_STATE: ROCKSDB_CLOUD_GCS
       CLOUDFRONT_DIST: ((cloudfront-dist))
       PG_CONN: ((pg-conn))
     privileged: true
@@ -257,10 +279,12 @@ jobs:
         resource: logservice_src_main
       - get: raft_host_manager_src
         resource: raft_host_manager_src_main
+      - get: eloqstore_src
+        resource: eloqstore_src_main
       - get: image_centos7
         resource: image_centos7_main
 
-  - task: build-rocksdb-cloud-s3-type
+  - task: build-eloqdss-rocksdb-cloud-s3-type
     file: eloqsql_src/concourse/tasks/build_release_tarball.yml
     image: image_centos7
     params:
@@ -272,6 +296,7 @@ jobs:
       BUILD_LOG_SRV: "true"
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB_CLOUD_S3
+      WITH_LOG_STATE: ROCKSDB_CLOUD_S3
       CLOUDFRONT_DIST: ((cloudfront-dist))
       PG_CONN: ((pg-conn))
     privileged: true
@@ -288,11 +313,12 @@ jobs:
       BUILD_LOG_SRV: "true"
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB
+      WITH_LOG_STATE: ROCKSDB
       CLOUDFRONT_DIST: ((cloudfront-dist))
       PG_CONN: ((pg-conn))
     privileged: true
 
-  - task: build-eloqstore-type
+  - task: build-eloqdss-eloqstore-type
     file: eloqsql_src/concourse/tasks/build_release_tarball.yml
     image: image_centos7
     params:
@@ -304,6 +330,7 @@ jobs:
       BUILD_LOG_SRV: "true"
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ELOQSTORE
+      WITH_LOG_STATE: ROCKSDB_CLOUD_GCS
       CLOUDFRONT_DIST: ((cloudfront-dist))
       PG_CONN: ((pg-conn))
     privileged: true
@@ -322,10 +349,12 @@ jobs:
         resource: logservice_src_main
       - get: raft_host_manager_src
         resource: raft_host_manager_src_main
+      - get: eloqstore_src
+        resource: eloqstore_src_main
       - get: image_centos8
         resource: image_centos8_main
 
-  - task: build-rocksdb-cloud-s3-type
+  - task: build-eloqdss-rocksdb-cloud-s3-type
     file: eloqsql_src/concourse/tasks/build_release_tarball.yml
     image: image_centos8
     params:
@@ -337,6 +366,7 @@ jobs:
       BUILD_LOG_SRV: "true"
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB_CLOUD_S3
+      WITH_LOG_STATE: ROCKSDB_CLOUD_S3
       CLOUDFRONT_DIST: ((cloudfront-dist))
       PG_CONN: ((pg-conn))
 
@@ -352,9 +382,24 @@ jobs:
       BUILD_LOG_SRV: "true"
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB
+      WITH_LOG_STATE: ROCKSDB
       CLOUDFRONT_DIST: ((cloudfront-dist))
       PG_CONN: ((pg-conn))
 
+  - task: build-eloqdss-eloqstore-type
+    file: eloqsql_src/concourse/tasks/build_release_tarball.yml
+    image: image_centos8
+    params:
+      TAGGED: "true"
+      GIT_SSH_KEY: ((git-key))
+      AWS_ACCESS_KEY_ID: ((aws_access_key_id))
+      AWS_DEFAULT_REGION: ((aws-region))
+      AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
+      BUILD_LOG_SRV: "true"
+      BUILD_TYPE: RelWithDebInfo
+      DATA_STORE_TYPE: ELOQDSS_ELOQSTORE
+      WITH_LOG_STATE: ROCKSDB_CLOUD_GCS
+      CLOUDFRONT_DIST: ((cloudfront-dist))
 
   serial: true
 
@@ -369,10 +414,12 @@ jobs:
         resource: logservice_src_main
       - get: raft_host_manager_src
         resource: raft_host_manager_src_main
+      - get: eloqstore_src
+        resource: eloqstore_src_main
       - get: image_rocky9
         resource: image_rocky9_main
 
-  - task: build-rocksdb-cloud-s3-type
+  - task: build-eloqdss-rocksdb-cloud-s3-type
     file: eloqsql_src/concourse/tasks/build_release_tarball.yml
     image: image_rocky9
     params:
@@ -384,6 +431,7 @@ jobs:
       BUILD_LOG_SRV: "true"
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB_CLOUD_S3
+      WITH_LOG_STATE: ROCKSDB_CLOUD_S3
       CLOUDFRONT_DIST: ((cloudfront-dist))
       PG_CONN: ((pg-conn))
 
@@ -399,8 +447,24 @@ jobs:
       BUILD_LOG_SRV: "true"
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB
+      WITH_LOG_STATE: ROCKSDB
       CLOUDFRONT_DIST: ((cloudfront-dist))
       PG_CONN: ((pg-conn))
 
+  - task: build-eloqdss-eloqstore-type
+    file: eloqsql_src/concourse/tasks/build_release_tarball.yml
+    image: image_rocky9
+    params:
+      TAGGED: "true"
+      GIT_SSH_KEY: ((git-key))
+      AWS_ACCESS_KEY_ID: ((aws_access_key_id))
+      AWS_DEFAULT_REGION: ((aws-region))
+      AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
+      BUILD_LOG_SRV: "true"
+      BUILD_TYPE: RelWithDebInfo
+      DATA_STORE_TYPE: ELOQDSS_ELOQSTORE
+      WITH_LOG_STATE: ROCKSDB_CLOUD_GCS
+      CLOUDFRONT_DIST: ((cloudfront-dist))
+      PG_CONN: ((pg-conn))
 
   serial: true
