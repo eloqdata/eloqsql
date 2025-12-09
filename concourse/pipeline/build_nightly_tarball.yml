@@ -43,6 +43,13 @@ resources:
     private_key: ((git-key))
     uri: git@github.com:eloqdata/raft_host_manager.git
 
+- name: eloqstore_src_main
+  type: git
+  source:
+    branch: main
+    private_key: ((git-key))
+    uri: git@github.com:eloqdata/eloqstore.git
+
 jobs:
 - name: ubuntu2004-main
   plan:
@@ -55,6 +62,8 @@ jobs:
         resource: logservice_src_main
       - get: raft_host_manager_src
         resource: raft_host_manager_src_main
+      - get: eloqstore_src
+        resource: eloqstore_src_main
       - get: image_ubuntu2004
         resource: image_ubuntu2004_main
 
@@ -70,6 +79,7 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB_CLOUD_S3
       OUT_NAME: nightly
+      WITH_LOG_STATE: ROCKSDB_CLOUD_S3
       CLOUDFRONT_DIST: ((cloudfront-dist))
 
   - task: build-eloqdss-rocksdb-type
@@ -84,9 +94,10 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB
       OUT_NAME: nightly
+      WITH_LOG_STATE: ROCKSDB
       CLOUDFRONT_DIST: ((cloudfront-dist))
 
-  - task: build-eloqstore-type
+  - task: build-eloqdss-eloqstore-type
     file: eloqsql_src/concourse/tasks/build_nightly_tarball.yml
     image: image_ubuntu2004
     params:
@@ -98,6 +109,7 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ELOQSTORE
       OUT_NAME: nightly
+      WITH_LOG_STATE: ROCKSDB_CLOUD_S3
       CLOUDFRONT_DIST: ((cloudfront-dist))
 
   serial: true
@@ -113,6 +125,8 @@ jobs:
         resource: logservice_src_main
       - get: raft_host_manager_src
         resource: raft_host_manager_src_main
+      - get: eloqstore_src
+        resource: eloqstore_src_main
       - get: image_ubuntu2204
         resource: image_ubuntu2204_main
 
@@ -128,6 +142,7 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB_CLOUD_S3
       OUT_NAME: nightly
+      WITH_LOG_STATE: ROCKSDB_CLOUD_S3
       CLOUDFRONT_DIST: ((cloudfront-dist))
 
   - task: build-eloqdss-rocksdb-type
@@ -142,9 +157,10 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB
       OUT_NAME: nightly
+      WITH_LOG_STATE: ROCKSDB
       CLOUDFRONT_DIST: ((cloudfront-dist))
 
-  - task: build-eloqstore-type
+  - task: build-eloqdss-eloqstore-type
     file: eloqsql_src/concourse/tasks/build_nightly_tarball.yml
     image: image_ubuntu2204
     params:
@@ -156,6 +172,7 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ELOQSTORE
       OUT_NAME: nightly
+      WITH_LOG_STATE: ROCKSDB_CLOUD_S3
       CLOUDFRONT_DIST: ((cloudfront-dist))
 
   serial: true
@@ -171,6 +188,8 @@ jobs:
         resource: logservice_src_main
       - get: raft_host_manager_src
         resource: raft_host_manager_src_main
+      - get: eloqstore_src
+        resource: eloqstore_src_main
       - get: image_ubuntu2404
         resource: image_ubuntu2404_main
 
@@ -186,6 +205,7 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB_CLOUD_S3
       OUT_NAME: nightly
+      WITH_LOG_STATE: ROCKSDB_CLOUD_S3
       CLOUDFRONT_DIST: ((cloudfront-dist))
 
   - task: build-eloqdss-rocksdb-type
@@ -200,9 +220,10 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB
       OUT_NAME: nightly
+      WITH_LOG_STATE: ROCKSDB
       CLOUDFRONT_DIST: ((cloudfront-dist))
 
-  - task: build-eloqstore-type
+  - task: build-eloqdss-eloqstore-type
     file: eloqsql_src/concourse/tasks/build_nightly_tarball.yml
     image: image_ubuntu2404
     params:
@@ -214,6 +235,7 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ELOQSTORE
       OUT_NAME: nightly
+      WITH_LOG_STATE: ROCKSDB_CLOUD_S3
       CLOUDFRONT_DIST: ((cloudfront-dist))
 
   serial: true
@@ -229,6 +251,8 @@ jobs:
         resource: logservice_src_main
       - get: raft_host_manager_src
         resource: raft_host_manager_src_main
+      - get: eloqstore_src
+        resource: eloqstore_src_main
       - get: image_centos7
         resource: image_centos7_main
 
@@ -244,6 +268,7 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB_CLOUD_S3
       OUT_NAME: nightly
+      WITH_LOG_STATE: ROCKSDB_CLOUD_S3
       CLOUDFRONT_DIST: ((cloudfront-dist))
 
   - task: build-eloqdss-rocksdb-type
@@ -258,9 +283,10 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB
       OUT_NAME: nightly
+      WITH_LOG_STATE: ROCKSDB
       CLOUDFRONT_DIST: ((cloudfront-dist))
 
-  - task: build-eloqstore-type
+  - task: build-eloqdss-eloqstore-type
     file: eloqsql_src/concourse/tasks/build_nightly_tarball.yml
     image: image_centos7
     params:
@@ -272,6 +298,7 @@ jobs:
       BUILD_TYPE: RelWithDebInfo
       DATA_STORE_TYPE: ELOQDSS_ELOQSTORE
       OUT_NAME: nightly
+      WITH_LOG_STATE: ROCKSDB_CLOUD_S3
       CLOUDFRONT_DIST: ((cloudfront-dist))
 
   serial: true

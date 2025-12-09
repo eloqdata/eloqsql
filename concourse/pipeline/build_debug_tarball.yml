@@ -63,6 +63,7 @@ jobs:
       BUILD_TYPE: Debug
       DATA_STORE_TYPE: ELOQDSS_ELOQSTORE
       OUT_NAME: debug
+      WITH_LOG_STATE: ROCKSDB
       CLOUDFRONT_DIST: ((cloudfront-dist))
 
   - task: build-rocksdb-cloud-s3-type
@@ -78,6 +79,7 @@ jobs:
       BUILD_TYPE: Debug
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB_CLOUD_S3
       OUT_NAME: debug
+      WITH_LOG_STATE: ROCKSDB_CLOUD_S3
       CLOUDFRONT_DIST: ((cloudfront-dist))
     privileged: true
 
@@ -94,6 +96,7 @@ jobs:
       BUILD_TYPE: Debug
       DATA_STORE_TYPE: ELOQDSS_ROCKSDB
       OUT_NAME: debug
+      WITH_LOG_STATE: ROCKSDB
       CLOUDFRONT_DIST: ((cloudfront-dist))
     privileged: true
 

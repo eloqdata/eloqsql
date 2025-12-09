@@ -117,17 +117,14 @@ DATA_STORE_ID=$(echo ${DATA_STORE_TYPE} | tr '[:upper:]' '[:lower:]')
 
 # Normalize behavior for supported DATA_STORE_TYPE values
 if [ "${DATA_STORE_TYPE}" = "ELOQDSS_ROCKSDB_CLOUD_S3" ]; then
-    CMAKE_ARGS="${CMAKE_ARGS} -DWITH_LOG_STATE=ROCKSDB_CLOUD_S3 -DWITH_CLOUD_AZ_INFO=ON"
+    CMAKE_ARGS="${CMAKE_ARGS} -DWITH_CLOUD_AZ_INFO=ON"
     DATA_STORE_ID="rocks_s3"
 elif [ "${DATA_STORE_TYPE}" = "ELOQDSS_ROCKSDB_CLOUD_GCS" ]; then
-    CMAKE_ARGS="${CMAKE_ARGS} -DWITH_LOG_STATE=ROCKSDB_CLOUD_GCS"
     DATA_STORE_ID="rocks_gcs"
 elif [ "${DATA_STORE_TYPE}" = "ELOQDSS_ROCKSDB" ]; then
     DATA_STORE_ID="eloqdss_rocksdb"
-    CMAKE_ARGS="${CMAKE_ARGS} -DWITH_LOG_STATE=ROCKSDB"
 elif [ "${DATA_STORE_TYPE}" = "ELOQDSS_ELOQSTORE" ]; then
     DATA_STORE_ID="eloqdss_eloqstore"
-    CMAKE_ARGS="${CMAKE_ARGS} -DWITH_LOG_STATE=ROCKSDB"
 else
     echo "Unsupported DATA_STORE_TYPE: ${DATA_STORE_TYPE}"
     exit 1
