@@ -717,6 +717,12 @@ private:
 
   uint32_t PrefetchSize()
   {
+    if (end_specified_)
+    {
+      // Prefetch more agressively if end key is specified as the scan
+      // will not prefetch beyond the end key.
+      return 256;
+    }
     std::array<uint32_t, 5> boundaries= {1, 4, 16, 64, 256};
 
     size_t idx= 0;
@@ -774,6 +780,7 @@ private:
   txservice::TxKey search_tx_key_{&search_key_};
   EloqKey scan_end_key_;
   txservice::TxKey scan_end_tx_key_{&scan_end_key_};
+  bool end_specified_{false};
 
   uint64_t scan_alias_{UINT64_MAX};
   // index currently used if scan is active
