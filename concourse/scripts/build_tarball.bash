@@ -202,6 +202,7 @@ cmake -DCMAKE_INSTALL_PREFIX="${DEST_DIR}" \
       -DOPEN_LOG_SERVICE=OFF \
       -DFORK_HM_PROCESS=ON \
       -DELOQ_MODULE_ENABLED=ON \
+      -DWITH_LOG_STATE=${WITH_LOG_STATE} \
       ../
 
 cmake --build . --config ${BUILD_TYPE} -j4
@@ -234,7 +235,7 @@ fi
 # Build and install log_server (launch_sv)
 cd ${ELOQSQL_SRC}/data_substrate/eloq_log_service
 mkdir bld && cd bld
-cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ${CMAKE_ARGS} ../
+cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DWITH_LOG_STATE=${WITH_LOG_STATE} ${CMAKE_ARGS} ../
 cmake --build . --config ${BUILD_TYPE} -j4
 copy_libraries launch_sv ${DEST_DIR}/lib/
 mv launch_sv ${DEST_DIR}/bin/launch_sv
@@ -275,11 +276,9 @@ build_upload_log_srv() {
     cd ${log_sv_src}
     mkdir -p LogService/bin
     mkdir build && cd build
-    local cmake_args="-DCMAKE_BUILD_TYPE=$BUILD_TYPE -DWITH_ASAN=$ASAN -DDISABLE_CODE_LINE_IN_LOG=ON"
+    local cmake_args="-DCMAKE_BUILD_TYPE=$BUILD_TYPE -DWITH_ASAN=$ASAN -DDISABLE_CODE_LINE_IN_LOG=ON -DWITH_LOG_STATE=$WITH_LOG_STATE"
     if [ "$ds_type" = "ELOQDSS_ROCKSDB_CLOUD_S3" ]; then
-        cmake_args="$cmake_args -DWITH_LOG_STATE=ROCKSDB_CLOUD_S3 -DWITH_CLOUD_AZ_INFO=ON"
-    elif [ "$ds_type" = "ELOQDSS_ROCKSDB_CLOUD_GCS" ]; then
-        cmake_args="$cmake_args -DWITH_LOG_STATE=ROCKSDB_CLOUD_GCS"
+        cmake_args="$cmake_args -DWITH_CLOUD_AZ_INFO=ON"
     fi
     cmake .. $cmake_args
     # build and copy log_server
