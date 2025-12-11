@@ -4150,5 +4150,8 @@ connection conn_read1;
 select count(*) from t1;
 count(*)
 2048
+disconnect conn_read1;
+disconnect conn_read2;
+disconnect conn_read3;
 connection default;
 drop table t1;
