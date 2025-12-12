@@ -1,0 +1,148 @@
+--source include/have_eloq.inc
+set @@default_storage_engine= eloq;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+--echo # Test: Range reads SHOULD block when range split holds write lock
+--echo # When range split holds write lock (Phase 2-3), reads should block
+--echo # because write locks are exclusive and incompatible with read locks.
+
+create table t1 (c0 int auto_increment, c1 char(250), c2 char(250), c3 char(250), c4 int, primary key(c0));
+
+# Insert initial data
+insert into t1 values (0,'initial', 'data', 'row', 1);
+
+# Set debug point to pause range split at prepare phase (Phase 2-3)
+# This must be set BEFORE building up data, so when the split is triggered,
+# it will pause at the prepare phase where write lock is held
+SET SESSION debug_dbug="+d,eloq;term_SplitFlushOp_CommitAcquireAllWriteOp_Continue;node_id=-1";
+
+# Build up enough data to trigger range split
+# We need to exceed range_max_size (1MB for testing builds, 256MB otherwise)
+# Using the same pattern as range_split_write_forward.test: double the data each time
+# 11 iterations: 1 -> 2 -> 4 -> 8 -> 16 -> 32 -> 64 -> 128 -> 256 -> 512 -> 1024 -> 2048 rows
+# With char(250) columns, this should exceed the threshold
+let $counter= 11;
+--disable_result_log
+--disable_query_log
+while($counter)
+{
+    insert into t1 (c1, c2, c3, c4) select c1, c2, c3, c4 from t1;
+    dec $counter;
+}
+--enable_query_log
+--enable_result_log
+
+# Trigger checkpoint to calculate range size and trigger range split if threshold exceeded
+# The range split will pause at prepare phase (write lock held) due to the debug point set above
+SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
+# Wait longer for checkpoint to process and range split to start and pause
+--sleep 5
+
+# Create connections: multiple for concurrent reads
+--connect (conn_read1,localhost,root,,test,$MONO1_PORT)
+--connect (conn_read2,localhost,root,,test,$MONO1_PORT)
+--connect (conn_read3,localhost,root,,test,$MONO1_PORT)
+
+# Wait a bit more to ensure range split has started and paused at prepare phase
+--sleep 2
+
+--echo # Test Case 1: Single read should BLOCK (not complete immediately)
+--connection conn_read1
+begin;
+--send select count(*) from t1;
+
+# Wait a bit to ensure the read is blocked
+--sleep 2
+
+# Verify the read is blocked (check processlist)
+# Note: Blocked queries are identified by state and info columns
+# We check for connections that have:
+# 1. Lock-related state (state like "%lock%")
+# 2. Matching query info (info like "select count(*) from t1%")
+# 3. NULL info with time >= 1 (waiting/blocked)
+--connection default
+let $wait_condition=
+    select count(*) >= 1 from information_schema.processlist
+    where (state like "%lock%" or info like "select count(*) from t1%")
+    and id != CONNECTION_ID();
+--source include/wait_condition.inc
+
+--echo # Test Case 2: Multiple concurrent reads should all BLOCK
+--connection conn_read2
+begin;
+--send select count(*) from t1 where c4 = 1;
+
+--connection conn_read3
+begin;
+--send select c0, c1, c2 from t1 order by c0;
+
+# Wait a bit to ensure reads are blocked
+--sleep 10
+
+# Verify all reads are blocked
+# Note: Blocked queries are identified by state and info columns
+# We check for connections that have:
+# 1. Lock-related state (state like "%lock%")
+# 2. Matching query info (info like "select count(*) from t1%" or "select c0, c1, c2 from t1%")
+# 3. NULL info with time >= 1 (waiting/blocked)
+--connection default
+--echo # Printing processlist before verification:
+let $wait_condition=
+    select count(*) >= 3 from information_schema.processlist
+    where (state like "%lock%" or
+            info like "select count(*) from t1%" or
+            info like "select c0, c1, c2 from t1%")
+    and id != CONNECTION_ID();
+--source include/wait_condition.inc
+
+--echo # Test Case 3: Complete the range split (releases write lock)
+# Complete the range split by removing the debug point and triggering checkpoint
+# This will allow the split to proceed through all phases and release the write lock
+SET SESSION debug_dbug="-d,eloq;term_SplitFlushOp_CommitAcquireAllWriteOp_Continue;node_id=-1";
+# SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
+--sleep 5
+
+--echo # Test Case 4: Verify blocked reads complete after write lock is released
+# All reads should now complete successfully after the range split releases the write lock
+--connection conn_read1
+--reap
+select count(*) from t1;
+commit;
+
+--connection conn_read2
+--reap
+select count(*) from t1 where c4 = 1;
+commit;
+
+--connection conn_read3
+--reap
+select c0, c1, c2 from t1;
+commit;
+
+--echo # Test Case 5: Verify no queries are still blocked
+--connection default
+# After reaping, queries should be completed
+# We verify by checking that there are no blocked queries (identified by state and info columns)
+--echo # Printing processlist before verification:
+let $wait_condition=
+    select count(*) = 0 from information_schema.processlist
+    where ((state like "%lock%") or
+           (info IS NULL and time >= 1))
+    and (info like "select%from t1%" or info IS NULL);
+--source include/wait_condition.inc
+
+--echo # Test Case 6: Verify reads completed successfully and range split completed
+--connection conn_read1
+select count(*) from t1;
+
+# Cleanup
+--disconnect conn_read1
+--disconnect conn_read2
+--disconnect conn_read3
+
+--connection default
+drop table t1;
+
