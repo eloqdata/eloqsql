@@ -285,6 +285,11 @@ SET(SQL_DEP_LIBS
 IF(COROUTINE_ENABLED)
   SET(SQL_DEP_LIBS ${SQL_DEP_LIBS} Boost::context)
   set(SQL_INCLUDE_DIR ${Boost_INCLUDE_DIRS})
+  if (WITH_ASAN)
+    # Boost stackful contexts need to switch to the ucontext backend when
+    # ASAN is enabled, otherwise fcontext symbols are missing at link time.
+    set(SQL_USE_ASAN_UCONTEXT ON)
+  endif()
 ENDIF()
 
 IF(ELOQ_MODULE_ENABLED)
@@ -310,6 +315,10 @@ ADD_LIBRARY(sql STATIC ${SQL_SOURCE})
 MAYBE_DISABLE_IPO(sql)
 DTRACE_INSTRUMENT(sql)
 TARGET_LINK_LIBRARIES(sql ${SQL_DEP_LIBS})
+
+if (SQL_USE_ASAN_UCONTEXT)
+  target_compile_definitions(sql PRIVATE BOOST_USE_ASAN BOOST_USE_UCONTEXT)
+endif()
 
 # IF(PLUGIN_ELOQ)
   ADD_DEFINITIONS(-DWITH_ELOQ_STORAGE_ENGINE)
