@@ -821,7 +821,8 @@ static void drop_table(const std::string &table_name_str)
 static void drop_orphan_tmp_tables()
 {
   std::vector<std::string> table_names;
-  if (storage_hd->DiscoverAllTableNames(table_names))
+  if (storage_hd->DiscoverAllTableNames(txservice::TableEngine::EloqSql,
+                                        table_names))
   {
     for (const std::string &table_name_str : table_names)
     {
@@ -1013,7 +1014,8 @@ static int eloq_discover_table_names(handlerton *hton, LEX_CSTRING *db,
     // Discover table names.
     std::vector<std::string> full_name_vec;
     auto [yield_func, resume_func]= thd_get_coro_functors(current_thd);
-    bool ok= storage_hd->DiscoverAllTableNames(full_name_vec, yield_func,
+    bool ok= storage_hd->DiscoverAllTableNames(txservice::TableEngine::EloqSql,
+                                               full_name_vec, yield_func,
                                                resume_func);
     if (!ok)
     {
@@ -6645,8 +6647,8 @@ int ha_eloq::create(const char *name, TABLE *table_arg,
   bool db_exists= false;
 
   auto [yield_func, resume_func]= my_tx->CoroFunctors();
-  if (!storage_hd->FetchDatabase(db, db_opt, db_exists, yield_func,
-                                 resume_func))
+  if (!storage_hd->FetchDatabase(txservice::TableEngine::EloqSql, db, db_opt,
+                                 db_exists, yield_func, resume_func))
   {
     DBUG_RETURN(HA_ERR_ELOQ_CREATE_TABLE_FAILED);
   }
