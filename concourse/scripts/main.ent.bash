@@ -128,7 +128,7 @@ if [ ! -f "Makefile" ]; then
           -DEXT_TX_PROC_ENABLED=ON \
           -DMARIA_WITH_GLOG=ON \
           -DSTATISTICS=ON \
-          -DWITH_DATA_STORE=ELOQDSS_ROCKSDB_CLOUD_S3 \
+          -DWITH_DATA_STORE=ELOQDSS_ELOQSTORE \
           -DOPEN_LOG_SERVICE=OFF \
           -DFORK_HM_PROCESS=ON \
 	  -DWITH_LOG_STATE=ROCKSDB_CLOUD_S3 \
@@ -147,7 +147,7 @@ cmake --install . --config Debug
 echo "building dss_server"
 cd /home/$current_user/workspace/eloqsql/data_substrate/store_handler/eloq_data_store_service
 mkdir bld && cd bld
-cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DWITH_DATA_STORE=ELOQDSS_ROCKSDB_CLOUD_S3 ../
+cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DWITH_DATA_STORE=ELOQDSS_ELOQSTORE ../
 cmake --build . --config Debug -j8
 echo "installing dss_server"
 cp dss_server /home/$current_user/workspace/eloqsql/install/bin/
