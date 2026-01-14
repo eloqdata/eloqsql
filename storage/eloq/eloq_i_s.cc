@@ -64,8 +64,8 @@ static int eloq_i_s_temp_table_info_fill_table(THD *thd, TABLE_LIST *tables,
 
   auto [yield_func, resume_func]= thd_get_coro_functors(thd);
   std::vector<std::string> table_names;
-  bool ok=
-      storage_hd->DiscoverAllTableNames(table_names, yield_func, resume_func);
+  bool ok= storage_hd->DiscoverAllTableNames(
+      txservice::TableEngine::EloqSql, table_names, yield_func, resume_func);
   if (ok)
   {
     for (const std::string &table_name : table_names)

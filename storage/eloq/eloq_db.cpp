@@ -396,7 +396,8 @@ int eloq_create_database(THD *thd, LEX_CSTRING db,
   }
 
   auto [yield_func, resume_func]= thd_get_coro_functors(thd);
-  bool ok= storage_hd->UpsertDatabase(key, {opt_binary.str, opt_binary.length},
+  bool ok= storage_hd->UpsertDatabase(txservice::TableEngine::EloqSql, key,
+                                      {opt_binary.str, opt_binary.length},
                                       yield_func, resume_func);
   if (!ok)
   {
@@ -439,7 +440,8 @@ int eloq_update_database(THD *thd, LEX_CSTRING db,
   }
 
   auto [yield_func, resume_func]= thd_get_coro_functors(thd);
-  bool ok= storage_hd->UpsertDatabase(key, {opt_binary.str, opt_binary.length},
+  bool ok= storage_hd->UpsertDatabase(txservice::TableEngine::EloqSql, key,
+                                      {opt_binary.str, opt_binary.length},
                                       yield_func, resume_func);
   if (!ok)
   {
@@ -464,7 +466,8 @@ int eloq_drop_database(THD *thd, LEX_CSTRING db)
   }
 
   auto [yield_func, resume_func]= thd_get_coro_functors(thd);
-  bool ok= storage_hd->DropDatabase(key, yield_func, resume_func);
+  bool ok= storage_hd->DropDatabase(txservice::TableEngine::EloqSql, key,
+                                    yield_func, resume_func);
   if (!ok)
   {
     my_printf_error(HA_ERR_INTERNAL_ERROR, "Eloq drop database '%s' failed",
@@ -486,8 +489,8 @@ int eloq_exist_database(THD *thd, LEX_CSTRING db, bool &exist)
 
   auto [yield_func, resume_func]= thd_get_coro_functors(thd);
   std::string data;
-  bool ok=
-      storage_hd->FetchDatabase(key, data, exist, yield_func, resume_func);
+  bool ok= storage_hd->FetchDatabase(txservice::TableEngine::EloqSql, key,
+                                     data, exist, yield_func, resume_func);
   if (!ok)
   {
     my_printf_error(HA_ERR_INTERNAL_ERROR, "Eloq fetch database '%s' failed",
@@ -513,8 +516,8 @@ int eloq_discover_database(THD *thd, LEX_CSTRING db,
   auto [yield_func, resume_func]= thd_get_coro_functors(thd);
   bool exists= false;
   std::string data;
-  bool ok=
-      storage_hd->FetchDatabase(key, data, exists, yield_func, resume_func);
+  bool ok= storage_hd->FetchDatabase(txservice::TableEngine::EloqSql, key,
+                                     data, exists, yield_func, resume_func);
   if (!ok)
   {
     my_printf_error(HA_ERR_INTERNAL_ERROR, "Eloq fetch database '%s' failed",
@@ -539,7 +542,8 @@ int eloq_discover_database_names(THD *thd,
 
   auto [yield_func, resume_func]= thd_get_coro_functors(thd);
   std::vector<std::string> names;
-  bool ok= storage_hd->FetchAllDatabase(names, yield_func, resume_func);
+  bool ok= storage_hd->FetchAllDatabase(txservice::TableEngine::EloqSql, names,
+                                        yield_func, resume_func);
   if (!ok)
   {
     my_printf_error(HA_ERR_INTERNAL_ERROR, "Eloq fetch all databases failed",
@@ -564,7 +568,8 @@ int eloq_discover_database_names_wild(THD *thd, Discovered_table_list &tl)
 
   auto [yield_func, resume_func]= thd_get_coro_functors(thd);
   std::vector<std::string> names;
-  bool ok= storage_hd->FetchAllDatabase(names, yield_func, resume_func);
+  bool ok= storage_hd->FetchAllDatabase(txservice::TableEngine::EloqSql, names,
+                                        yield_func, resume_func);
   if (!ok)
   {
     my_printf_error(HA_ERR_INTERNAL_ERROR, "Eloq fetch all databases failed",
