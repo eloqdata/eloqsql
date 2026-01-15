@@ -199,7 +199,7 @@ public:
     TxKey catalog_tx_key(&catalog_key);
     ReadTxRequest read_tx_req(&txservice::catalog_ccm_name, 0, &catalog_tx_key,
                               &catalog_rec, is_for_write, false, true, 0,
-                              false, false, false, coro_functors.first,
+                              false, false, coro_functors.first,
                               coro_functors.second, txm_);
     return TxReadCatalog(txm_, read_tx_req, exists);
   }

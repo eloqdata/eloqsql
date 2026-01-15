@@ -4053,7 +4053,7 @@ const MysqlTableSchema *ha_eloq::DiscoverTableSchema(MyEloqTx *my_tx)
       // No need to check the version of __catalog table.
       ReadTxRequest read_tx_req(&txservice::catalog_ccm_name, 0, &tbl_tx_key,
                                 &catalog_rec, false, false, true, 0, false,
-                                false, false, coro_functors.first,
+                                false, coro_functors.first,
                                 coro_functors.second, txm);
       txm->Execute(&read_tx_req);
       read_tx_req.Wait();
@@ -5305,8 +5305,7 @@ RecordStatus ha_eloq::PkRead(MyEloqTx *my_tx, const TxKey &pk_tx_key,
 
   ReadTxRequest read_req(base_table_name, key_version, &pk_tx_key,
                          &eloq_record, for_update, for_share, false, ts, false,
-                         false, point_read_on_miss, yield_func, resume_func,
-                         txm);
+                         point_read_on_miss, yield_func, resume_func, txm);
 
   txm->Execute(&read_req);
   read_req.Wait();
@@ -5347,7 +5346,7 @@ std::pair<RecordStatus, uint64_t> ha_eloq::SkRead(MyEloqTx *my_tx,
   uint64_t key_version= table_schema_->IndexNameSchema(kid).second.SchemaTs();
   ReadTxRequest read_req(&index_name, key_version, &tx_key, &eloq_record,
                          for_update, for_share, false, 0, is_covering_keys,
-                         false, false, yield_func, resume_func, txm);
+                         false, yield_func, resume_func, txm);
   RecordStatus rec_status;
   uint64_t unique_sk_ts= 0;
 
