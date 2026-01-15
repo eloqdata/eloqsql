@@ -65,7 +65,7 @@ update_config_template() {
 
     # eloqstore
     sed -i "s|eloq_store_cloud_endpoint.*=.\+|eloq_store_cloud_endpoint=${MINIO_ENDPOINT_URL}|g" "$config_file"
-    sed -i "s|eloq_store_cloud_store_path.*=.\+|eloq_store_cloud_store_path=${bucket_name}/eloqstore|g" "$config_file"
+    sed -i "s|eloq_store_cloud_store_path.*=.\+|eloq_store_cloud_store_path=dss-${bucket_name}/eloqstore|g" "$config_file"
 }
 
 # config data_substrate.cnf
@@ -103,7 +103,7 @@ sed -i "s/data_path.*=.\+/data_path=dss_data/g" $WORKSPACE/eloqsql_src/concourse
 sed -i "s/eloq_store_cloud_access_key.*=.\+/eloq_store_cloud_access_key =${ELOQ_AWS_ACCESS_KEY_ID}/g" $WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini
 sed -i "s/eloq_store_cloud_secret_key.*=.\+/eloq_store_cloud_secret_key=${ELOQ_AWS_SECRET_KEY}/g" $WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini
 sed -i "s|eloq_store_cloud_endpoint.*=.\+|eloq_store_cloud_endpoint=${MINIO_ENDPOINT_URL}|g" $WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini
-sed -i "s|eloq_store_cloud_store_path.*=.\+|eloq_store_cloud_store_path=${bucket_name}/eloqstore|g" $WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini
+sed -i "s|eloq_store_cloud_store_path.*=.\+|eloq_store_cloud_store_path=dss-${bucket_name}/eloqstore|g" $WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini
 
 echo "dss_server.ini"
 cat $WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini
