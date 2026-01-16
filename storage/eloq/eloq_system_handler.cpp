@@ -35,13 +35,16 @@ MariaSystemHandler::MariaSystemHandler()
 {
   thd_= std::thread([this]() {
     // Set up thread local variables. Constructor of THD depends them.
-    if (my_thread_init() == 0)
+    if (my_thread_init())
     {
       DLOG(INFO) << "System handler thread initialized mysys thread variables";
     }
     else
     {
-      DLOG(ERROR) << "System handler thread failed to initialize mysys thread variables";
+      LOG(ERROR) << "System handler thread failed to initialize mysys thread "
+                    "variables";
+      shutdown_.store(true, std::memory_order_release);
+      cv_.notify_one();
       return;
     }
 
@@ -52,22 +55,17 @@ MariaSystemHandler::MariaSystemHandler()
         return !work_queue_.empty() ||
                shutdown_.load(std::memory_order_acquire);
       });
-      DLOG(INFO) << "System handler thread woke up";
 
       if (!work_queue_.empty())
       {
-        DLOG(INFO) << "Processing work item in system handler thread";
         std::packaged_task<bool()> work= std::move(work_queue_.front());
         work_queue_.pop_front();
         lk.unlock();
         work();
-        DLOG(INFO) << "Finished work item in system handler thread";
       }
     }
 
-    DLOG(INFO) << "System handler thread exiting";
     my_thread_end();
-    DLOG(INFO) << "System handler thread exited";
   });
 }
 
@@ -104,13 +102,17 @@ void MariaSystemHandler::ReloadCache(std::function<void(bool)> done)
 
 void MariaSystemHandler::Shutdown()
 {
-  std::unique_lock<std::mutex> lk(mux_);
-  if (!shutdown_.load(std::memory_order_acquire))
   {
-    DLOG(INFO) << "Shutting down system handler thread";
-    shutdown_.store(true, std::memory_order_release);
-    cv_.notify_one();
-    lk.unlock();
+    std::unique_lock<std::mutex> lk(mux_);
+    if (!shutdown_.load(std::memory_order_acquire))
+    {
+      shutdown_.store(true, std::memory_order_release);
+      cv_.notify_one();
+    }
+  }
+
+  if (thd_.joinable())
+  {
     thd_.join();
   }
 }
