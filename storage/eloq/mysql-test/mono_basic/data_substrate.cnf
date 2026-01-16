@@ -6,16 +6,16 @@ txlog_rocksdb_scan_threads=3
 tx_ip=127.0.0.1
 tx_port=8000
 hm_bin_path=../../../../data_substrate/host_manager
-txlog_rocksdb_cloud_region = ap-northeast-1
-txlog_rocksdb_cloud_object_store_service_url = http://127.0.0.1:9900/txlog-eloqsql-mtr-test/txlog
+txlog_rocksdb_cloud_region=ap-northeast-1
+txlog_rocksdb_cloud_object_store_service_url=http://127.0.0.1:9900/txlog-eloqsql-mtr-test/txlog
 
 [store]
-aws_access_key_id = minioadmin
-aws_secret_key = minioadmin
+aws_access_key_id=minioadmin
+aws_secret_key=minioadmin
 
 eloq_store_open_files_limit=256
-eloq_store_cloud_endpoint = http://127.0.0.1:9900
-eloq_store_cloud_store_path = dss-eloqsql-mtr-test/eloqstore
-eloq_store_cloud_access_key = minioadmin
-eloq_store_cloud_secret_key = minioadmin
+eloq_store_cloud_endpoint=http://127.0.0.1:9900
+eloq_store_cloud_store_path=dss-eloqsql-mtr-test/eloqstore
+eloq_store_cloud_access_key=minioadmin
+eloq_store_cloud_secret_key=minioadmin
 eloq_store_reuse_local_files=true
