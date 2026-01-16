@@ -259,7 +259,9 @@ public:
   void SetGroup(size_t gid, thread_group_t *group) 
   { 
     std::lock_guard<std::mutex> lk(groups_mutex_);
-    groups_[gid]= group; 
+    if (gid < groups_.size()) {
+      groups_[gid] = group; 
+    }
   }
 
 private:
