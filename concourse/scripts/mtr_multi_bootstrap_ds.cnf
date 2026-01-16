@@ -12,8 +12,8 @@ txlog_rocksdb_cloud_object_store_service_url=http://127.0.0.1:9900/txlog-eloqsql
 tx_ip_port_list=127.0.0.1:8000,127.0.0.1:8010,127.0.0.1:8020
 
 [store]
-aws_access_key_id=minioadmin
-aws_secret_key=minioadmin
+aws_access_key_id=XXXXXX
+aws_secret_key=XXXXXX
 
 eloq_dss_config_file_path=
 eloq_dss_peer_node=localhost:9100
