@@ -103,28 +103,28 @@ cat $WORKSPACE/eloqsql_pr/storage/eloq/mysql-test/mono_multi/data_substrate2.cnf
 cat $WORKSPACE/eloqsql_pr/storage/eloq/mysql-test/mono_multi/data_substrate3.cnf
 
 # config mtr_bootstrap.cnf
-update_config_template "$WORKSPACE/eloqsql_src/concourse/scripts/mtr_bootstrap_ds.cnf"
-sed -i "s|eloq_config=.*|eloq_config=$WORKSPACE/eloqsql_src/concourse/scripts/mtr_bootstrap_ds.cnf|g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_bootstrap.cnf
-sed -i "s|hm_bin_path=.*|hm_bin_path=$WORKSPACE/eloqsql_src/bld/data_substrate/host_manager|g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_bootstrap_ds.cnf
+update_config_template "$WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap_ds.cnf"
+sed -i "s|eloq_config=.*|eloq_config=$WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap_ds.cnf|g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap.cnf
+sed -i "s|hm_bin_path=.*|hm_bin_path=$WORKSPACE/eloqsql_pr/bld/data_substrate/host_manager|g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap_ds.cnf
 echo "mtr_bootstrap_ds.cnf"
-cat $WORKSPACE/eloqsql_src/concourse/scripts/mtr_bootstrap_ds.cnf
+cat $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap_ds.cnf
 
 #config mtr_multi_bootstrap.cnf
-update_config_template "$WORKSPACE/eloqsql_src/concourse/scripts/mtr_multi_bootstrap_ds.cnf"
-sed -i "s|eloq_config=.*|eloq_config=$WORKSPACE/eloqsql_src/concourse/scripts/mtr_multi_bootstrap_ds.cnf|g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_multi_bootstrap.cnf
-sed -i "s|hm_bin_path=.*|hm_bin_path=$WORKSPACE/eloqsql_src/bld/data_substrate/host_manager|g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_multi_bootstrap_ds.cnf
+update_config_template "$WORKSPACE/eloqsql_pr/concourse/scripts/mtr_multi_bootstrap_ds.cnf"
+sed -i "s|eloq_config=.*|eloq_config=$WORKSPACE/eloqsql_pr/concourse/scripts/mtr_multi_bootstrap_ds.cnf|g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_multi_bootstrap.cnf
+sed -i "s|hm_bin_path=.*|hm_bin_path=$WORKSPACE/eloqsql_pr/bld/data_substrate/host_manager|g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_multi_bootstrap_ds.cnf
 echo "mtr_multi_bootstrap_ds.cnf"
-cat $WORKSPACE/eloqsql_src/concourse/scripts/mtr_multi_bootstrap_ds.cnf
+cat $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_multi_bootstrap_ds.cnf
 
 #config dss_server.ini
 # ak/sk
-sed -i "s/ip.*=.\+/ip=localhost/g" $WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini
-sed -i "s/port.*=.\+/port=9100/g" $WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini
-sed -i "s/data_path.*=.\+/data_path=dss_data/g" $WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini
-sed -i "s/eloq_store_cloud_access_key.*=.\+/eloq_store_cloud_access_key =${ELOQ_AWS_ACCESS_KEY_ID}/g" $WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini
-sed -i "s/eloq_store_cloud_secret_key.*=.\+/eloq_store_cloud_secret_key=${ELOQ_AWS_SECRET_KEY}/g" $WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini
-sed -i "s|eloq_store_cloud_endpoint.*=.\+|eloq_store_cloud_endpoint=${MINIO_ENDPOINT_URL}|g" $WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini
-sed -i "s|eloq_store_cloud_store_path.*=.\+|eloq_store_cloud_store_path=dss-${bucket_name}/eloqstore|g" $WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini
+sed -i "s/ip.*=.\+/ip=localhost/g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
+sed -i "s/port.*=.\+/port=9100/g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
+sed -i "s/data_path.*=.\+/data_path=dss_data/g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
+sed -i "s/eloq_store_cloud_access_key.*=.\+/eloq_store_cloud_access_key =${ELOQ_AWS_ACCESS_KEY_ID}/g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
+sed -i "s/eloq_store_cloud_secret_key.*=.\+/eloq_store_cloud_secret_key=${ELOQ_AWS_SECRET_KEY}/g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
+sed -i "s|eloq_store_cloud_endpoint.*=.\+|eloq_store_cloud_endpoint=${MINIO_ENDPOINT_URL}|g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
+sed -i "s|eloq_store_cloud_store_path.*=.\+|eloq_store_cloud_store_path=dss-${bucket_name}/eloqstore|g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
 
 
 echo "dss_server.ini"
