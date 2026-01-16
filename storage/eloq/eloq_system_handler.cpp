@@ -35,7 +35,7 @@ MariaSystemHandler::MariaSystemHandler()
 {
   thd_= std::thread([this]() {
     // Set up thread local variables. Constructor of THD depends them.
-    if (my_thread_init())
+    if (my_thread_init() == 0)
     {
       DLOG(INFO) << "System handler thread initialized mysys thread variables";
     }
