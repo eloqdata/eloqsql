@@ -121,7 +121,7 @@ cat $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_multi_bootstrap_ds.cnf
 sed -i "s/ip.*=.\+/ip=localhost/g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
 sed -i "s/port.*=.\+/port=9100/g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
 sed -i "s/data_path.*=.\+/data_path=dss_data/g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
-sed -i "s/eloq_store_cloud_access_key.*=.\+/eloq_store_cloud_access_key =${ELOQ_AWS_ACCESS_KEY_ID}/g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
+sed -i "s/eloq_store_cloud_access_key.*=.\+/eloq_store_cloud_access_key=${ELOQ_AWS_ACCESS_KEY_ID}/g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
 sed -i "s/eloq_store_cloud_secret_key.*=.\+/eloq_store_cloud_secret_key=${ELOQ_AWS_SECRET_KEY}/g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
 sed -i "s|eloq_store_cloud_endpoint.*=.\+|eloq_store_cloud_endpoint=${MINIO_ENDPOINT_URL}|g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
 sed -i "s|eloq_store_cloud_store_path.*=.\+|eloq_store_cloud_store_path=dss-${bucket_name}/eloqstore|g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
