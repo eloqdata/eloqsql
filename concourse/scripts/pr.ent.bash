@@ -170,7 +170,6 @@ echo "building dss_server"
 cd /home/$current_user/workspace/eloqsql/data_substrate/store_handler/eloq_data_store_service
 mkdir bld && cd bld
 cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DWITH_DATA_STORE=ELOQDSS_ELOQSTORE ../
-cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DWITH_DATA_STORE=ELOQDSS_ROCKSDB_CLOUD_S3 ../
 cmake --build . --config Debug -j8
 echo "installing dss_server"
 cp dss_server /home/$current_user/workspace/eloqsql/install/bin/
