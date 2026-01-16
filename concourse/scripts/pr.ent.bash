@@ -73,20 +73,20 @@ update_config_template() {
         echo "Warning: Config file $config_file does not exist"
         return 1
     fi
-    
+
     # ak/sk
     sed -i "s/aws_access_key_id.*=.\+/aws_access_key_id=${ELOQ_AWS_ACCESS_KEY_ID}/g" "$config_file"
     sed -i "s/aws_secret_key.*=.\+/aws_secret_key=${ELOQ_AWS_SECRET_KEY}/g" "$config_file"
-    # OSS settings
-    sed -i "s|rocksdb_cloud_s3_endpoint_url.*=.\+|rocksdb_cloud_s3_endpoint_url=${MINIO_ENDPOINT_URL}|g" "$config_file"
-    sed -i "s|txlog_rocksdb_cloud_s3_endpoint_url.*=.\+|txlog_rocksdb_cloud_s3_endpoint_url=${MINIO_ENDPOINT_URL}|g" "$config_file"
-    sed -i "s/rocksdb_cloud_bucket_name.*=.\+/rocksdb_cloud_bucket_name=${bucket_name}/g" "$config_file"
-    sed -i "s/txlog_rocksdb_cloud_bucket_name.*=.\+/txlog_rocksdb_cloud_bucket_name=${bucket_name}/g" "$config_file"
-    sed -i "s/rocksdb_cloud_region.*=.\+/rocksdb_cloud_region=${ELOQ_AWS_REGION}/g" "$config_file"
+    sed -i "s/eloq_store_cloud_access_key.*=.\+/eloq_store_cloud_access_key=${ELOQ_AWS_ACCESS_KEY_ID}/g" "$config_file"
+    sed -i "s/eloq_store_cloud_secret_key.*=.\+/eloq_store_cloud_secret_key=${ELOQ_AWS_SECRET_KEY}/g" "$config_file"
+
+    # txlog
     sed -i "s/txlog_rocksdb_cloud_region.*=.\+/txlog_rocksdb_cloud_region=${ELOQ_AWS_REGION}/g" "$config_file"
-    sed -i "s/rocksdb_cloud_bucket_prefix.*=.\+/rocksdb_cloud_bucket_prefix=dss-/g" "$config_file"
-    sed -i "s/txlog_rocksdb_cloud_bucket_prefix.*=.\+/txlog_rocksdb_cloud_bucket_prefix=txlog-/g" "$config_file"
-    sed -i "s|eloq_dss_config_file_path.*=.\+|eloq_dss_config_file_path=${WORKSPACE}/eloqsql_pr/concourse/scripts/dss_config.example.ini|g" "$config_file"
+    sed -i "s|txlog_rocksdb_cloud_object_store_service_url.*=.\+|txlog_rocksdb_cloud_object_store_service_url=${MINIO_ENDPOINT_URL}/txlog-${bucket_name}/txlog|g" "$config_file"
+
+    # eloqstore
+    sed -i "s|eloq_store_cloud_endpoint.*=.\+|eloq_store_cloud_endpoint=${MINIO_ENDPOINT_URL}|g" "$config_file"
+    sed -i "s|eloq_store_cloud_store_path.*=.\+|eloq_store_cloud_store_path=dss-${bucket_name}/eloqstore|g" "$config_file"
 }
 
 # config data_substrate.cnf
@@ -103,29 +103,29 @@ cat $WORKSPACE/eloqsql_pr/storage/eloq/mysql-test/mono_multi/data_substrate2.cnf
 cat $WORKSPACE/eloqsql_pr/storage/eloq/mysql-test/mono_multi/data_substrate3.cnf
 
 # config mtr_bootstrap.cnf
-update_config_template "$WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap_ds.cnf"
-sed -i "s|eloq_config=.*|eloq_config=$WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap_ds.cnf|g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap.cnf
-sed -i "s|hm_bin_path=.*|hm_bin_path=$WORKSPACE/eloqsql_pr/bld/data_substrate/host_manager|g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap_ds.cnf
+update_config_template "$WORKSPACE/eloqsql_src/concourse/scripts/mtr_bootstrap_ds.cnf"
+sed -i "s|eloq_config=.*|eloq_config=$WORKSPACE/eloqsql_src/concourse/scripts/mtr_bootstrap_ds.cnf|g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_bootstrap.cnf
+sed -i "s|hm_bin_path=.*|hm_bin_path=$WORKSPACE/eloqsql_src/bld/data_substrate/host_manager|g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_bootstrap_ds.cnf
 echo "mtr_bootstrap_ds.cnf"
-cat $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap_ds.cnf
+cat $WORKSPACE/eloqsql_src/concourse/scripts/mtr_bootstrap_ds.cnf
 
 #config mtr_multi_bootstrap.cnf
-update_config_template "$WORKSPACE/eloqsql_pr/concourse/scripts/mtr_multi_bootstrap_ds.cnf"
-sed -i "s|eloq_config=.*|eloq_config=$WORKSPACE/eloqsql_pr/concourse/scripts/mtr_multi_bootstrap_ds.cnf|g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_multi_bootstrap.cnf
-sed -i "s|hm_bin_path=.*|hm_bin_path=$WORKSPACE/eloqsql_pr/bld/data_substrate/host_manager|g" $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_multi_bootstrap_ds.cnf
+update_config_template "$WORKSPACE/eloqsql_src/concourse/scripts/mtr_multi_bootstrap_ds.cnf"
+sed -i "s|eloq_config=.*|eloq_config=$WORKSPACE/eloqsql_src/concourse/scripts/mtr_multi_bootstrap_ds.cnf|g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_multi_bootstrap.cnf
+sed -i "s|hm_bin_path=.*|hm_bin_path=$WORKSPACE/eloqsql_src/bld/data_substrate/host_manager|g" $WORKSPACE/eloqsql_src/concourse/scripts/mtr_multi_bootstrap_ds.cnf
 echo "mtr_multi_bootstrap_ds.cnf"
-cat $WORKSPACE/eloqsql_pr/concourse/scripts/mtr_multi_bootstrap_ds.cnf
+cat $WORKSPACE/eloqsql_src/concourse/scripts/mtr_multi_bootstrap_ds.cnf
 
 #config dss_server.ini
 # ak/sk
-sed -i "s/ip.*=.\+/ip=localhost/g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
-sed -i "s/port.*=.\+/port=9100/g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
-sed -i "s/data_path.*=.\+/data_path=dss_data/g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
-sed -i "s/aws_access_key_id.*=.\+/aws_access_key_id=${ELOQ_AWS_ACCESS_KEY_ID}/g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
-sed -i "s/aws_secret_key.*=.\+/aws_secret_key=${ELOQ_AWS_SECRET_KEY}/g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
-sed -i "s|rocksdb_cloud_s3_endpoint_url.*=.\+|rocksdb_cloud_s3_endpoint_url=${MINIO_ENDPOINT_URL}|g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
-sed -i "s/rocksdb_cloud_bucket_name.*=.\+/rocksdb_cloud_bucket_name=${bucket_name}/g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
-sed -i "s/rocksdb_cloud_bucket_prefix.*=.\+/rocksdb_cloud_bucket_prefix=dss-/g" $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
+sed -i "s/ip.*=.\+/ip=localhost/g" $WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini
+sed -i "s/port.*=.\+/port=9100/g" $WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini
+sed -i "s/data_path.*=.\+/data_path=dss_data/g" $WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini
+sed -i "s/eloq_store_cloud_access_key.*=.\+/eloq_store_cloud_access_key =${ELOQ_AWS_ACCESS_KEY_ID}/g" $WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini
+sed -i "s/eloq_store_cloud_secret_key.*=.\+/eloq_store_cloud_secret_key=${ELOQ_AWS_SECRET_KEY}/g" $WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini
+sed -i "s|eloq_store_cloud_endpoint.*=.\+|eloq_store_cloud_endpoint=${MINIO_ENDPOINT_URL}|g" $WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini
+sed -i "s|eloq_store_cloud_store_path.*=.\+|eloq_store_cloud_store_path=dss-${bucket_name}/eloqstore|g" $WORKSPACE/eloqsql_src/concourse/scripts/dss_server.ini
+
 
 echo "dss_server.ini"
 cat $WORKSPACE/eloqsql_pr/concourse/scripts/dss_server.ini
@@ -150,7 +150,7 @@ if [ ! -f "Makefile" ]; then
           -DEXT_TX_PROC_ENABLED=ON \
           -DMARIA_WITH_GLOG=ON \
           -DSTATISTICS=ON \
-          -DWITH_DATA_STORE=ELOQDSS_ROCKSDB_CLOUD_S3 \
+          -DWITH_DATA_STORE=ELOQDSS_ELOQSTORE \
           -DOPEN_LOG_SERVICE=OFF \
           -DFORK_HM_PROCESS=ON \
 	  -DWITH_LOG_STATE=ROCKSDB_CLOUD_S3 \
@@ -169,7 +169,7 @@ cmake --install . --config Debug
 echo "building dss_server"
 cd /home/$current_user/workspace/eloqsql/data_substrate/store_handler/eloq_data_store_service
 mkdir bld && cd bld
-cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DWITH_DATA_STORE=ELOQDSS_ROCKSDB_CLOUD_S3 ../
+cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DWITH_DATA_STORE=ELOQDSS_ELOQSTORE ../
 cmake --build . --config Debug -j8
 echo "installing dss_server"
 cp dss_server /home/$current_user/workspace/eloqsql/install/bin/
