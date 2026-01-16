@@ -5,4 +5,4 @@ thread_pool_size=1
 thread_pool_oversubscribe=10
 thread_pool_dedicated_listener=1
 
-eloq_config=/home/tianxj/hive/eloqdata/eloqsql/concourse/scripts/mtr_multi_bootstrap_ds.cnf
+eloq_config=
