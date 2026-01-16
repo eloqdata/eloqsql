@@ -24,6 +24,8 @@
 #include "sql_class.h"
 #include "sql_servers.h"
 
+#include <glog/logging.h>
+
 extern my_bool opt_bootstrap;
 extern my_bool plugins_are_initialized;
 
@@ -33,7 +35,18 @@ MariaSystemHandler::MariaSystemHandler()
 {
   thd_= std::thread([this]() {
     // Set up thread local variables. Constructor of THD depends them.
-    my_thread_init();
+    if (my_thread_init())
+    {
+      DLOG(INFO) << "System handler thread initialized mysys thread variables";
+    }
+    else
+    {
+      LOG(ERROR) << "System handler thread failed to initialize mysys thread "
+                    "variables";
+      shutdown_.store(true, std::memory_order_release);
+      cv_.notify_one();
+      return;
+    }
 
     while (shutdown_.load(std::memory_order_acquire) == false)
     {
@@ -83,17 +96,23 @@ void MariaSystemHandler::ReloadCache(std::function<void(bool)> done)
     return ok;
   });
 
+  DLOG(INFO) << "Submitting reload cache work to system handler thread";
   SubmitWork(std::move(work));
 }
 
 void MariaSystemHandler::Shutdown()
 {
-  std::unique_lock<std::mutex> lk(mux_);
-  if (!shutdown_.load(std::memory_order_acquire))
   {
-    shutdown_.store(true, std::memory_order_release);
-    cv_.notify_one();
-    lk.unlock();
+    std::unique_lock<std::mutex> lk(mux_);
+    if (!shutdown_.load(std::memory_order_acquire))
+    {
+      shutdown_.store(true, std::memory_order_release);
+      cv_.notify_one();
+    }
+  }
+
+  if (thd_.joinable())
+  {
     thd_.join();
   }
 }

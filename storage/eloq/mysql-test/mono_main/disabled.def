@@ -398,7 +398,7 @@ grant_repair                         : deleted no support xxx.mai file
 #group_by                             : 0 pass | lock tables | unique | analyze
 group_by_innodb                      : deleted
 #group_by_null                        : 0 pass
-group_min_max                        : 0 pass | analyze | optimize table | unique | timeout with eloq_ddl_skip_kv=off 
+group_min_max                        : 0 pass | analyze | optimize table | unique | timeout with eloq_ddl_skip_kv=off
 group_min_max_innodb                 : deleted
 #handler_read_last                    : 1 pass
 #handlersocket                        : 1 skipped handlersocket plugin is not built
@@ -537,7 +537,7 @@ lowercase_table_qcache               : known limitation #220
 #lowercase_utf8                       : 2 pass
 lowercase_view                       : known limitation #220
 #max_password_errors                  : 1 pass
-#mdev-21101                           : pass | thread-handlinge
+mdev-21101                           : pass | thread-handlinge
 mdev13607                            : current_record_count | INNER JOIN | NATURAL JOIN
 mdev19198                            : no support LOCK TABLE
 mdev316                              : no support charset collate
