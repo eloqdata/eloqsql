@@ -13,6 +13,8 @@ EloqSQL is forked from MariaDB, and inherit the parser, optimizer and executor f
 
 Explore [EloqSQL](https://www.eloqdata.com/product/eloqsql) website for more details.
 
+This repo contains the code for the pluggable MariaDB compatible API layer. See [Architecture](#architecture) for more details. The API sits on top of EloqData's [Data Substrate](https://github.com/eloqdata/tx_service) modular database foundation and the dependencies are included as submodules.
+
 👉 **Use Cases**: Scalable web applications, e-commerce platforms, real-time data processing — anywhere you need MySQL compatibility **but** demand distributed performance and elasticity.
 
 ---
@@ -42,7 +44,7 @@ Provides robust transaction support with **Read Committed** and **Repeatable Rea
 
 ---
 
-## Architecture Highlights
+## Architecture
 
 - **Hot Data Management**: Hot data resides in the in-memory `Transaction Service`, which scales independently to handle growing datasets efficiently.
 - **Storage Tiering**: Combines key-value stores for active data with cost-effective object storage, optimizing both performance and cost.
