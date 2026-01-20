@@ -1,11 +1,6 @@
 --source include/have_eloq.inc
 --source include/long_test.inc
-# Skip for dynamodb temporary.
-if (!`SELECT count(*) FROM information_schema.GLOBAL_VARIABLES
-        WHERE VARIABLE_NAME='eloq_kv_storage'
-        AND VARIABLE_VALUE='cass'`){
-    skip Need Cassandra enabled;
-}
+
 --disable_query_log
 call mtr.add_suppression("Failed to load slave replication state from table");
 --enable_query_log
