@@ -19,3 +19,5 @@ eloq_store_cloud_store_path=dss-eloqsql-mtr-test/eloqstore
 eloq_store_cloud_access_key=XXXXXX
 eloq_store_cloud_secret_key=XXXXXX
 eloq_store_reuse_local_files=true
+eloq_store_max_concurrent_writes=0
+eloq_store_pages_per_file_shift=1
