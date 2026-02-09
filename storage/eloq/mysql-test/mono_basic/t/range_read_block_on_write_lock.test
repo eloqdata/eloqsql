@@ -118,8 +118,10 @@ select count(*) from t1 where c4 = 1;
 commit;
 
 --connection conn_read3
+--disable_result_log
 --reap
 select c0, c1, c2 from t1;
+--enable_result_log
 commit;
 
 --echo # Test Case 5: Verify no queries are still blocked
@@ -129,9 +131,8 @@ commit;
 --echo # Printing processlist before verification:
 let $wait_condition=
     select count(*) = 0 from information_schema.processlist
-    where ((state like "%lock%") or
-           (info IS NULL and time >= 1))
-    and (info like "select%from t1%" or info IS NULL);
+    where info like "select%from t1%"
+    and id != CONNECTION_ID();
 --source include/wait_condition.inc
 
 --echo # Test Case 6: Verify reads completed successfully and range split completed

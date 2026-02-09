@@ -64,9 +64,8 @@ select count(*) from t1;
 # After range split completes, there should be no blocked queries
 let $wait_condition=
     select count(*) = 0 from information_schema.processlist
-    where ((state like "%lock%") or
-           (info IS NULL and time >= 1))
-    and (info like "select%from t1%" or info IS NULL);
+    where info like "select%from t1%"
+    and id != CONNECTION_ID();
 --source include/wait_condition.inc
 
 # Cleanup
