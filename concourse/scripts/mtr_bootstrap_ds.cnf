@@ -15,7 +15,7 @@ tx_ip_port_list=127.0.0.1:8000
 aws_access_key_id=XXXXXX
 aws_secret_key=XXXXXX
 
-eloq_store_open_files_limit=256
+eloq_store_open_files_limit=800
 eloq_store_buffer_pool_size=500MB
 eloq_store_cloud_endpoint=http://127.0.0.1:9900
 eloq_store_cloud_store_path=dss-eloqsql-mtr-test/eloqstore
@@ -23,5 +23,4 @@ eloq_store_cloud_access_key=XXXXXX
 eloq_store_cloud_secret_key=XXXXXX
 eloq_store_reuse_local_files=true
 
-eloq_store_max_concurrent_writes=0
-eloq_store_pages_per_file_shift=1
+eloq_store_pages_per_file_shift=2

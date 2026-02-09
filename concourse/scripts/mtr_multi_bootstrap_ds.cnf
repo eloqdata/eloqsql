@@ -19,5 +19,4 @@ eloq_dss_config_file_path=
 eloq_dss_peer_node=localhost:9100
 
 
-eloq_store_max_concurrent_writes=0
-eloq_store_pages_per_file_shift=1
+eloq_store_pages_per_file_shift=2

@@ -13,11 +13,10 @@ txlog_rocksdb_cloud_object_store_service_url=http://127.0.0.1:9900/txlog-eloqsql
 aws_access_key_id=XXXXXX
 aws_secret_key=XXXXXX
 
-eloq_store_open_files_limit=256
+eloq_store_open_files_limit=800
 eloq_store_cloud_endpoint=http://127.0.0.1:9900
 eloq_store_cloud_store_path=dss-eloqsql-mtr-test/eloqstore
 eloq_store_cloud_access_key=XXXXXX
 eloq_store_cloud_secret_key=XXXXXX
 eloq_store_reuse_local_files=true
-eloq_store_max_concurrent_writes=0
-eloq_store_pages_per_file_shift=1
+eloq_store_pages_per_file_shift=2
