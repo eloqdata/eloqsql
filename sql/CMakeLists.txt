@@ -104,10 +104,6 @@ else()
   remove_definitions(-DIOURING_ENABLED)
 endif()
 
-IF(COROUTINE_ENABLED)
-  find_package(Boost REQUIRED COMPONENTS context)
-ENDIF()
-
 IF(ELOQ_MODULE_ENABLED)
   find_path(BRPC_INCLUDE_PATH NAMES brpc/stream.h)
   find_library(BRPC_LIB NAMES brpc)
@@ -283,12 +279,28 @@ SET(SQL_DEP_LIBS
 )
 
 IF(COROUTINE_ENABLED)
-  SET(SQL_DEP_LIBS ${SQL_DEP_LIBS} Boost::context)
   set(SQL_INCLUDE_DIR ${Boost_INCLUDE_DIRS})
   if (WITH_ASAN)
     # Boost stackful contexts need to switch to the ucontext backend when
     # ASAN is enabled, otherwise fcontext symbols are missing at link time.
     set(SQL_USE_ASAN_UCONTEXT ON)
+    find_library(Boost_CONTEXT_ASAN_LIBRARY
+            NAMES boost_context-asan
+    )
+    if (NOT Boost_CONTEXT_ASAN_LIBRARY)
+        message(FATAL_ERROR
+                "libboost_context-asan not found in system library paths")
+    endif ()
+    message("Boost_CONTEXT_ASAN_LIBRARY: ${Boost_CONTEXT_ASAN_LIBRARY}")
+    SET(SQL_DEP_LIBS ${SQL_DEP_LIBS} ${Boost_CONTEXT_ASAN_LIBRARY}) 
+  else()
+    find_library(Boost_CONTEXT_LIBRARY NAMES boost_context)
+    if (NOT Boost_CONTEXT_LIBRARY)
+        message(FATAL_ERROR
+                "libboost_context not found in system library paths")
+    endif ()
+    message("Boost_CONTEXT_LIBRARY: ${Boost_CONTEXT_LIBRARY}")
+    SET(SQL_DEP_LIBS ${SQL_DEP_LIBS} ${Boost_CONTEXT_LIBRARY}) 
   endif()
 ENDIF()
 
