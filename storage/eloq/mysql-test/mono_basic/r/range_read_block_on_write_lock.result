@@ -1,0 +1,59 @@
+set @@default_storage_engine= eloq;
+DROP TABLE IF EXISTS t1;
+# Test: Range reads SHOULD block when range split holds write lock
+# When range split holds write lock (Phase 2-3), reads should block
+# because write locks are exclusive and incompatible with read locks.
+create table t1 (c0 int auto_increment, c1 char(250), c2 char(250), c3 char(250), c4 int, primary key(c0));
+insert into t1 values (0,'initial', 'data', 'row', 1);
+SET SESSION debug_dbug="+d,eloq;term_SplitFlushOp_CommitAcquireAllWriteOp_Continue;node_id=-1";
+SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
+connect  conn_read1,localhost,root,,test,$MONO1_PORT;
+connect  conn_read2,localhost,root,,test,$MONO1_PORT;
+connect  conn_read3,localhost,root,,test,$MONO1_PORT;
+# Test Case 1: Single read should BLOCK (not complete immediately)
+connection conn_read1;
+begin;
+select count(*) from t1;;
+connection default;
+# Test Case 2: Multiple concurrent reads should all BLOCK
+connection conn_read2;
+begin;
+select count(*) from t1 where c4 = 1;;
+connection conn_read3;
+begin;
+select c0, c1, c2 from t1 order by c0;;
+connection default;
+# Printing processlist before verification:
+# Test Case 3: Complete the range split (releases write lock)
+SET SESSION debug_dbug="-d,eloq;term_SplitFlushOp_CommitAcquireAllWriteOp_Continue;node_id=-1";
+# Test Case 4: Verify blocked reads complete after write lock is released
+connection conn_read1;
+count(*)
+2048
+select count(*) from t1;
+count(*)
+2048
+commit;
+connection conn_read2;
+count(*)
+2048
+select count(*) from t1 where c4 = 1;
+count(*)
+2048
+commit;
+connection conn_read3;
+select c0, c1, c2 from t1;
+commit;
+# Test Case 5: Verify no queries are still blocked
+connection default;
+# Printing processlist before verification:
+# Test Case 6: Verify reads completed successfully and range split completed
+connection conn_read1;
+select count(*) from t1;
+count(*)
+2048
+disconnect conn_read1;
+disconnect conn_read2;
+disconnect conn_read3;
+connection default;
+drop table t1;
