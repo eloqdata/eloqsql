@@ -3409,7 +3409,7 @@ int ha_eloq::Delete(const uchar *old_data, std::unique_ptr<EloqKey> mono_key)
       continue;
     }
 
-    is_dirty= kid == table_share->keys ? true : false;
+    is_dirty= kid == table_share->keys;
     is_unique_key=
         !is_dirty ? table_share->key_info[kid].flags & HA_NOSAME : false;
 
