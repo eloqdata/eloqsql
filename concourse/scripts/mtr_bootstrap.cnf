@@ -4,5 +4,6 @@ thread_handling=pool-of-threads
 thread_pool_size=1
 thread_pool_oversubscribe=10
 thread_pool_dedicated_listener=1
+thread_stack=8M
 
-eloq_config=
+eloq_config=/home/chenzhao/eloqsql/concourse/scripts/mtr_bootstrap_ds.cnf
