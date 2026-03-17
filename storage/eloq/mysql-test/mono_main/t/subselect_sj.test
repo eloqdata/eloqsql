@@ -2906,6 +2906,8 @@ select a from t1, t2 where b between 1 and 2 and a in (select b from t2);
 explain 
 select a from t1 join t2 on b between 1 and 2 and a in (select b from t2);
 
+# FIXME: Temporary. To avoid deadlock caused by split range and drop table.
+--sleep 3
 drop table t1,t2;
 set optimizer_switch= @tmp_mdev12675;
 
