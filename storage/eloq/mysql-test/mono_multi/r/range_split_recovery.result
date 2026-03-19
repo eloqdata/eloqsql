@@ -3,16 +3,19 @@ connection serv_3;
 DROP TABLE IF EXISTS t1;
 set @@default_storage_engine= eloq;
 create table t1 (c0 int, c1 char(250), c2 char(250), c3 char(250), c4 int, primary key(c0));
+SET SESSION debug_dbug="+d,eloq;term_skip_auto_split_range;node_id=-1";
 SET SESSION debug_dbug="+d,eloq;range_split_commit_acquire_all;node_id=2;action=panic";
 SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
 select count(*) from t1;
 count(*)
 3000
+SET SESSION debug_dbug="+d,eloq;term_skip_auto_split_range;node_id=-1";
 connection serv_3;
 SET SESSION debug_dbug="+d,eloq;range_split_commit_acquire_all;node_id=2;action=panic";
 SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
 SET SESSION debug_dbug="-d,eloq;range_split_commit_acquire_all;node_id=-1;action=panic";
 connection serv_1;
+SET SESSION debug_dbug="+d,eloq;term_skip_auto_split_range;node_id=-1";
 SET SESSION debug_dbug="+d,eloq;range_split_participant_prepare_post_all;node_id=0;action=panic";
 SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
 select count(*) from t1;
@@ -22,8 +25,10 @@ SET SESSION debug_dbug="-d,eloq;range_split_participant_prepare_post_all;node_id
 drop table t1;
 connection serv_3;
 create table t1 (c0 int, c1 char(250), c2 char(250), c3 char(250), c4 int, primary key(c0));
+SET SESSION debug_dbug="+d,eloq;term_skip_auto_split_range;node_id=-1";
 SET SESSION debug_dbug="+d,eloq;range_split_post_commit;node_id=2;action=panic";
 SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
+SET SESSION debug_dbug="+d,eloq;term_skip_auto_split_range;node_id=-1";
 connection serv_3;
 SET SESSION debug_dbug="+d,eloq;range_split_post_commit_participant;node_id=2;action=panic";
 SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
