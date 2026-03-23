@@ -296,6 +296,7 @@ my $opt_skip_core;
 our $opt_check_testcases= 1;
 my $opt_mark_progress;
 my $opt_max_connections;
+my $opt_max_connect_retries;
 our $opt_report_times= 0;
 
 my $opt_sleep;
@@ -1211,6 +1212,7 @@ sub command_line_setup {
              'stop-file=s'              => \$opt_stop_file,
              'stop-keep-alive=i'        => \$opt_stop_keep_alive,
 	     'max-connections=i'        => \$opt_max_connections,
+	     'max-connect-retries=i'    => \$opt_max_connect_retries,
 	     'report-times'             => \$opt_report_times,
 	     'result-file'              => \$opt_resfile,
 	     'stress=s'                 => \$opt_stress,
@@ -5739,6 +5741,10 @@ sub start_mysqltest ($) {
     mtr_add_arg($args, "--max-connections=%d", $opt_max_connections);
   }
 
+  if ( $opt_max_connect_retries ) {
+    mtr_add_arg($args, "--max-connect-retries=%d", $opt_max_connect_retries);
+  }
+
   if ( $opt_embedded_server )
   {
 
@@ -6106,6 +6112,7 @@ Misc options
   timediff              With --timestamp, also print time passed since
                         *previous* test started
   max-connections=N     Max number of open connection to server in mysqltest
+  max-connect-retries=N Max connection attempts in mysqltest (default 500)
   report-times          Report how much time has been spent on different
                         phases of test execution.
   stress=ARGS           Run stress test, providing options to

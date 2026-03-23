@@ -228,7 +228,7 @@ mc rb ${minio_server_alias}/txlog-${bucket_name} --force
 set -e
 
 echo "running mono_main,mono_basic"
-./mtr --clean-txlog-bucket-restart --suite=mono_main,mono_basic --testcase-timeout=30 --bootstrap-defaults-file=$WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap.cnf
+./mtr --clean-txlog-bucket-restart --suite=mono_main,mono_basic --testcase-timeout=30 --max-connect-retries=1000 --bootstrap-defaults-file=$WORKSPACE/eloqsql_pr/concourse/scripts/mtr_bootstrap.cnf
 
 # Clean up minio buckets
 echo "cleaning minio buckets"
