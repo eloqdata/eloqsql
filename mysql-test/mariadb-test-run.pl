@@ -5646,6 +5646,10 @@ sub start_check_testcase ($$$) {
   mtr_add_arg($args, "--test-file=%s", "include/check-testcase.test");
   mtr_add_arg($args, "--verbose");
 
+  if ( $opt_max_connect_retries ) {
+    mtr_add_arg($args, "--max-connect-retries=%d", $opt_max_connect_retries);
+  }
+
   if ( $mode eq "before" )
   {
     mtr_add_arg($args, "--record");
