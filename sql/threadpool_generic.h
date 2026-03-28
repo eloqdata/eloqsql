@@ -251,11 +251,22 @@ public:
   void Process(int thd_id) override;
   bool HasTask(int thd_id) const override;
 
-  void ResizeGroups(size_t size) { groups_.resize(size, nullptr); }
-  void SetGroup(size_t gid, thread_group_t *group) { groups_[gid]= group; }
+  void ResizeGroups(size_t size) 
+  { 
+    std::lock_guard<std::mutex> lk(groups_mutex_);
+    groups_.resize(size, nullptr); 
+  }
+  void SetGroup(size_t gid, thread_group_t *group) 
+  { 
+    std::lock_guard<std::mutex> lk(groups_mutex_);
+    if (gid < groups_.size()) {
+      groups_[gid] = group; 
+    }
+  }
 
 private:
   std::vector<thread_group_t *> groups_;
+  mutable std::mutex groups_mutex_;
 };
 #endif
 
