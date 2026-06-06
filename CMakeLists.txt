@@ -595,7 +595,15 @@ IF(WIN32 AND SIGNCODE)
   INSTALL(SCRIPT ${PROJECT_BINARY_DIR}/sign.cmake)
 ENDIF()
 
-FEATURE_SUMMARY(WHAT ALL FATAL_ON_MISSING_REQUIRED_PACKAGES VAR MARIADB_FEATURE_SUMMARY)
+# EloqDB (lintao-mod): when eloqsql is built as a library inside the eloquentdb umbrella, its
+# feature_summary aggregates global package state and false-flags REQUIRED packages (e.g. CURL,
+# which IS present) that were found in a sibling subdirectory's scope. The parent build owns the
+# requirement checks in that mode, so don't fatally abort here.
+IF(BUILD_ELOQSQL_AS_LIBRARY)
+  FEATURE_SUMMARY(WHAT ALL VAR MARIADB_FEATURE_SUMMARY)
+ELSE()
+  FEATURE_SUMMARY(WHAT ALL FATAL_ON_MISSING_REQUIRED_PACKAGES VAR MARIADB_FEATURE_SUMMARY)
+ENDIF()
 
 OPTION(FEATURE_SUMMARY "Print feature summary at the end of configure step" ON)
 IF (FEATURE_SUMMARY)
