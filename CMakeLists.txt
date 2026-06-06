@@ -464,8 +464,14 @@ CONFIGURE_PLUGINS()
 add_compile_definitions(ELOQ_MODULE_ELOQSQL)
 # Build data substrate library first (before sql/ and storage/)
 if(NOT BUILD_ELOQSQL_AS_LIBRARY)
-    # Build data substrate library first (standalone mode)
-    ADD_SUBDIRECTORY(data_substrate)
+    # Build data substrate library first (standalone mode).
+    # EloqDB (lintao-mod): the umbrella points this at the single shared checkout under
+    # dependencies/ via -DDATA_SUBSTRATE_DIR, so no in-tree symlink is needed. Default keeps the
+    # in-tree submodule path for a standalone build.
+    if(NOT DATA_SUBSTRATE_DIR)
+        set(DATA_SUBSTRATE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/data_substrate)
+    endif()
+    ADD_SUBDIRECTORY(${DATA_SUBSTRATE_DIR} data_substrate)
 else()
     # Use parent data_substrate (converged mode)
     message(STATUS "EloqSQL: Using parent data_substrate")
