@@ -68,66 +68,52 @@ Follow the [instruction guide](https://www.eloqdata.com/eloqsql/install-from-bin
 
 ## Build from Source
 
-Follow these steps to build and run EloqSQL from source.
-
-### 1. Install Dependencies
-We recommend using our Docker image with pre-installed dependencies for a quick build and run of EloqSQL.
+### System prerequisites (Ubuntu 24.04)
 
 ```bash
-docker pull eloqdata/eloq-dev-ci-ubuntu2404:latest
+sudo apt install -y \
+    git build-essential cmake ninja-build pkg-config python3 python3-venv \
+    bison flex libssl-dev zlib1g-dev libgflags-dev libleveldb-dev \
+    libsnappy-dev liblz4-dev libzstd-dev libbz2-dev libcurl4-openssl-dev \
+    libjsoncpp-dev liburing-dev
 ```
 
-Or, you can manually run the following script to install dependencies on your local machine (Ubuntu 24.04 example).
+### Build
 
 ```bash
-bash scripts/install_dependency_ubuntu2404.sh
+git clone https://github.com/eloqdata/eloqsql.git
+cd eloqsql
+chmod +x build.sh
+./build.sh
 ```
 
-### 2. Initialize Submodules
-Fetch the Transaction Service and its dependencies:
+`build.sh` handles everything automatically:
 
-```
-git submodule update --init --recursive
-```
+1. Clones [eloq_build_env](https://github.com/ltzhang/eloq_build_env) as a sibling directory (the shared build environment — built once, reused by all Eloq products)
+2. Builds all shared dependencies into `../eloq_build_env/install/` (~30–60 min on first run; subsequent runs skip cached steps)
+3. Builds EloqSQL against the shared prefix
 
+The compiled server is at `../eloq_build_env/install/bin/mariadbd`.
 
-### 3. Build EloqSQL
-Configure and compile with optimized settings:
+### Re-building after code changes
 
 ```bash
-mkdir build
-cd build
-cmake -DCMAKE_INSTALL_PREFIX=${HOME}/install \
-      -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-      -DWITH_READLINE=1 \
-      -DPLUGIN_HANDLERSOCKET=NO \
-      -DPLUGIN_ROCKSDB=NO \
-      -DPLUGIN_ARIA=NO \
-      -DPLUGIN_ARCHIVE=NO \
-      -DPLUGIN_CVS=NO \
-      -DPLUGIN_FEDERATEDX=NO \
-      -DPLUGIN_TOKUDB=NO \
-      -DPLUGIN_MROONGA=NO \
-      -DPLUGIN_OQGRAPH=NO \
-      -DPLUGIN_CONNECT=NO \
-      -DPLUGIN_SPIDER=NO \
-      -DPLUGIN_SPHINX=NO \
-      -DPLUGIN_HEAP=NO \
-      -DPLUGIN_MYISAMMRG=NO \
-      -DPLUGIN_SEQUENCE=NO \
-      -DINSTALL_MYSQLTESTDIR= \
-      -DMYSQL_MAINTAINER_MODE=OFF \
-      -DWITH_SSL=system \
-      -DCOROUTINE_ENABLED=ON \
-      -DBRPC_WITH_GLOG=ON \
-      -DMARIA_WITH_GLOG=ON \
-      -DWITH_ASAN=OFF \
-      -DCMAKE_C_FLAGS_RELWITHDEBINFO="-O2 -g -DNDEBUG -DDBUG_OFF -fno-omit-frame-pointer -fno-strict-aliasing" \
-      -DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-O2 -g -DNDEBUG -DDBUG_OFF -fno-omit-frame-pointer -fno-strict-aliasing -felide-constructors -Wno-error" \
-      -DWITH_DATA_STORE=ELOQDSS_ROCKSDB_CLOUD_S3 \
-      ../
-cmake --build . --config RelWithDebInfo -j8
-cmake --install . --config RelWithDebInfo
+cd eloqsql
+./build.sh    # deps and substrate are cached — only EloqSQL is rebuilt
+```
+
+### Custom eloq_build_env location
+
+If `eloq_build_env` lives somewhere other than a sibling directory:
+
+```bash
+# Option 1: env var
+export ELOQ_BUILD_ENV=/path/to/eloq_build_env
+./build.sh
+
+# Option 2: symlink (add eloq_env to .gitignore)
+ln -s /path/to/eloq_build_env eloq_env
+./build.sh
 ```
 
 ### 4. Set Up Storage Backend
