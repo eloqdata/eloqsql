@@ -70,26 +70,38 @@ Follow the [instruction guide](https://www.eloqdata.com/eloqsql/install-from-bin
 
 Follow these steps to build and run EloqSQL from source.
 
-### 1. Install Dependencies
-We recommend using our Docker image with pre-installed dependencies for a quick build and run of EloqSQL.
+### 1. Pull the Source Code
+
+We recommend using our Docker image with pre-installed system tools for a quick build and run of EloqSQL.
 
 ```bash
 docker pull eloqdata/eloq-dev-ci-ubuntu2404:latest
+git clone https://github.com/eloqdata/eloqsql.git
+cd eloqsql
 ```
 
-Or, you can manually run the following script to install dependencies on your local machine (Ubuntu 24.04 example).
+Alternatively, clone EloqSQL in an existing Linux environment. Ubuntu 24.04 is preferred.
 
 ```bash
+git clone https://github.com/eloqdata/eloqsql.git
+cd eloqsql
+```
+
+### 2. Initialize Submodules and Dependencies
+
+Initialize product source submodules, then install the build dependencies:
+
+```bash
+bash scripts/checkout_product_submodules.sh
 bash scripts/install_dependency_ubuntu2404.sh
 ```
 
-### 2. Initialize Submodules
-Fetch the Transaction Service and its dependencies:
-
-```
-git submodule update --init --recursive
-```
-
+The checkout script intentionally skips `data_substrate/third_party/src/*`.
+The dependency installer uses Data Substrate's manifest to fetch and build the
+shared source dependencies (including brpc, braft, mimalloc, Abseil, gRPC, and
+RocksDB) under `data_substrate/third_party/`. Libraries and headers are installed
+to `data_substrate/third_party/install`, not `/usr` or `/usr/local`. Dependency
+compilation is limited to eight CPU cores.
 
 ### 3. Build EloqSQL
 Configure and compile with optimized settings:
@@ -122,12 +134,22 @@ cmake -DCMAKE_INSTALL_PREFIX=${HOME}/install \
       -DBRPC_WITH_GLOG=ON \
       -DMARIA_WITH_GLOG=ON \
       -DWITH_ASAN=OFF \
+      -DELOQ_THIRD_PARTY_PREFIX="${PWD}/../data_substrate/third_party/install" \
+      -DELOQ_THIRD_PARTY_REQUIRED=ON \
       -DCMAKE_C_FLAGS_RELWITHDEBINFO="-O2 -g -DNDEBUG -DDBUG_OFF -fno-omit-frame-pointer -fno-strict-aliasing" \
       -DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-O2 -g -DNDEBUG -DDBUG_OFF -fno-omit-frame-pointer -fno-strict-aliasing -felide-constructors -Wno-error" \
       -DWITH_DATA_STORE=ELOQDSS_ROCKSDB_CLOUD_S3 \
       ../
 cmake --build . --config RelWithDebInfo -j8
 cmake --install . --config RelWithDebInfo
+```
+
+Executables built from source link to libraries in the shared workspace. Add
+them to the runtime search path before starting EloqSQL:
+
+```bash
+cd ..
+export LD_LIBRARY_PATH="$PWD/data_substrate/third_party/install/lib:$PWD/data_substrate/third_party/install/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 ```
 
 ### 4. Set Up Storage Backend
@@ -338,5 +360,3 @@ To deploy EloqSQL cluster, Please refer to [EloqCtl](https://www.eloqdata.com/el
 ---
 
 **Star This Repo ⭐** to Support Our Journey — Every Star Helps Us Reach More Developers!  
-
-

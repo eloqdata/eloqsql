@@ -14,10 +14,7 @@ fi
 cd $HOME
 ln -s ${WORKSPACE}/eloqsql_src eloqsql
 cd eloqsql
-ln -s $WORKSPACE/logservice_src data_substrate/eloq_log_service
-pushd data_substrate/tx_service
-ln -s $WORKSPACE/raft_host_manager_src raft_host_manager
-popd
+bash scripts/checkout_product_submodules.sh
 
 git config --global user.email "concourse@noreply.com"
 git config --global user.name "concourse-ci"

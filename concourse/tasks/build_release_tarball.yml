@@ -3,9 +3,6 @@ image_resource:
   type: registry-image
 inputs:
   - name: eloqsql_src
-  - name: logservice_src
-  - name: raft_host_manager_src
-  - name: eloqstore_src
 outputs:
   - name: the-output
 params:

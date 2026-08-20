@@ -22,31 +22,19 @@ sudo chown -R $current_user $HOME/workspace 2>/dev/null || true
 cd $HOME
 ln -s ${WORKSPACE}/eloqsql_src eloqsql
 cd eloqsql
-git submodule sync
-git submodule update --init --recursive
-
-ln -s $WORKSPACE/logservice_src data_substrate/eloq_log_service
-pushd data_substrate/eloq_log_service
-git submodule sync
-git submodule update --init --recursive
-popd
-
-pushd data_substrate/tx_service
-ln -s $WORKSPACE/raft_host_manager_src raft_host_manager
-popd
-
-if [ "${DATA_STORE_TYPE}" = "ELOQDSS_ELOQSTORE" ]; then
-    pushd data_substrate/store_handler/eloq_data_store_service
-    ln -s $WORKSPACE/eloqstore_src eloqstore
-    cd eloqstore
-    git submodule sync
-    git submodule update --init --recursive
-    popd
-fi
+bash scripts/checkout_product_submodules.sh
 
 ELOQSQL_SRC=${PWD}
 
-export LD_LIBRARY_PATH=/usr/local/lib:/usr/local/lib64:$LD_LIBRARY_PATH
+if [ -f "data_substrate/third_party/install/share/eloq/third-party-manifest.yml" ]; then
+    export ELOQ_THIRD_PARTY_PREFIX="${PWD}/data_substrate/third_party/install"
+elif [ -f "/opt/eloq/third_party/share/eloq/third-party-manifest.yml" ]; then
+    export ELOQ_THIRD_PARTY_PREFIX=/opt/eloq/third_party
+fi
+if [ -n "${ELOQ_THIRD_PARTY_PREFIX:-}" ]; then
+    export CMAKE_PREFIX_PATH="${ELOQ_THIRD_PARTY_PREFIX}${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}"
+fi
+export LD_LIBRARY_PATH="${ELOQ_THIRD_PARTY_PREFIX:+${ELOQ_THIRD_PARTY_PREFIX}/lib:${ELOQ_THIRD_PARTY_PREFIX}/lib64:}/usr/local/lib:/usr/local/lib64:${LD_LIBRARY_PATH:-}"
 
 # Get OS information from /etc/os-release
 source /etc/os-release
@@ -77,8 +65,6 @@ if [[ "$OS_ID" == rhel* ]]; then
         INSTALL_PSQL="sudo dnf install -y postgresql"
         # detected dubious ownership
         git config --global --add safe.directory ${WORKSPACE}/eloqsql_src
-        git config --global --add safe.directory ${WORKSPACE}/logservice_src
-        git config --global --add safe.directory ${WORKSPACE}/raft_host_manager_src
         ;;
     esac
 elif [[ "$OS_ID" == ubuntu* ]]; then
@@ -203,6 +189,7 @@ cmake -DCMAKE_INSTALL_PREFIX="${DEST_DIR}" \
       -DFORK_HM_PROCESS=ON \
       -DELOQ_MODULE_ENABLED=ON \
       -DWITH_LOG_STATE=${WITH_LOG_STATE} \
+      ${ELOQ_THIRD_PARTY_PREFIX:+-DELOQ_THIRD_PARTY_PREFIX=${ELOQ_THIRD_PARTY_PREFIX} -DELOQ_THIRD_PARTY_REQUIRED=ON} \
       ../
 
 cmake --build . --config ${BUILD_TYPE} -j4

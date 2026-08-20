@@ -16,25 +16,11 @@ resources:
     disable_forks: false
     labels: ["trigger-ci"]
 
-- name: logservice_src
-  type: git
-  source:
-    branch: main
-    uri: git@github.com:eloqdata/eloq_log_service.git
-    private_key: ((git-key))
-
 - name: eloq_test_src
   type: git
   source:
     branch: main
     uri: git@github.com:eloqdata/eloq-test.git
-    private_key: ((git-key))
-
-- name: raft_host_manager_src
-  type: git
-  source:
-    branch: main
-    uri: git@github.com:eloqdata/raft_host_manager.git
     private_key: ((git-key))
 
 - name: eloq_ubuntu_2404
@@ -51,9 +37,7 @@ jobs:
   plan:
   - in_parallel:
       steps:
-      - get: logservice_src
       - get: eloq_test_src
-      - get: raft_host_manager_src
       - get: eloqsql_pr
         trigger: true
         version: every
@@ -81,4 +65,3 @@ jobs:
     params:
       path: eloqsql_pr
       status: success
-

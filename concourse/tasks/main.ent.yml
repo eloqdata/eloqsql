@@ -4,7 +4,5 @@ image_resource:
 inputs:
   - name: eloqsql_src
   - name: eloq_test_src
-  - name: raft_host_manager_src
-  - name: logservice_src
 run:
   path: eloqsql_src/concourse/scripts/main.ent.bash
