@@ -1,0 +1,83 @@
+# This case test to search a table by secondary key and load
+# all PK records into cache by MMR mechamism.
+--source include/have_eloq.inc
+
+--disable_query_log
+--disable_result_log
+DROP TABLE IF EXISTS t1,t2;
+--enable_result_log
+--enable_query_log
+
+create table t1(i varchar(12) primary key, j int, k int, key(j)) engine= eloq;
+insert into t1 values('a', 91, 92);
+insert into t1 values('b1', 81, 82);
+insert into t1 values('c12', 71, 72);
+insert into t1 values('d123', 61, 62);
+insert into t1 values('e1234', 51, 52);
+insert into t1 values('f12345', 41, 42);
+insert into t1 values('g123456', 31, 32);
+insert into t1 values('h1234567', 21, 22);
+insert into t1 values('j12345678', 11, 12);
+insert into t1 values('k123456789', 1, 2);
+
+--connect (serv_1,localhost,root,,test,$MONO1_PORT)
+--connect (serv_2,localhost,root,,test,$MONO1_PORT)
+
+select * from t1 where j=41;
+select * from t1 where j>40 and j<70;
+
+connection serv_2;
+select * from t1 where j=41;
+select * from t1 where j>40 and j<70;
+
+begin;
+update t1 set j=35 where i='g123456';
+select * from t1 where j=41;
+select * from t1 where j>40 and j<70;
+
+connection serv_1;
+select * from t1 where j=41;
+select * from t1 where j>40 and j<70;
+
+connection serv_2;
+commit;
+select * from t1 where j=41;
+select * from t1 where j>40 and j<70;
+
+connection serv_1;
+select * from t1 where j=41;
+select * from t1 where j>40 and j<70;
+
+set optimizer_switch='mrr=on,mrr_sort_keys=on';
+select * from t1 where j=41;
+select * from t1 where j>40 and j<70;
+
+connection serv_2;
+set optimizer_switch='mrr=on,mrr_sort_keys=on';
+select * from t1 where j=41;
+select * from t1 where j>40 and j<70;
+
+drop table t1;
+
+connection default;
+create table t2(f1 varchar(100) primary key, f2 int, f3 int, f4 varchar(100), key(f2,f3)) engine= eloq;
+let $counter= 0;
+--disable_query_log
+--disable_result_log
+while($counter < 10000)
+{
+    let $f1= 'test_$counter abcdefghijklmnopqrstuvwxyz';
+    let $f2= $counter;
+    let $f3= 10000 - $counter;
+    let $f4= 'test_$counter abcdefghijklmnopqrstuvwxyz1234567890';
+    let $q=INSERT INTO t2 VALUES ($f1, $f2, $f3, $f4);
+    eval $q;
+    inc $counter;
+}
+--enable_result_log
+--enable_query_log
+
+select * from t2 where f2>8000 and f3<10;
+select * from t2 where f2>8000 and f3%10=1;
+select * from t2 where f2>8000 and f3%100=1;
+drop table t2;

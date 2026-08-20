@@ -1,0 +1,16 @@
+DROP TABLE IF EXISTS `t.1`;
+DROP TABLE IF EXISTS `t 1`;
+CREATE TABLE `t.1` (pk int primary key, c char(1)) ENGINE=eloq;
+INSERT INTO `t.1` VALUES (1,'a'),(2,'b');
+SELECT * from `t.1`;
+pk	c
+1	a
+2	b
+CREATE TABLE `t 1` (pk int primary key, c char(1)) ENGINE=eloq;
+INSERT INTO `t 1` VALUES (1,'a'),(2,'b');
+SELECT * from `t 1`;
+pk	c
+1	a
+2	b
+DROP TABLE `t.1`;
+DROP TABLE `t 1`;

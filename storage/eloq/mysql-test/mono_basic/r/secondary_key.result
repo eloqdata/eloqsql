@@ -1,0 +1,46 @@
+drop table if exists t1,t2,t3;
+create table t1(id int, name char(30));
+insert into t1 values(1,'value 1');
+insert into t1 values(2,'value 2');
+insert into t1 values(3,'value 3');
+insert into t1 values(10,'Unknown');
+select * from t1 order by id;
+id	name
+1	value 1
+2	value 2
+3	value 3
+10	Unknown
+
+# Nullable key
+create table t2 (id int primary key, name char(30), key (name));
+insert into t2 values(1,'person 1');
+insert into t2 values(2,'person 2');
+insert into t2 values(3,'person 3');
+insert into t2 values(10,'Unknown');
+select * from t2 order by id;
+id	name
+1	person 1
+2	person 2
+3	person 3
+10	Unknown
+
+# Non-null key
+create table t3 (
+companynr tinyint(2) unsigned zerofill NOT NULL default '00',
+companyname char(30) NOT NULL default '',
+PRIMARY KEY (companynr),
+KEY companyname(companyname)
+) engine=eloq comment='companynames';
+INSERT INTO t3 (companynr, companyname) VALUES (29,'company 1');
+INSERT INTO t3 (companynr, companyname) VALUES (34,'company 2');
+INSERT INTO t3 (companynr, companyname) VALUES (36,'company 3');
+INSERT INTO t3 (companynr, companyname) VALUES (37,'company 4');
+INSERT INTO t3 (companynr, companyname) VALUES (00,'Unknown');
+select * from t3 order by companynr;
+companynr	companyname
+00	Unknown
+29	company 1
+34	company 2
+36	company 3
+37	company 4
+drop table t1,t2,t3;

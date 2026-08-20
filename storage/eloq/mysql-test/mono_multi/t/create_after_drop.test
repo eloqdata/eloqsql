@@ -1,0 +1,107 @@
+--source include/have_eloq.inc
+set @@default_storage_engine=eloq;
+
+--let $mono_server_count=3
+--source include/mono_init.inc
+
+# Create after drop for database
+--connection serv_1
+CREATE DATABASE db1;
+USE db1;
+
+CREATE TABLE t1 (i INT PRIMARY KEY) ENGINE=eloq;
+
+CREATE VIEW v1 AS SELECT * FROM t1;
+
+CREATE FUNCTION f1(str CHAR(20)) RETURNS CHAR(100)
+  RETURN CONCAT('Hello', str, '!');
+
+DELIMITER $$;
+CREATE PROCEDURE p1 (OUT cnt INT)
+COMMENT 'comment1'
+BEGIN
+  SELECT COUNT(*) INTO cnt FROM t1;
+END$$
+DELIMITER ;$$
+
+SHOW DATABASES LIKE 'db1';
+
+--connection serv_2
+DROP DATABASE db1;
+
+--connection serv_1
+CREATE DATABASE db1;
+
+# Create after drop for table
+--connection serv_1
+USE db1;
+CREATE TABLE t1 (i INT PRIMARY KEY) ENGINE=eloq;
+SELECT * FROM t1;
+
+--connection serv_2
+USE db1;
+DROP TABLE t1;
+
+--connection serv_1
+USE db1;
+CREATE TABLE t1 (i INT PRIMARY KEY) ENGINE=eloq;
+
+# Create after drop for view
+--connection serv_1
+USE db1;
+CREATE VIEW v1 AS SELECT * FROM t1;
+SELECT * FROM v1;
+
+--connection serv_2
+USE db1;
+DROP VIEW v1;
+
+--connection serv_1
+USE db1;
+CREATE VIEW v1 AS SELECT * FROM t1;
+
+# Create after drop for function
+--connection serv_1
+USE db1;
+CREATE FUNCTION f1(str CHAR(20)) RETURNS CHAR(100)
+  RETURN CONCAT('Hello', str, '!');
+SELECT f1('world');
+
+--connection serv_2
+USE db1;
+DROP FUNCTION f1;
+
+--connection serv_1
+USE db1;
+CREATE FUNCTION f1(str char(20)) RETURNS CHAR(100)
+  RETURN CONCAT('Hello, ', str, '!');
+
+# Create after drop for procedure
+--connection serv_1
+USE db1;
+DELIMITER $$;
+CREATE PROCEDURE p1 (OUT cnt INT)
+COMMENT 'comment1'
+BEGIN
+  SELECT COUNT(*) INTO cnt FROM t1;
+END$$
+DELIMITER ;$$
+
+CALL p1(@cnt);
+
+--connection serv_2
+USE db1;
+DROP PROCEDURE p1;
+
+--connection serv_1
+USE db1;
+DELIMITER $$;
+CREATE PROCEDURE p1 (OUT cnt INT)
+COMMENT 'comment1'
+BEGIN
+  SELECT COUNT(*) INTO cnt FROM t1;
+END$$
+DELIMITER ;$$
+
+# Clean
+DROP DATABASE db1;

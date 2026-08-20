@@ -1,0 +1,41 @@
+set @@default_storage_engine=eloq;
+include/mono_init.inc
+DROP DATABASE IF EXISTS db1;
+DROP DATABASE IF EXISTS db2;
+connection serv_1;
+CREATE DATABASE db1;
+CREATE DATABASE db2;
+connection serv_2;
+SHOW DATABASES;
+Database
+db1
+db2
+information_schema
+mtr
+mysql
+performance_schema
+sys
+test
+DROP DATABASE db2;
+connection serv_3;
+SHOW DATABASES;
+Database
+db1
+information_schema
+mtr
+mysql
+performance_schema
+sys
+test
+USE db1;
+CREATE TABLE t1 (i int primary key, j int) engine=eloq;
+connection serv_2;
+USE db1;
+SHOW TABLES;
+Tables_in_db1
+t1
+DROP TABLE t1;
+USE db1;
+SHOW TABLES;
+Tables_in_db1
+DROP DATABASE db1;

@@ -1,0 +1,28 @@
+set @@default_storage_engine= eloq;
+select @@default_storage_engine;
+@@default_storage_engine
+ELOQ
+DROP TABLE IF EXISTS t1;
+# restart
+SET SESSION debug_dbug="+d,eloq;FetchCatalogCc_SetFinish_Error;node_id=-1";
+CREATE TABLE t1 (i INT PRIMARY KEY);
+ERROR HY000: Eloq: data storage is not available.
+SET SESSION debug_dbug="-d,eloq;FetchCatalogCc_SetFinish_Error;node_id=-1";
+CREATE TABLE t1 (i INT PRIMARY KEY);
+INSERT INTO t1 (i) VALUES (1), (2), (3), (4), (5), (6), (7), (8);
+# restart
+SET SESSION debug_dbug="+d,eloq;FetchTableStatisticsCc_SetFinish_Error;node_id=-1";
+SELECT COUNT(*) FROM t1;
+ERROR HY000: Eloq: data storage is not available.
+SET SESSION debug_dbug="-d,eloq;FetchTableStatisticsCc_SetFinish_Error;node_id=-1";
+# restart
+SET SESSION debug_dbug="+d,eloq;FetchTableRangesCc_SetFinish_Error;node_id=-1";
+SELECT COUNT(*) FROM t1;
+ERROR HY000: Eloq: data storage is not available.
+SET SESSION debug_dbug="-d,eloq;FetchTableRangesCc_SetFinish_Error;node_id=-1";
+# restart
+SET SESSION debug_dbug="+d,eloq;LoadRangeSliceRequest_SetFinish_Error;node_id=-1";
+SELECT COUNT(*) FROM t1;
+ERROR HY000: Eloq: data storage is not available.
+SET SESSION debug_dbug="-d,eloq;LoadRangeSliceRequest_SetFinish_Error;node_id=-1";
+DROP TABLE t1;

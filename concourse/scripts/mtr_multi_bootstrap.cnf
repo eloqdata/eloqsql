@@ -1,0 +1,8 @@
+[mariadb]
+plugin_maturity=experimental
+thread_handling=pool-of-threads
+thread_pool_size=1
+thread_pool_oversubscribe=10
+thread_pool_dedicated_listener=1
+
+eloq_config=

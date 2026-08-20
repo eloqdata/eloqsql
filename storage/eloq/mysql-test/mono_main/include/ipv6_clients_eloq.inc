@@ -1,0 +1,7 @@
+--exec $MYSQLADMIN --default-character-set=latin1 -h $IPv6 -P $MONO1_PORT  -u root ping
+--disable_result_log
+--exec $MYSQL_CHECK -h $IPv6 -P $MONO1_PORT  -u root test
+--exec $MYSQL_DUMP -h $IPv6 -P $MONO1_PORT  -u root test
+--exec $MYSQL_SHOW -h $IPv6 -P $MONO1_PORT  -u root
+--exec $MYSQL --host=$IPv6 --port=$MONO1_PORT --user=root test -e "SELECT current_user();SELECT user();"
+--enable_result_log

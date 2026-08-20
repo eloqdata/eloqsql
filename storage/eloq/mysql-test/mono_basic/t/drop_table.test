@@ -1,0 +1,27 @@
+--source include/have_eloq.inc
+
+set @@default_storage_engine= eloq;
+select @@default_storage_engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+--connect (conn-tx1,localhost,root,,test,$MONO1_PORT)
+--connect (conn-tx2,localhost,root,,test,$MONO1_PORT)
+
+# test multi session case. session 1 drop table and then 
+# session 2 create table with the same name. Then session 1
+# should be able to read the new created table in other session.
+
+--connection conn-tx2
+create table t1(i int);
+--connection conn-tx1
+drop table t1;
+--connection conn-tx2
+create table t1(i int);
+insert into t1 values(1);
+--connection conn-tx1
+select * from t1;
+
+drop table t1;

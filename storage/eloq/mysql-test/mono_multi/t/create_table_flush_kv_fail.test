@@ -1,0 +1,217 @@
+# This case is to test the procedure of handling the scenario where mysql table schema does not match with kv-store table schema(i.e. a table can be created in mysql, but fail to do so in kv-store).
+
+--source include/have_eloq.inc
+--source include/long_test.inc
+--sleep 2 #Here is bug, If not sleep, the mysqld will not return result.
+
+--let $mono_server_count= 3
+--source include/mono_init.inc
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+# TODO(ZX) find a way to test whether the schema_op ends with a clean_log
+
+# SET SESSION debug_dbug="+d,eloq;finish_recover_schema_before_providing_service;node_id=-1";
+
+
+###############################################################
+--echo test 1: creation fails
+--echo test 2: coordinator crash during post_write_all_intent
+--echo the behavior of these two tests is identical on the handling of DATA_STORE_ERROR
+# If the coordinator crashes when executing prepare PostWriteAll cc_request, this node should restart and replay schema_log. old and dirty schema are both restored, no cc_map is created and WriteLock is acquired on the catalog cc_entry. 
+
+
+## fault injection
+SET SESSION debug_dbug="+d,eloq;trigger_flush_kv_error;node_id=-1";
+
+## handle flush kv error
+--connection serv_1
+--error 200 # ERROR 200 (HY000): Eloq: failed to create table.
+create table t1(i int primary key);
+--connection serv_1
+--error 1146 # ER_NO_SUCH_TABLE (1146)
+SELECT * FROM t1;
+--connection serv_2
+--error 1146 # ER_NO_SUCH_TABLE (1146)
+SELECT * FROM t1;
+--connection serv_3
+--error 1146 # ER_NO_SUCH_TABLE (1146)
+SELECT * FROM t1;
+SET SESSION debug_dbug="-d,eloq;trigger_flush_kv_error";
+
+--connection serv_1
+create table t1(i int primary key);
+insert into t1 values(1);
+SELECT * FROM t1;
+drop table t1;
+
+###############################################################
+--echo test 3: coordinator crash during post_write_all_lock
+# If the coordinator crashes when executing commit PostWriteAll cc_request, this node should restart and replay schema_log. During recovery, old and dirty schema is restored, no cc_map is created and WriteLock is acquired on the catalog cc_entry.
+
+
+## fault injection
+SET SESSION debug_dbug="+d,eloq;trigger_flush_kv_error;node_id=-1";
+SET SESSION debug_dbug="+d,eloq;during_post_write_all;node_id=0;action=post_commit_panic";
+
+## handle flush kv error
+--connection serv_1
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--error 2013 # Lost connection to server during query
+create table t1(i int primary key);
+--enable_reconnect # recover from commit_log where commit_ts == 0
+--source include/wait_until_connected_again.inc 
+SET SESSION debug_dbug="-d,eloq;during_post_write_all";
+--connection serv_1
+--error 1146 # ER_NO_SUCH_TABLE (1146)
+SELECT * FROM t1;
+--connection serv_2
+--error 1146 # ER_NO_SUCH_TABLE (1146)
+SELECT * FROM t1;
+--connection serv_3
+--error 1146 # ER_NO_SUCH_TABLE (1146)
+SELECT * FROM t1;
+SET SESSION debug_dbug="-d,eloq;trigger_flush_kv_error";
+
+--connection serv_1
+create table t1(i int primary key);
+insert into t1 values(1);
+SELECT * FROM t1;
+drop table t1;
+
+###############################################################
+--echo test 4: participant crash during post_write_all_intent
+# If the participant crashes when executing prepare PostWriteAll cc_request, this node should restart and replay schema_log. old and dirty schema are both restored, no cc_map is created and WriteLock is acquired on the catalog cc_entry. 
+
+
+## fault injection
+SET SESSION debug_dbug="+d,eloq;trigger_flush_kv_error;node_id=-1";
+SET SESSION debug_dbug="+d,eloq;during_post_write_all;node_id=1;action=prepare_commit_panic";
+
+## handle flush kv error
+--connection serv_2
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.2.expect
+--connection serv_1
+--error 200 # ERROR 200 (HY000): Eloq: failed to create table.
+create table t1(i int primary key);
+--connection serv_2
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+SET SESSION debug_dbug="-d,eloq;during_post_write_all";
+--connection serv_1
+--error 1146 # ER_NO_SUCH_TABLE (1146)
+SELECT * FROM t1;
+--connection serv_2
+--error 1146 # ER_NO_SUCH_TABLE (1146)
+SELECT * FROM t1;
+--connection serv_3
+--error 1146 # ER_NO_SUCH_TABLE (1146)
+SELECT * FROM t1;
+SET SESSION debug_dbug="-d,eloq;trigger_flush_kv_error";
+
+--connection serv_1
+create table t1(i int primary key);
+insert into t1 values(1);
+SELECT * FROM t1;
+drop table t1;
+
+###############################################################
+--echo test 5: participant crash during post_write_all_lock
+# If the participant crashes when executing commit PostWriteAll cc_request, this node should restart and replay schema_log. During recovery, old or dirty schema is restored and coverted into the current schema, corresponding cc_map is created and WriteLock is acquired on the catalog cc_entry.
+
+
+## fault injection
+SET SESSION debug_dbug="+d,eloq;trigger_flush_kv_error;node_id=-1";
+SET SESSION debug_dbug="+d,eloq;during_post_write_all;node_id=1;action=post_commit_panic";
+
+## handle flush kv error
+--connection serv_2
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.2.expect
+--connection serv_1
+--error 200 # ERROR 200 (HY000): Eloq: failed to create table.
+create table t1(i int primary key);
+--connection serv_2
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+SET SESSION debug_dbug="-d,eloq;during_post_write_all";
+--connection serv_1
+--error 1146 # ER_NO_SUCH_TABLE (1146)
+SELECT * FROM t1;
+--connection serv_2
+--error 1146 # ER_NO_SUCH_TABLE (1146)
+SELECT * FROM t1;
+--connection serv_3
+--error 1146 # ER_NO_SUCH_TABLE (1146)
+SELECT * FROM t1;
+SET SESSION debug_dbug="-d,eloq;trigger_flush_kv_error";
+
+--connection serv_1
+create table t1(i int primary key);
+insert into t1 values(1);
+SELECT * FROM t1;
+drop table t1;
+
+###############################################################
+--echo test 6: network timeout during participant post_write_all_intent
+# If the coordinator fails to receive prepare PostWriteAll response from one or more participants, the coordinator retrys by sending prepare PostWriteAll cc_request to all participants until succeeds.
+
+
+## fault injection
+SET SESSION debug_dbug="+d,eloq;trigger_flush_kv_error;node_id=-1";
+SET SESSION debug_dbug="+d,eloq;during_post_write_all;node_id=1;action=prepare_commit_sleep";
+
+## handle flush kv error
+--connection serv_1
+--error 200 # ERROR 200 (HY000): Eloq: failed to create table.
+create table t1(i int primary key);
+--connection serv_1
+--error 1146 # ER_NO_SUCH_TABLE (1146)
+SELECT * FROM t1;
+--connection serv_2
+--error 1146 # ER_NO_SUCH_TABLE (1146)
+SELECT * FROM t1;
+--connection serv_3
+--error 1146 # ER_NO_SUCH_TABLE (1146)
+SELECT * FROM t1;
+SET SESSION debug_dbug="-d,eloq;trigger_flush_kv_error";
+
+--connection serv_1
+create table t1(i int primary key);
+insert into t1 values(1);
+SELECT * FROM t1;
+drop table t1;
+
+###############################################################
+--echo test 7: network timeout during participant post_write_all_lock
+# If the coordinator fails to receive commit PostWriteAll response from one or more participants, the coordinator retrys by sending commit PostWriteAll cc_request to all participants until succeeds.
+
+
+## fault injection
+SET SESSION debug_dbug="+d,eloq;trigger_flush_kv_error;node_id=-1";
+SET SESSION debug_dbug="+d,eloq;during_post_write_all;node_id=1;action=post_commit_sleep";
+
+## handle flush kv error
+--connection serv_1
+--error 200 # ERROR 200 (HY000): Eloq: failed to create table.
+create table t1(i int primary key);
+--connection serv_1
+--error 1146 # ER_NO_SUCH_TABLE (1146)
+SELECT * FROM t1;
+--connection serv_2
+--error 1146 # ER_NO_SUCH_TABLE (1146)
+SELECT * FROM t1;
+--connection serv_3
+--error 1146 # ER_NO_SUCH_TABLE (1146)
+SELECT * FROM t1;
+SET SESSION debug_dbug="-d,eloq;trigger_flush_kv_error";
+
+--connection serv_1
+create table t1(i int primary key);
+insert into t1 values(1);
+SELECT * FROM t1;
+drop table t1;
+
+
+# SET SESSION debug_dbug="-d,eloq;finish_recover_schema_before_providing_service";

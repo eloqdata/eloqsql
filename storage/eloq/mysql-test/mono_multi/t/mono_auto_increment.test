@@ -1,0 +1,104 @@
+--source include/have_eloq.inc
+set @@default_storage_engine= eloq;
+--sleep 8 #Here is bug, If not sleep, the mysqld will not return result.
+
+--let $mono_server_count= 3
+--source include/mono_init.inc
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+create table t1(i int primary key auto_increment, j int)engine=eloq;
+--connection serv_1
+insert into t1 values(null, 1);
+select * from t1;
+
+--connection serv_2
+insert into t1 values(null, 2);
+select * from t1;
+
+--connection serv_1
+--let $count = 1
+
+while ($count < 260)
+{
+    insert into t1 values(null, 3);
+    --inc $count
+}
+
+select * from t1;
+delete from t1;
+
+--connection serv_2
+begin;
+insert into t1 values(null, 4);
+insert into t1 values(null, 4);
+insert into t1 values(null, 4);
+insert into t1 values(null, 4);
+select * from t1;
+rollback;
+
+select * from t1;
+insert into t1 values(null, 5);
+select * from t1;
+
+drop table t1;
+
+#Below code test if the id restart from 1 after recreate the table
+create table t1(i int primary key auto_increment, j int)engine=eloq;
+insert into t1 values(null, 6);
+insert into t1 values(null, 6);
+insert into t1 values(null, 6);
+select * from t1;
+drop table t1;
+
+# Use below syntax to update auto increment parameters.
+# Only can update before insert the first record in this table.
+create table t1(i int primary key auto_increment, j int)engine=eloq;
+set global eloq_auto_increment="table_name=t1;offset=10000;increment=15;range=1024";
+
+set global eloq_auto_increment="table_name=t1;offset=5000";
+insert into t1 values(null, 7);
+select * from t1;
+
+# Failed to set any parameters after insert one record.
+--error 1231
+set global eloq_auto_increment="table_name=t1;offset=6000";
+set global eloq_auto_increment="";
+drop table t1;
+
+# Below code to test dead lock due to multi nodes update a record at the same time
+create table t1(i int primary key auto_increment, j int)engine=eloq;
+
+--connection serv_1
+send insert into t1 values(null, 1);
+--connection serv_1_1
+send insert into t1 values(null, 2);
+
+--connection serv_2
+send insert into t1 values(null, 3);
+--connection serv_2_1
+send insert into t1 values(null, 4);
+
+--connection serv_3
+send insert into t1 values(null, 5);
+--connection serv_3_1
+send insert into t1 values(null, 6);
+
+--connection serv_1
+reap;
+--connection serv_1_1
+reap;
+
+--connection serv_2
+reap;
+--connection serv_2_1
+reap;
+
+--connection serv_3
+reap;
+--connection serv_3_1
+reap;
+
+drop table t1;

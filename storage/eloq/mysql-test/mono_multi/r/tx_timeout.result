@@ -1,0 +1,21 @@
+include/mono_init.inc
+DROP TABLE IF EXISTS t1;
+connection serv_2;
+CREATE TABLE t1 (pk int primary key, sk int) ENGINE=eloq;
+INSERT INTO t1 VALUES (1, 1),(2, 2),(3,3);
+SELECT * FROM t1;
+pk	sk
+1	1
+2	2
+3	3
+SET SESSION debug_dbug="+d,eloq;before_post_read;node_id=0";
+SET SESSION debug_dbug="+d,eloq;before_post_read;node_id=2";
+SELECT * FROM t1;
+ERROR HY000: Eloq: failed to commit transaction. try restarting transaction. Transaction failed due to internal request timeout.
+SET SESSION debug_dbug="-d,eloq;before_post_read";
+SELECT * FROM t1;
+pk	sk
+1	1
+2	2
+3	3
+DROP TABLE t1;

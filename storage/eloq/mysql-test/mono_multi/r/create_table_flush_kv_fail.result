@@ -1,0 +1,148 @@
+include/mono_init.inc
+DROP TABLE IF EXISTS t1;
+test 1: creation fails
+test 2: coordinator crash during post_write_all_intent
+the behavior of these two tests is identical on the handling of DATA_STORE_ERROR
+SET SESSION debug_dbug="+d,eloq;trigger_flush_kv_error;node_id=-1";
+connection serv_1;
+create table t1(i int primary key);
+ERROR HY000: Eloq: failed to create table. Data storage is not available.
+connection serv_1;
+SELECT * FROM t1;
+ERROR 42S02: Table 'test.t1' doesn't exist
+connection serv_2;
+SELECT * FROM t1;
+ERROR 42S02: Table 'test.t1' doesn't exist
+connection serv_3;
+SELECT * FROM t1;
+ERROR 42S02: Table 'test.t1' doesn't exist
+SET SESSION debug_dbug="-d,eloq;trigger_flush_kv_error";
+connection serv_1;
+create table t1(i int primary key);
+insert into t1 values(1);
+SELECT * FROM t1;
+i
+1
+drop table t1;
+test 3: coordinator crash during post_write_all_lock
+SET SESSION debug_dbug="+d,eloq;trigger_flush_kv_error;node_id=-1";
+SET SESSION debug_dbug="+d,eloq;during_post_write_all;node_id=0;action=post_commit_panic";
+connection serv_1;
+create table t1(i int primary key);
+ERROR HY000: Lost connection to server during query
+SET SESSION debug_dbug="-d,eloq;during_post_write_all";
+connection serv_1;
+SELECT * FROM t1;
+ERROR 42S02: Table 'test.t1' doesn't exist
+connection serv_2;
+SELECT * FROM t1;
+ERROR 42S02: Table 'test.t1' doesn't exist
+connection serv_3;
+SELECT * FROM t1;
+ERROR 42S02: Table 'test.t1' doesn't exist
+SET SESSION debug_dbug="-d,eloq;trigger_flush_kv_error";
+connection serv_1;
+create table t1(i int primary key);
+insert into t1 values(1);
+SELECT * FROM t1;
+i
+1
+drop table t1;
+test 4: participant crash during post_write_all_intent
+SET SESSION debug_dbug="+d,eloq;trigger_flush_kv_error;node_id=-1";
+SET SESSION debug_dbug="+d,eloq;during_post_write_all;node_id=1;action=prepare_commit_panic";
+connection serv_2;
+connection serv_1;
+create table t1(i int primary key);
+ERROR HY000: Eloq: failed to create table. Data storage is not available.
+connection serv_2;
+SET SESSION debug_dbug="-d,eloq;during_post_write_all";
+connection serv_1;
+SELECT * FROM t1;
+ERROR 42S02: Table 'test.t1' doesn't exist
+connection serv_2;
+SELECT * FROM t1;
+ERROR 42S02: Table 'test.t1' doesn't exist
+connection serv_3;
+SELECT * FROM t1;
+ERROR 42S02: Table 'test.t1' doesn't exist
+SET SESSION debug_dbug="-d,eloq;trigger_flush_kv_error";
+connection serv_1;
+create table t1(i int primary key);
+insert into t1 values(1);
+SELECT * FROM t1;
+i
+1
+drop table t1;
+test 5: participant crash during post_write_all_lock
+SET SESSION debug_dbug="+d,eloq;trigger_flush_kv_error;node_id=-1";
+SET SESSION debug_dbug="+d,eloq;during_post_write_all;node_id=1;action=post_commit_panic";
+connection serv_2;
+connection serv_1;
+create table t1(i int primary key);
+ERROR HY000: Eloq: failed to create table. Data storage is not available.
+connection serv_2;
+SET SESSION debug_dbug="-d,eloq;during_post_write_all";
+connection serv_1;
+SELECT * FROM t1;
+ERROR 42S02: Table 'test.t1' doesn't exist
+connection serv_2;
+SELECT * FROM t1;
+ERROR 42S02: Table 'test.t1' doesn't exist
+connection serv_3;
+SELECT * FROM t1;
+ERROR 42S02: Table 'test.t1' doesn't exist
+SET SESSION debug_dbug="-d,eloq;trigger_flush_kv_error";
+connection serv_1;
+create table t1(i int primary key);
+insert into t1 values(1);
+SELECT * FROM t1;
+i
+1
+drop table t1;
+test 6: network timeout during participant post_write_all_intent
+SET SESSION debug_dbug="+d,eloq;trigger_flush_kv_error;node_id=-1";
+SET SESSION debug_dbug="+d,eloq;during_post_write_all;node_id=1;action=prepare_commit_sleep";
+connection serv_1;
+create table t1(i int primary key);
+ERROR HY000: Eloq: failed to create table. Data storage is not available.
+connection serv_1;
+SELECT * FROM t1;
+ERROR 42S02: Table 'test.t1' doesn't exist
+connection serv_2;
+SELECT * FROM t1;
+ERROR 42S02: Table 'test.t1' doesn't exist
+connection serv_3;
+SELECT * FROM t1;
+ERROR 42S02: Table 'test.t1' doesn't exist
+SET SESSION debug_dbug="-d,eloq;trigger_flush_kv_error";
+connection serv_1;
+create table t1(i int primary key);
+insert into t1 values(1);
+SELECT * FROM t1;
+i
+1
+drop table t1;
+test 7: network timeout during participant post_write_all_lock
+SET SESSION debug_dbug="+d,eloq;trigger_flush_kv_error;node_id=-1";
+SET SESSION debug_dbug="+d,eloq;during_post_write_all;node_id=1;action=post_commit_sleep";
+connection serv_1;
+create table t1(i int primary key);
+ERROR HY000: Eloq: failed to create table. Data storage is not available.
+connection serv_1;
+SELECT * FROM t1;
+ERROR 42S02: Table 'test.t1' doesn't exist
+connection serv_2;
+SELECT * FROM t1;
+ERROR 42S02: Table 'test.t1' doesn't exist
+connection serv_3;
+SELECT * FROM t1;
+ERROR 42S02: Table 'test.t1' doesn't exist
+SET SESSION debug_dbug="-d,eloq;trigger_flush_kv_error";
+connection serv_1;
+create table t1(i int primary key);
+insert into t1 values(1);
+SELECT * FROM t1;
+i
+1
+drop table t1;

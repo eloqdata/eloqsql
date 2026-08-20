@@ -1,0 +1,190 @@
+set local sql_mode="";
+set global sql_mode="";
+drop table if exists t1;
+create table t1(f1 int);
+insert into t1 values (5);
+grant select on test.* to ssl_user1@localhost require SSL;
+grant select on test.* to ssl_user3@localhost require SUBJECT "/C=FI/ST=Helsinki/L=Helsinki/O=MariaDB/CN=client";
+grant select on test.* to ssl_user4@localhost require SUBJECT "/C=FI/ST=Helsinki/L=Helsinki/O=MariaDB/CN=client" ISSUER "/CN=cacert/C=FI/ST=Helsinki/L=Helsinki/O=MariaDB";
+grant select on test.* to ssl_user5@localhost require SUBJECT "xxx";
+flush privileges;
+connect  con1,localhost,ssl_user1,,,,,SSL;
+connect  con3,localhost,ssl_user3,,,,,SSL;
+connect  con4,localhost,ssl_user4,,,,,SSL;
+connect(localhost,ssl_user5,,test,MONO1_PORT,MONO1_SOCKET);
+connect  con5,localhost,ssl_user5,,,,,SSL;
+ERROR 28000: Access denied for user 'ssl_user5'@'localhost' (using password: NO)
+connection con1;
+SELECT VARIABLE_VALUE <> '' AS have_ssl FROM INFORMATION_SCHEMA.SESSION_STATUS WHERE VARIABLE_NAME='Ssl_cipher';
+have_ssl
+1
+select * from t1;
+f1
+5
+delete from t1;
+ERROR 42000: DELETE command denied to user 'ssl_user1'@'localhost' for table 't1'
+connection con3;
+SELECT VARIABLE_VALUE <> '' AS have_ssl FROM INFORMATION_SCHEMA.SESSION_STATUS WHERE VARIABLE_NAME='Ssl_cipher';
+have_ssl
+1
+select * from t1;
+f1
+5
+delete from t1;
+ERROR 42000: DELETE command denied to user 'ssl_user3'@'localhost' for table 't1'
+connection con4;
+SELECT VARIABLE_VALUE <> '' AS have_ssl FROM INFORMATION_SCHEMA.SESSION_STATUS WHERE VARIABLE_NAME='Ssl_cipher';
+have_ssl
+1
+select * from t1;
+f1
+5
+delete from t1;
+ERROR 42000: DELETE command denied to user 'ssl_user4'@'localhost' for table 't1'
+connection default;
+disconnect con1;
+disconnect con3;
+disconnect con4;
+drop user ssl_user1@localhost, ssl_user3@localhost, ssl_user4@localhost, ssl_user5@localhost;
+drop table t1;
+mysqltest: Could not open connection 'default': 2026 TLS/SSL error: self-signed certificate in certificate chain
+
+mysqltest: Could not open connection 'default': 2026 TLS/SSL error: No such file or directory (2)
+
+mysqltest: Could not open connection 'default': 2026 TLS/SSL error: No such file or directory (2)
+
+mysqltest: Could not open connection 'default': 2026 TLS/SSL error: no private key assigned
+
+mysqltest: Could not open connection 'default': 2026 TLS/SSL error: no certificate assigned
+
+have_ssl
+1
+End of 5.0 tests
+DROP TABLE IF EXISTS thread_status;
+DROP EVENT IF EXISTS event_status;
+set session transaction isolation level read committed;
+SET GLOBAL event_scheduler=1;
+CREATE EVENT event_status
+ON SCHEDULE AT NOW()
+ON COMPLETION NOT PRESERVE
+DO
+BEGIN
+CREATE TABLE thread_status (variable_name varchar(64) collate utf8mb3_bin NOT NULL DEFAULT '',
+variable_value varchar(2048) collate utf8mb3_bin NOT NULL DEFAULT '')
+SELECT variable_name, variable_value
+FROM information_schema.session_status
+WHERE variable_name LIKE 'SSL_ACCEPTS' OR
+variable_name LIKE 'SSL_CALLBACK_CACHE_HITS';
+END$$
+SELECT variable_name, variable_value FROM thread_status;
+variable_name	variable_value
+SSL_ACCEPTS	#
+SSL_CALLBACK_CACHE_HITS	#
+DROP TABLE thread_status;
+SET GLOBAL event_scheduler=0;
+CREATE TABLE t1(a int);
+INSERT INTO t1 VALUES (1), (2);
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!40101 SET NAMES utf8mb4 */;
+/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
+/*!40103 SET TIME_ZONE='+00:00' */;
+/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+DROP TABLE IF EXISTS `t1`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `t1` (
+  `a` int(11) DEFAULT NULL
+);
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+INSERT INTO `t1` VALUES (1),(2);
+/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
+
+/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
+/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
+/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!40101 SET NAMES utf8mb4 */;
+/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
+/*!40103 SET TIME_ZONE='+00:00' */;
+/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+DROP TABLE IF EXISTS `t1`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `t1` (
+  `a` int(11) DEFAULT NULL
+);
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+INSERT INTO `t1` VALUES (1),(2);
+/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
+
+/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
+/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
+/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!40101 SET NAMES utf8mb4 */;
+/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
+/*!40103 SET TIME_ZONE='+00:00' */;
+/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+DROP TABLE IF EXISTS `t1`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `t1` (
+  `a` int(11) DEFAULT NULL
+);
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+INSERT INTO `t1` VALUES (1),(2);
+/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
+
+/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
+/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
+/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+
+mysqldump: Got error: 2026: "TLS/SSL error: no certificate assigned" when trying to connect
+
+DROP TABLE t1;
+GRANT SELECT ON test.* TO bug42158@localhost REQUIRE X509;
+FLUSH PRIVILEGES;
+connect con1,localhost,bug42158,,,,,SSL;
+SELECT VARIABLE_VALUE <> '' AS have_ssl FROM INFORMATION_SCHEMA.SESSION_STATUS WHERE VARIABLE_NAME='Ssl_cipher';
+have_ssl
+1
+disconnect con1;
+connection default;
+DROP USER bug42158@localhost;
+set global sql_mode=default;
+End of 5.1 tests

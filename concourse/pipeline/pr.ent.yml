@@ -1,0 +1,67 @@
+resource_types:
+- name: pull-request
+  type: docker-image
+  source:
+    repository: teliaoss/github-pr-resource
+
+resources:
+- name: eloqsql_pr
+  type: pull-request
+  check_every: 3m
+  source:
+    repository: eloqdata/eloqsql
+    base_branch: "eloq-10.6.10"
+    ignore_drafts: true
+    access_token: ((git-token))
+    disable_forks: false
+    labels: ["trigger-ci"]
+
+- name: eloq_test_src
+  type: git
+  source:
+    branch: main
+    uri: git@github.com:eloqdata/eloq-test.git
+    private_key: ((git-key))
+
+- name: eloq_ubuntu_2404
+  type: registry-image
+  source:
+    repository: eloqdata/eloq-dev-ci-ubuntu2404
+    tag: latest
+
+jobs:
+- name: compile-test
+  build_log_retention:
+    builds: 500
+  max_in_flight: 2
+  plan:
+  - in_parallel:
+      steps:
+      - get: eloq_test_src
+      - get: eloqsql_pr
+        trigger: true
+        version: every
+      - get: eloq_ubuntu_2404
+  - put: eloqsql_pr
+    params:
+      path: eloqsql_pr
+      status: pending
+  - task: compile-test-task
+    image: eloq_ubuntu_2404
+    file: eloqsql_pr/concourse/tasks/pr.ent.yml
+    params:
+      ELOQ_AWS_ACCESS_KEY_ID: ((minio-access-key))
+      ELOQ_AWS_REGION: ((aws-region))
+      ELOQ_AWS_SECRET_KEY: ((minio-secret-key))
+      MINIO_ENDPOINT_URL: ((minio-endpoint))
+      GIT_SSH_KEY: ((git-key))
+    privileged: true
+    on_failure:
+      put: eloqsql_pr
+      params:
+        path: eloqsql_pr
+        status: failure
+  - put: eloqsql_pr
+    params:
+      path: eloqsql_pr
+      status: success

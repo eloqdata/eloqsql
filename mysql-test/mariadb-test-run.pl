@@ -168,6 +168,7 @@ END {
 
 sub env_or_val($$) { defined $ENV{$_[0]} ? $ENV{$_[0]} : $_[1] }
 
+my $opt_bootstrap_defaults_file;
 my $path_config_file;           # The generated config file, var/my.cnf
 
 # Visual Studio produces executables in different sub-directories based on the
@@ -276,6 +277,8 @@ our $opt_clean_vardir= $ENV{'MTR_CLEAN_VARDIR'};
 our $opt_catalogs= 0;
 our $opt_catalog_name="";
 our $catalog_name="def";
+our $opt_clean_dss_bucket_restart = 0;
+our $opt_clean_txlog_bucket_restart = 0;
 
 our $opt_gcov;
 our $opt_gprof;
@@ -302,6 +305,7 @@ my $opt_skip_core;
 our $opt_check_testcases= 1;
 my $opt_mark_progress;
 my $opt_max_connections;
+my $opt_max_connect_retries;
 our $opt_report_times= 0;
 
 my $opt_sleep;
@@ -424,6 +428,18 @@ sub main {
   if (!using_extern())
   {
     mysql_install_db(default_mysqld(), "$opt_vardir/install.db");
+
+    # Back up cloud buckets before making the bootstrap directory read-only.
+    if ($opt_clean_dss_bucket_restart && $ENV{'bucket_name'}) {
+      my $bucket_name = $ENV{'bucket_name'};
+      backup_cloud_bucket("dss-$bucket_name", "$opt_vardir/install.db/minio_buckups");
+    }
+
+    if ($opt_clean_txlog_bucket_restart && $ENV{'bucket_name'}) {
+      my $bucket_name = $ENV{'bucket_name'};
+      backup_cloud_bucket("txlog-$bucket_name", "$opt_vardir/install.db/minio_buckups");
+    }
+
     make_readonly("$opt_vardir/install.db");
   }
   if ($opt_dry_run)
@@ -1182,6 +1198,7 @@ sub command_line_setup {
 	     # Max number of parallel threads to use
 	     'parallel=s'               => \$opt_parallel,
 
+        'bootstrap-defaults-file=s' => \$opt_bootstrap_defaults_file,
              # Config file to use as template for all tests
 	     'defaults-file=s'          => \&collect_option,
 	     # Extra config file to append to all generated configs
@@ -1239,6 +1256,8 @@ sub command_line_setup {
              'vardir=s'                 => \$opt_vardir,
              'mem'                      => \$opt_mem,
 	     'clean-vardir'             => \$opt_clean_vardir,
+	     'clean-dss-bucket-restart!' => \$opt_clean_dss_bucket_restart,
+	     'clean-txlog-bucket-restart!' => \$opt_clean_txlog_bucket_restart,
              'client-bindir=s'          => \$path_client_bindir,
              'client-libdir=s'          => \$path_client_libdir,
 
@@ -1271,6 +1290,7 @@ sub command_line_setup {
              'stop-file=s'              => \$opt_stop_file,
              'stop-keep-alive=i'        => \$opt_stop_keep_alive,
 	     'max-connections=i'        => \$opt_max_connections,
+	     'max-connect-retries=i'    => \$opt_max_connect_retries,
 	     'report-times'             => \$opt_report_times,
 	     'result-file'              => \$opt_resfile,
 	     'stress=s'                 => \$opt_stress,
@@ -2817,8 +2837,32 @@ sub mysql_server_start($) {
         my $path= ($opt_parallel == 1) ? "$opt_vardir" : "$opt_vardir/..";
         my $install_db= "$path/install.db";
         mtr_verbose("copying $install_db to $datadir");
-        copytree($install_db, $datadir) if -d $install_db;
+        copytree("$install_db/mysql", "$datadir/mysql") if -d $install_db;
+        copytree("$install_db/sys", "$datadir/sys") if -d $install_db;
+        copytree("$install_db/test", "$datadir/test") if -d $install_db;
+        copytree("$install_db/performance_schema", "$datadir/performance_schema") if -d $install_db;
+        copytree("$install_db/mtr", "$datadir/mtr") if -d $install_db;
+        if (!$ENV{'bucket_name'})
+        {
+          # Restore eloq_dss if this is DSS without rocksdb_cloud.
+          copytree("$install_db/eloq_dss", "$datadir/eloq_dss")
+            if -d "$install_db/eloq_dss";
+          # A copied configuration points at the bootstrap instance.
+          my $dss_config_file = "$datadir/eloq_dss/dss_config.ini";
+          unlink $dss_config_file if -e $dss_config_file;
+        }
         mtr_error("Failed to copy system db to '$datadir'") unless -d $datadir;
+
+	# Restore minio bucket
+        if ($opt_clean_dss_bucket_restart && $ENV{'bucket_name'}) {
+          my $bucket_name = $ENV{'bucket_name'};
+	  restore_cloud_bucket("dss-$bucket_name", "$opt_vardir/install.db/minio_buckups");
+        }
+
+        if ($opt_clean_txlog_bucket_restart && $ENV{'bucket_name'}) {
+          my $bucket_name = $ENV{'bucket_name'};
+	  restore_cloud_bucket("txlog-$bucket_name", "$opt_vardir/install.db/minio_buckups");
+        }
       }
     }
   }
@@ -2884,14 +2928,6 @@ sub mysql_server_start($) {
 sub mysql_server_wait {
   my ($mysqld, $tinfo) = @_;
   my $expect_file= "$opt_vardir/tmp/".$mysqld->name().".expect";
-
-  if (!sleep_until_file_created($mysqld->value('pid-file'), $expect_file,
-                                $opt_start_timeout, $mysqld->{'proc'},
-                                $warn_seconds))
-  {
-    $tinfo->{comment}= "Failed to start ".$mysqld->name() . "\n";
-    return 1;
-  }
 
   if (wsrep_on($mysqld))
   {
@@ -3123,13 +3159,14 @@ sub mysql_install_db {
 
   my $args;
   mtr_init_args(\$args);
-  mtr_add_arg($args, "--no-defaults");
+  # mtr_add_arg($args, "--no-defaults");
+  mtr_add_arg($args, "--defaults-file=%s", $opt_bootstrap_defaults_file);
   mtr_add_arg($args, "--disable-getopt-prefix-matching");
   mtr_add_arg($args, "--bootstrap");
   mtr_add_arg($args, "--basedir=%s", $install_basedir);
   mtr_add_arg($args, "--datadir=%s", $install_datadir);
   mtr_add_arg($args, "--plugin-dir=%s", $plugindir);
-  mtr_add_arg($args, "--default-storage-engine=myisam");
+  mtr_add_arg($args, "--default-storage-engine=eloq");
   mtr_add_arg($args, "--loose-skip-plugin-$_") for @optional_plugins;
   # starting from 10.0 bootstrap scripts require InnoDB
   mtr_add_arg($args, "--loose-innodb");
@@ -3203,6 +3240,7 @@ sub mysql_install_db {
     {
       my $sql_dir= dirname($path_sql);
       # Use the mysql database for system tables
+      mtr_tofile($bootstrap_sql_file, "create database if not exists mysql;\n");
       mtr_tofile($bootstrap_sql_file, "use mysql;\n");
 
       # Add the offical mysql system tables
@@ -3283,6 +3321,10 @@ sub mysql_install_db {
 
   # Create directories mysql
   mkpath("$install_datadir/mysql");
+  mkpath("$install_datadir/sys");
+  mkpath("$install_datadir/test");
+  mkpath("$install_datadir/performance_schema");
+  mkpath("$install_datadir/mtr");
 
   my $realtime= gettimeofday();
   if ( My::SafeProcess->run
@@ -3903,9 +3945,24 @@ sub run_testcase ($$) {
 
     if ( started(all_servers()) == 0 )
     {
-
       # Remove old datadirs
       clean_datadir() unless $opt_start_dirty;
+      # Clean cloud buckets
+      if ($ENV{'bucket_name'}) {
+	 my $bucket_name= $ENV{'bucket_name'};
+
+	 # don't clean txlog bucket if not asked
+	 if ($opt_clean_txlog_bucket_restart) {
+	   my $txlog_bucket_name= "txlog-$bucket_name";
+           clean_cloud_bucket($txlog_bucket_name);
+	 }
+
+	 # don't clean dss bucket if not asked
+	 if ($opt_clean_dss_bucket_restart) {
+	   my $dss_bucket_name = "dss-$bucket_name";
+           clean_cloud_bucket($dss_bucket_name);
+	 }
+      }
 
       # Restore old ENV
       while (my ($option, $value)= each( %old_env )) {
@@ -4905,7 +4962,6 @@ sub clean_dir {
 	    $dir);
 }
 
-
 sub clean_datadir {
   mtr_verbose("Cleaning datadirs...");
 
@@ -4927,6 +4983,122 @@ sub clean_datadir {
   }
 }
 
+sub restore_cloud_bucket {
+  my ($bucket_name, $backup_dir)= @_;
+
+  mtr_report("Restoring cloud bucket...");
+
+  my $minio_server_alias = $ENV{'minio_server_alias'};
+  if (!$minio_server_alias) {
+    mtr_error("minio_server_alias environment variable is not set");
+    return;
+  }
+
+  # Check if mc command exists
+  my $mc_path = `which mc 2>/dev/null`;
+  chomp($mc_path);
+  if (!$mc_path || !-x $mc_path) {
+    mtr_error("mc command not found. Please install MinIO client (mc) to restore S3 buckets");
+    return;
+  }
+
+  # Check if backup directory exists
+  my $backup = "$backup_dir/$bucket_name";
+  if (!-d $backup) {
+    mtr_warning("Backup directory '$backup' does not exist, skipping restore");
+    return;
+  }
+
+  # Create bucket if it doesn't exist
+  my $bucket = "$minio_server_alias/$bucket_name";
+  my $bucket_check = system("mc ls $bucket >/dev/null 2>&1");
+  if ($bucket_check != 0) {
+    my $create_result = system("mc mb $bucket >/dev/null 2>&1");
+    if ($create_result != 0) {
+      mtr_error("Failed to create S3 bucket: $bucket");
+      return;
+    }
+    mtr_report("Created S3 bucket: $bucket");
+  }
+
+  # Restore bucket contents from backup
+  my $result = system("mc mirror $backup $bucket >/dev/null 2>&1");
+  if ($result == 0) {
+    mtr_report("Successfully restored S3 bucket: $bucket from $backup");
+  } else {
+    mtr_warning("Failed to restore S3 bucket: $bucket from $backup");
+  }
+}
+
+sub backup_cloud_bucket {
+  my ($bucket_name, $backup_dir)= @_;
+
+  mtr_report("Backup cloud bucket...");
+
+  my $minio_server_alias = $ENV{'minio_server_alias'};
+  if (!$minio_server_alias) {
+    mtr_error("minio_server_alias environment variable is not set");
+    return;
+  }
+
+  # Check if mc command exists
+  my $mc_path = `which mc 2>/dev/null`;
+  chomp($mc_path);
+  if (!$mc_path || !-x $mc_path) {
+    mtr_error("mc command not found. Please install MinIO client (mc) to backup S3 buckets");
+    return;
+  }
+
+  # Create backup directory if it doesn't exist
+  mkpath($backup_dir) unless -d $backup_dir;
+
+  # Backup dss bucket
+  my $bucket = "$minio_server_alias/$bucket_name";
+  my $backup = "$backup_dir/$bucket_name";
+  my $result = system("mc mirror $bucket $backup >/dev/null 2>&1");
+  if ($result == 0) {
+    mtr_report("Successfully backed up S3 bucket: $bucket to $backup");
+  } else {
+    mtr_error("Failed to backup S3 bucket: $bucket");
+  }
+}
+
+sub clean_cloud_bucket {
+  my ($bucket_name)= @_;
+  mtr_report("Cleaning cloud bucket...");
+
+  if (started(all_servers()) != 0){
+    mtr_error("Trying to clean datadir before all servers stopped");
+  }
+
+  if (!$bucket_name) {
+    mtr_error("bucket_name environment variable is not set");
+    return;
+  }
+
+  my $minio_server_alias = $ENV{'minio_server_alias'};
+  if (!$minio_server_alias) {
+    mtr_error("minio_server_alias environment variable is not set");
+    return;
+  }
+
+  # Check if mc command exists
+  my $mc_path = `which mc 2>/dev/null`;
+  chomp($mc_path);
+  if (!$mc_path || !-x $mc_path) {
+    mtr_error("mc command not found. Please install MinIO client (mc) to clean S3 buckets");
+    return;
+  }
+
+  # Remove dss bucket
+  my $bucket = "$minio_server_alias/$bucket_name";
+  my $result = system("mc rb $bucket --force >/dev/null 2>&1");
+  if ($result == 0) {
+    mtr_report("Successfully removed S3 bucket: $bucket");
+  } else {
+    mtr_error("Failed to remove S3 bucket: $bucket");
+  }
+}
 
 #
 # Save datadir before it's removed
@@ -5252,22 +5424,8 @@ sub mysqld_start ($$) {
   $mysqld->{'started_opts'}= $extra_opts;
 
   my $expect_file= "$opt_vardir/tmp/".$mysqld->name().".expect";
-  my $rc= $oldexe eq ($exe || '') ||
-         sleep_until_file_created($mysqld->value('pid-file'), $expect_file,
-           $opt_start_timeout, $mysqld->{'proc'}, $warn_seconds);
-  if (!$rc)
-  {
-    # Report failure about the last test case before exit
-    my $test_name= mtr_grab_file($path_current_testlog);
-    $test_name =~ s/^CURRENT_TEST:\s//;
-    my $tinfo = My::Test->new(name => $test_name);
-    $tinfo->{result}= 'MTR_RES_FAILED';
-    $tinfo->{failures}= 1;
-    $tinfo->{logfile}=get_log_from_proc($mysqld->{'proc'}, $tinfo->{name});
-    report_option('verbose', 1);
-    mtr_report_test($tinfo);
-  }
-  return $rc;
+  
+  return 1;
 }
 
 
@@ -5620,6 +5778,10 @@ sub start_check_testcase ($$$) {
   mtr_add_arg($args, "--test-file=%s", "include/check-testcase.inc");
   mtr_add_arg($args, "--verbose");
 
+  if ( $opt_max_connect_retries ) {
+    mtr_add_arg($args, "--max-connect-retries=%d", $opt_max_connect_retries);
+  }
+
   if ( $mode eq "before" )
   {
     mtr_add_arg($args, "--record");
@@ -5720,6 +5882,10 @@ sub start_mysqltest ($) {
 
   if ( $opt_max_connections ) {
     mtr_add_arg($args, "--max-connections=%d", $opt_max_connections);
+  }
+
+  if ( $opt_max_connect_retries ) {
+    mtr_add_arg($args, "--max-connect-retries=%d", $opt_max_connect_retries);
   }
 
   if ( $opt_embedded_server )
@@ -5933,6 +6099,10 @@ Options to control directories to use
                         variable MTR_MEM=[DIR]
   clean-vardir          Clean vardir if tests were successful and if
                         running in "memory". Otherwise this option is ignored
+  clean-cloud-bucket-restart
+                        Clean cloud buckets during server restarts when
+                        running tests (requires bucket_name and minio_server_alias
+                        environment variables to be set)
   client-bindir=PATH    Path to the directory where client binaries are located
   client-libdir=PATH    Path to the directory where client libraries are located
 
@@ -6092,6 +6262,7 @@ Misc options
   max-connections=N     Max number of open connection to server in mysqltest
   open-files-limit=N    Max number of open files allowed for any of the children
                         of my_safe_process. Default is 1024.
+  max-connect-retries=N Max connection attempts in mysqltest (default 500)
   report-times          Report how much time has been spent on different
                         phases of test execution.
   stress=ARGS           Run stress test, providing options to

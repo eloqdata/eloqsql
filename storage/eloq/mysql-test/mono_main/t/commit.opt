@@ -1,0 +1,2 @@
+--enable_mvcc=true
+--eloq_cc_protocol=OccRead

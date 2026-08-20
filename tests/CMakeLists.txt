@@ -16,11 +16,11 @@
 ADD_DEFINITIONS("-DMYSQL_CLIENT")
 
 
-INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/include
-                    ${CMAKE_SOURCE_DIR}/client)
+INCLUDE_DIRECTORIES(${ELOQSQL_SOURCE_DIR}/include
+                    ${ELOQSQL_SOURCE_DIR}/client)
 INCLUDE_DIRECTORIES(BEFORE
-  ${CMAKE_BINARY_DIR}/libmariadb/include
-  ${CMAKE_SOURCE_DIR}/libmariadb/include)
+  ${ELOQSQL_BINARY_DIR}/libmariadb/include
+  ${ELOQSQL_SOURCE_DIR}/libmariadb/include)
 
 MYSQL_ADD_EXECUTABLE(mariadb-client-test mysql_client_test.c COMPONENT Test)
 SET(CLIENT_LIB mariadbclient mysys)

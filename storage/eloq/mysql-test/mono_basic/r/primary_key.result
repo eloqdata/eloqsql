@@ -1,0 +1,38 @@
+create table tp1(f0 int primary key auto_increment, f1 int, f2 int);
+insert into tp1(f1,f2) values(1,1);
+insert into tp1(f1,f2) values(1,1);
+insert into tp1(f0,f1,f2) values(10,1,1);
+insert into tp1(f1,f2) values(1,1);
+insert into tp1(f0,f1,f2) values(10,1,1);
+select * from tp1 order by f0;
+f0	f1	f2
+1	1	1
+2	1	1
+3	1	1
+4	1	1
+5	1	1
+create table tp2(f0 int primary key, f1 int auto_increment, f2 int, KEY(f1));
+insert into tp2(f0,f2) values(1,1);
+insert into tp2(f0,f2) values(2,2);
+insert into tp2(f0,f1,f2) values(3,10,3);
+insert into tp2(f0,f2) values(4,4);
+insert into tp2(f0,f2) values(1,1);
+ERROR 23000: Duplicate entry '1' for key 'PRIMARY'
+select * from tp2 order by f0;
+f0	f1	f2
+1	1	1
+2	2	2
+3	3	3
+4	4	4
+create table tp3(f1 int, f2 int);
+insert into tp3(f1,f2) values(1,1);
+insert into tp3(f1,f2) values(1,1);
+insert into tp3(f1,f2) values(1,1);
+select f1,f2 from tp3;
+f1	f2
+1	1
+1	1
+1	1
+drop table tp1;
+drop table tp2;
+drop table tp3;

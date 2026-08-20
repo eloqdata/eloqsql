@@ -1,0 +1,176 @@
+# This case is to test if a blocked ccrequest is missed or the remote node has crashed
+
+--source include/have_eloq.inc
+--source include/have_hash_partition.inc
+
+--let $mono_server_count= 3
+--source include/mono_init.inc
+--sleep 2 #Here is bug, If not sleep, the mysqld will not return result.
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+call mtr.add_suppression("mariadbd: Table 't1' is marked as crashed and should be repaired");
+--enable_warnings
+
+create table t1(i int primary key, j int);
+insert into t1 values(2,1);
+select * from t1;
+
+
+# Test the read ccrequest in block queue will rerun after the resources was prepared.
+--connection serv_2
+begin;
+update t1 set j=2 where i=2;
+
+--connection serv_1
+send update t1 set j=3 where i=2;
+
+--connection serv_2
+sleep 1;
+SET SESSION debug_dbug="+d,eloq;read_operation_timeout;node_id=0";
+
+sleep 1;
+commit;
+
+--connection serv_1
+--reap
+select * from t1;
+
+
+# Test the read ccrequest will be aborted when the its message missed
+drop table t1;
+create table t1(i int primary key, j int);
+insert into t1 values(2,1);
+select * from t1;
+
+SET SESSION debug_dbug="+d,eloq;remote_read_msg_missed;node_id=2";
+SET SESSION debug_dbug="+d,eloq;read_operation_timeout;node_id=0";
+sleep 1;
+
+--error 216
+update t1 set j=3 where i=2;
+select * from t1;
+
+
+# Test the read ccrequest will be aborted when the node group term changed
+drop table t1;
+SET SESSION debug_dbug="-d,eloq;remote_read_msg_missed;node_id=2";
+SET SESSION debug_dbug="-d,eloq;read_operation_timeout;node_id=0";
+create table t1(i int primary key, j int);
+insert into t1 values(2,1);
+select * from t1;
+
+--connection serv_2
+begin;
+update t1 set j=2 where i=2;
+
+--connection serv_1
+send update t1 set j=3 where i=2;
+
+--connection serv_2
+
+sleep 1;
+SET SESSION debug_dbug="+d,eloq;block_req_term_changed;node_id=2";
+SET SESSION debug_dbug="+d,eloq;read_operation_timeout;node_id=0";
+commit;
+sleep 1;
+
+--connection serv_1
+--error 216
+--reap
+select * from t1;
+
+
+# Test the Acquire ccrequest in block queue will rerun after the resources was prepared.
+drop table t1;
+create table t1(i int primary key, j int);
+insert into t1 values(2,1);
+
+--connection serv_2
+begin;
+select * from t1 where i=2;
+
+--connection serv_1
+send update t1 set j=2 where i=2;
+
+--connection serv_2
+sleep 1;
+SET SESSION debug_dbug="+d,eloq;acquire_operation_timeout;node_id=0";
+commit;
+
+--connection serv_1
+--reap
+select * from t1;
+
+
+# Test the Acquire ccrequest will be aborted when the its message missed
+drop table t1;
+create table t1(i int primary key, j int);
+insert into t1 values(2,1);
+
+--connection serv_2
+begin;
+select * from t1 where i=2;
+
+--connection serv_1
+send update t1 set j=2 where i=2;
+
+--connection serv_2
+--sleep 1
+SET SESSION debug_dbug="+d,eloq;remote_acquire_msg_missed;node_id=2";
+commit;
+--sleep 1
+SET SESSION debug_dbug="+d,eloq;acquire_operation_timeout;node_id=0";
+
+--connection serv_1
+--error 199
+reap
+select * from t1;
+
+
+# Test the Acquire ccrequest will be aborted when the node group term changed
+drop table t1;
+create table t1(i int primary key, j int);
+insert into t1 values(2,1);
+
+--connection serv_2
+begin;
+select * from t1 where i=2;
+
+--connection serv_1
+send update t1 set j=2 where i=2;
+
+--connection serv_2
+--sleep 1
+SET SESSION debug_dbug="+d,eloq;block_req_term_changed;node_id=2";
+SET SESSION debug_dbug="+d,eloq;acquire_operation_timeout;node_id=0";
+--sleep 1
+commit;
+
+--connection serv_1
+--error 199
+--reap
+select * from t1;
+
+drop table t1;
+
+
+# Test the read lock will be released by orphan check
+--connection serv_2
+create table t1(i int primary key, j int);
+insert into t1 values(2,1);
+
+SET SESSION debug_dbug="+d,eloq;remote_read_msg_missed;node_id=2";
+SET SESSION debug_dbug="+d,eloq;read_operation_timeout;node_id=0";
+sleep 1;
+
+--error 216
+update t1 set j=3 where i=2;
+select * from t1;
+SET SESSION debug_dbug="-d,eloq;remote_read_msg_missed;node_id=2";
+SET SESSION debug_dbug="-d,eloq;read_operation_timeout;node_id=0";
+
+--connection serv_2
+update t1 set j=2 where i=2;
+
+drop table t1;

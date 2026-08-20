@@ -1,0 +1,14 @@
+##############################################################################
+#
+#  List the test cases that are to be disabled temporarily.
+#
+#  Separate the test case name and the comment with ':'.
+#
+#    <testcasename> : BUG#<xxxx> <date disabled> <disabler> <comment>
+#
+#  Do not use any TAB characters for whitespace.
+#
+##############################################################################
+
+mvcc_archives_recycle : eloq_test disabled for now
+mvcc_scan_sk_rc_isolvl : EXISTS Write-Read conflict when tx1 read skindex and tx2 update 

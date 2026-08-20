@@ -13,10 +13,10 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1335 USA
 
-INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/include
-                    ${CMAKE_SOURCE_DIR}/unittest/mytap
-                    ${CMAKE_SOURCE_DIR}/storage/innobase/include
-                    ${CMAKE_SOURCE_DIR}/tpool)
+INCLUDE_DIRECTORIES(${ELOQSQL_SOURCE_DIR}/include
+                    ${ELOQSQL_SOURCE_DIR}/unittest/mytap
+                    ${ELOQSQL_SOURCE_DIR}/storage/innobase/include
+                    ${ELOQSQL_SOURCE_DIR}/tpool)
 ADD_EXECUTABLE(innodb_rbt-t innodb_rbt-t.cc ../ut/ut0rbt.cc)
 TARGET_LINK_LIBRARIES(innodb_rbt-t mysys mytap)
 ADD_DEPENDENCIES(innodb_rbt-t GenError)

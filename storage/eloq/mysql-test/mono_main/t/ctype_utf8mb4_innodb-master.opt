@@ -1,0 +1,2 @@
+--default-storage-engine=Eloq
+--innodb-stats-persistent=OFF

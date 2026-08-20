@@ -1,0 +1,1485 @@
+DROP TABLE IF EXISTS t1;
+set @@default_storage_engine= eloq;
+CREATE TABLE t1 (
+i1 INT PRIMARY KEY,
+i2 INT (64),
+c1 VARCHAR(64),
+c2 CHAR(64),
+KEY idx_i2_c1 (i2, c1)
+) ENGINE=eloq;
+INSERT INTO t1 VALUES
+(1, 1, "hello1", "world1"),
+(2, 1, "hello2", "world1"),
+(3, 2, "hello3", "world2"),
+(4, 2, "hello4", "world2"),
+(5, 3, "hello5", "world3"),
+(6, 3, "hello6", "world3");
+# restart
+set global eloq_report_debug_info=1;
+SELECT * FROM t1 WHERE c2="world2";
+i1	i2	c1	c2
+3	2	hello3	world2
+4	2	hello4	world2
+Warnings:
+Note	1105	scan_table_name: ./test/t1, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "c2"='world2                                                          ', scan_direction: 0
+SELECT * FROM t1 WHERE c2>"world2";
+i1	i2	c1	c2
+5	3	hello5	world3
+6	3	hello6	world3
+Warnings:
+Note	1105	scan_table_name: ./test/t1, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "c2">'world2                                                          ', scan_direction: 0
+SELECT * FROM t1 WHERE c2>="world2";
+i1	i2	c1	c2
+3	2	hello3	world2
+4	2	hello4	world2
+5	3	hello5	world3
+6	3	hello6	world3
+Warnings:
+Note	1105	scan_table_name: ./test/t1, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "c2">='world2                                                          ', scan_direction: 0
+SELECT * FROM t1 WHERE c2<"world2";
+i1	i2	c1	c2
+1	1	hello1	world1
+2	1	hello2	world1
+Warnings:
+Note	1105	scan_table_name: ./test/t1, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "c2"<'world2                                                          ', scan_direction: 0
+SELECT * FROM t1 WHERE c2<="world2";
+i1	i2	c1	c2
+1	1	hello1	world1
+2	1	hello2	world1
+3	2	hello3	world2
+4	2	hello4	world2
+Warnings:
+Note	1105	scan_table_name: ./test/t1, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "c2"<='world2                                                          ', scan_direction: 0
+SELECT * FROM t1 WHERE c2<>"world2";
+i1	i2	c1	c2
+1	1	hello1	world1
+2	1	hello2	world1
+5	3	hello5	world3
+6	3	hello6	world3
+Warnings:
+Note	1105	scan_table_name: ./test/t1, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+SELECT * FROM t1 WHERE i2=2 AND c2="world2";
+i1	i2	c1	c2
+3	2	hello3	world2
+4	2	hello4	world2
+Warnings:
+Note	1105	scan_table_name: ./test/t1*$$idx_i2_c1, scan_start_key: 0x0180000002, inclusive: 1, used_key_parts: 1, pushed_cond: "c2"='world2                                                          ', scan_direction: 0
+SELECT * FROM t1 WHERE i2>2 AND c2>"world2";
+i1	i2	c1	c2
+5	3	hello5	world3
+6	3	hello6	world3
+Warnings:
+Note	1105	scan_table_name: ./test/t1*$$idx_i2_c1, scan_start_key: 0x0180000002ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, inclusive: 0, used_key_parts: 1, pushed_cond: "c2">'world2                                                          ', scan_direction: 0
+SELECT * FROM t1 WHERE i2>=2 AND c2>="world2";
+i1	i2	c1	c2
+3	2	hello3	world2
+4	2	hello4	world2
+5	3	hello5	world3
+6	3	hello6	world3
+Warnings:
+Note	1105	scan_table_name: ./test/t1*$$idx_i2_c1, scan_start_key: 0x0180000002, inclusive: 1, used_key_parts: 1, pushed_cond: "c2">='world2                                                          ', scan_direction: 0
+SELECT * FROM t1 WHERE i2<2 AND c2<"world2" ORDER BY i2 DESC;
+i1	i2	c1	c2
+2	1	hello2	world1
+1	1	hello1	world1
+Warnings:
+Note	1105	scan_table_name: ./test/t1*$$idx_i2_c1, scan_start_key: 0x0180000002, inclusive: 0, used_key_parts: 1, pushed_cond: "c2"<'world2                                                          ', scan_direction: 1
+SELECT * FROM t1 WHERE i2<=2 AND c2<="world2" ORDER BY i2 DESC;
+i1	i2	c1	c2
+4	2	hello4	world2
+3	2	hello3	world2
+2	1	hello2	world1
+1	1	hello1	world1
+Warnings:
+Note	1105	scan_table_name: ./test/t1*$$idx_i2_c1, scan_start_key: 0x0180000002ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, inclusive: 1, used_key_parts: 1, pushed_cond: "c2"<='world2                                                          ', scan_direction: 1
+SELECT * FROM t1 WHERE i2<>2 AND c2<>"world2";
+i1	i2	c1	c2
+1	1	hello1	world1
+2	1	hello2	world1
+5	3	hello5	world3
+6	3	hello6	world3
+Warnings:
+Note	1105	scan_table_name: ./test/t1*$$idx_i2_c1, scan_start_key: 0x00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, inclusive: 0, used_key_parts: 1, pushed_cond: , scan_direction: 0
+Note	1105	scan_table_name: ./test/t1*$$idx_i2_c1, scan_start_key: 0x0180000002ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, inclusive: 0, used_key_parts: 1, pushed_cond: , scan_direction: 0
+SELECT * FROM t1 WHERE i2=2 AND c1="hello3";
+i1	i2	c1	c2
+3	2	hello3	world2
+Warnings:
+Note	1105	scan_table_name: ./test/t1*$$idx_i2_c1, scan_start_key: 0x01800000020168656c6c6f33202002, inclusive: 1, used_key_parts: 2, pushed_cond: , scan_direction: 0
+SELECT * FROM t1 WHERE i2>2 AND c1>"hello3";
+i1	i2	c1	c2
+5	3	hello5	world3
+6	3	hello6	world3
+Warnings:
+Note	1105	scan_table_name: ./test/t1*$$idx_i2_c1, scan_start_key: 0x0180000002ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, inclusive: 0, used_key_parts: 1, pushed_cond: , scan_direction: 0
+SELECT * FROM t1 WHERE i2>=2 AND c1>="hello3";
+i1	i2	c1	c2
+3	2	hello3	world2
+4	2	hello4	world2
+5	3	hello5	world3
+6	3	hello6	world3
+Warnings:
+Note	1105	scan_table_name: ./test/t1*$$idx_i2_c1, scan_start_key: 0x01800000020168656c6c6f33202002, inclusive: 1, used_key_parts: 2, pushed_cond: , scan_direction: 0
+SELECT * FROM t1 WHERE i2<2 AND c1<"hello3" ORDER BY i2 DESC;
+i1	i2	c1	c2
+2	1	hello2	world1
+1	1	hello1	world1
+Warnings:
+Note	1105	scan_table_name: ./test/t1*$$idx_i2_c1, scan_start_key: 0x0180000002, inclusive: 0, used_key_parts: 1, pushed_cond: , scan_direction: 1
+SELECT * FROM t1 WHERE i2<=2 AND c1<="hello3" ORDER BY i2 DESC;
+i1	i2	c1	c2
+3	2	hello3	world2
+2	1	hello2	world1
+1	1	hello1	world1
+Warnings:
+Note	1105	scan_table_name: ./test/t1*$$idx_i2_c1, scan_start_key: 0x01800000020168656c6c6f33202002ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, inclusive: 1, used_key_parts: 2, pushed_cond: , scan_direction: 1
+SELECT * FROM t1 WHERE i2<>2 AND c1<>"hello3";
+i1	i2	c1	c2
+1	1	hello1	world1
+2	1	hello2	world1
+5	3	hello5	world3
+6	3	hello6	world3
+Warnings:
+Note	1105	scan_table_name: ./test/t1*$$idx_i2_c1, scan_start_key: 0x00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, inclusive: 0, used_key_parts: 1, pushed_cond: , scan_direction: 0
+Note	1105	scan_table_name: ./test/t1*$$idx_i2_c1, scan_start_key: 0x0180000002ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, inclusive: 0, used_key_parts: 1, pushed_cond: , scan_direction: 0
+set global eloq_report_debug_info=0;
+CREATE OR REPLACE TABLE t1 (
+i1 INT PRIMARY KEY,
+i2 INT (64),
+c1 VARCHAR(64),
+c2 CHAR(64),
+KEY idx_i2_c1 (i2, c1)
+) ENGINE=eloq;
+INSERT INTO t1 VALUES
+(1, 1, "hello1", "'world'"),
+(2, 1, "hello2", "''world''"),
+(3, 2, "hello3", "'''world'''"),
+(4, 2, "hello4", "''''world''''"),
+(5, 3, "hello5", "\\world\\"),
+(6, 3, "hello6", "\\\\world\\\\");
+# restart
+set global eloq_report_debug_info=1;
+SELECT * FROM t1 WHERE i2=1 AND c2="'world'";
+i1	i2	c1	c2
+1	1	hello1	'world'
+Warnings:
+Note	1105	scan_table_name: ./test/t1*$$idx_i2_c1, scan_start_key: 0x0180000001, inclusive: 1, used_key_parts: 1, pushed_cond: "c2"='''world''                                                         ', scan_direction: 0
+SELECT * FROM t1 WHERE i2=1 AND c2="''world''";
+i1	i2	c1	c2
+2	1	hello2	''world''
+Warnings:
+Note	1105	scan_table_name: ./test/t1*$$idx_i2_c1, scan_start_key: 0x0180000001, inclusive: 1, used_key_parts: 1, pushed_cond: "c2"='''''world''''                                                       ', scan_direction: 0
+SELECT * FROM t1 WHERE i2=2 AND c2="'''world'''";
+i1	i2	c1	c2
+3	2	hello3	'''world'''
+Warnings:
+Note	1105	scan_table_name: ./test/t1*$$idx_i2_c1, scan_start_key: 0x0180000002, inclusive: 1, used_key_parts: 1, pushed_cond: "c2"='''''''world''''''                                                     ', scan_direction: 0
+SELECT * FROM t1 WHERE i2=2 AND c2="''''world''''";
+i1	i2	c1	c2
+4	2	hello4	''''world''''
+Warnings:
+Note	1105	scan_table_name: ./test/t1*$$idx_i2_c1, scan_start_key: 0x0180000002, inclusive: 1, used_key_parts: 1, pushed_cond: "c2"='''''''''world''''''''                                                   ', scan_direction: 0
+SELECT * FROM t1 WHERE i2=3 AND c2="\\world\\";
+i1	i2	c1	c2
+5	3	hello5	\world\
+Warnings:
+Note	1105	scan_table_name: ./test/t1*$$idx_i2_c1, scan_start_key: 0x0180000003, inclusive: 1, used_key_parts: 1, pushed_cond: "c2"='\world\                                                         ', scan_direction: 0
+SELECT * FROM t1 WHERE i2=3 AND c2="\\\\world\\\\";
+i1	i2	c1	c2
+6	3	hello6	\\world\\
+Warnings:
+Note	1105	scan_table_name: ./test/t1*$$idx_i2_c1, scan_start_key: 0x0180000003, inclusive: 1, used_key_parts: 1, pushed_cond: "c2"='\\world\\                                                       ', scan_direction: 0
+set global eloq_report_debug_info=0;
+CREATE OR REPLACE TABLE t1 (i BIGINT PRIMARY KEY, j BIGINT) ENGINE=eloq;
+INSERT INTO t1 VALUES (1, 1);
+INSERT INTO t1 VALUES (2.2, 2.2);
+INSERT INTO t1 VALUES ("3.3", "3.3");
+SELECT * FROM t1;
+i	j
+1	1
+2	2
+3	3
+# restart
+set global eloq_report_debug_info=1;
+SELECT * FROM t1 WHERE i=1;
+i	j
+1	1
+SELECT * FROM t1 WHERE j=1;
+i	j
+1	1
+Warnings:
+Note	1105	scan_table_name: ./test/t1, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "j"=1, scan_direction: 0
+SELECT * FROM t1 WHERE i<1;
+i	j
+Warnings:
+Note	1105	scan_table_name: ./test/t1, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+SELECT * FROM t1 WHERE j<1;
+i	j
+Warnings:
+Note	1105	scan_table_name: ./test/t1, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "j"<1, scan_direction: 0
+SELECT * FROM t1 WHERE i=2.2;
+i	j
+SELECT * FROM t1 WHERE j=2.2;
+i	j
+Warnings:
+Note	1105	scan_table_name: ./test/t1, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+SELECT * FROM t1 WHERE i<2.2;
+i	j
+1	1
+2	2
+Warnings:
+Note	1105	scan_table_name: ./test/t1, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+SELECT * FROM t1 WHERE j<2.2;
+i	j
+1	1
+2	2
+Warnings:
+Note	1105	scan_table_name: ./test/t1, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+SELECT * FROM t1 WHERE i="3";
+i	j
+3	3
+SELECT * FROM t1 WHERE j="3";
+i	j
+3	3
+Warnings:
+Note	1105	scan_table_name: ./test/t1, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "j"=3, scan_direction: 0
+SELECT * FROM t1 WHERE i<"3.3";
+i	j
+1	1
+2	2
+3	3
+Warnings:
+Note	1105	scan_table_name: ./test/t1, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+SELECT * FROM t1 WHERE j<"3.3";
+i	j
+1	1
+2	2
+3	3
+Warnings:
+Note	1105	scan_table_name: ./test/t1, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+INSERT INTO t1 VALUES (18446744073709551615, 18446744073709551615);
+ERROR 22003: Out of range value for column 'i' at row 1
+INSERT INTO t1 VALUES (9223372036854775807, 9223372036854775807);
+# restart
+set global eloq_report_debug_info=1;
+SELECT * FROM t1 WHERE i=18446744073709551615;
+i	j
+SELECT * FROM t1 WHERE i<18446744073709551615;
+i	j
+1	1
+2	2
+3	3
+Warnings:
+Note	1105	scan_table_name: ./test/t1, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+SELECT * FROM t1 WHERE j=18446744073709551615;
+i	j
+Warnings:
+Note	1105	scan_table_name: ./test/t1, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "j"=9223372036854775807, scan_direction: 0
+SELECT * FROM t1 WHERE j<18446744073709551615;
+i	j
+1	1
+2	2
+3	3
+9223372036854775807	9223372036854775807
+Warnings:
+Note	1105	scan_table_name: ./test/t1, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "j"<9223372036854775807, scan_direction: 0
+set global eloq_report_debug_info=0;
+DROP TABLE t1;
+##
+## Test system table mysql.help_topic
+##
+set global eloq_report_debug_info=1;
+select help_topic_id,name from mysql.help_topic ignore index(name) where name = 'SHOW CREATE VIEW';
+help_topic_id	name
+367	SHOW CREATE VIEW
+Warnings:
+Note	1105	scan_table_name: ./mysql/help_topic, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "name"='SHOW CREATE VIEW                                                                                                                                                                                ', scan_direction: 0
+select count(*) from mysql.help_topic ignore index(name) where name = 'SHOW CREATE VIEW';
+count(*)
+1
+Warnings:
+Note	1105	scan_table_name: ./mysql/help_topic, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "name"='SHOW CREATE VIEW                                                                                                                                                                                ', scan_direction: 0
+##
+## Test character set utf8mb3, and utf8mb4 for char
+##
+create table tu3 (id int, name char(64)) character set utf8;
+show create table tu3;
+Table	Create Table
+tu3	CREATE TABLE `tu3` (
+  `id` int(11) DEFAULT NULL,
+  `name` char(64) DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=utf8mb3
+insert into tu3 values (1, 'John'),(2, 'James'),(3, '张三'),(4, '王五');
+select * from tu3;
+id	name
+1	John
+2	James
+3	张三
+4	王五
+Warnings:
+Note	1105	scan_table_name: ./test/tu3, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+create table tu4 (id int, name char(64)) character set utf8mb4;
+show create table tu4;
+Table	Create Table
+tu4	CREATE TABLE `tu4` (
+  `id` int(11) DEFAULT NULL,
+  `name` char(64) DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=utf8mb4
+insert into tu4 values (1, 'John'),(2, 'James'),(3, '张三'),(4, '王五');
+select * from tu4;
+id	name
+1	John
+2	James
+3	张三
+4	王五
+Warnings:
+Note	1105	scan_table_name: ./test/tu4, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+# restart
+set global eloq_report_debug_info=1;
+select * from tu3 where name='John';
+id	name
+1	John
+Warnings:
+Note	1105	scan_table_name: ./test/tu3, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "name"='John                                                                                                                                                                                            ', scan_direction: 0
+select * from tu3 where name='张三';
+id	name
+3	张三
+Warnings:
+Note	1105	scan_table_name: ./test/tu3, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "name"='张三                                                                                                                                                                                   ', scan_direction: 0
+select * from tu4 where name='James';
+id	name
+2	James
+Warnings:
+Note	1105	scan_table_name: ./test/tu4, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "name"='James                                                                                                                                                                                                                                                           ', scan_direction: 0
+select * from tu4 where name='王五';
+id	name
+4	王五
+Warnings:
+Note	1105	scan_table_name: ./test/tu4, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "name"='王五                                                                                                                                                                                                                                                  ', scan_direction: 0
+set @old_sql_mode=@@session.sql_mode;
+set @@session.sql_mode='PAD_CHAR_TO_FULL_LENGTH';
+select * from tu3 where name='John';
+id	name
+1	John                                                            
+Warnings:
+Note	1105	scan_table_name: ./test/tu3, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "name"='John                                                                                                                                                                                            ', scan_direction: 0
+select * from tu3 where name='张三';
+id	name
+3	张三                                                          
+Warnings:
+Note	1105	scan_table_name: ./test/tu3, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "name"='张三                                                                                                                                                                                   ', scan_direction: 0
+select * from tu4 where name='James';
+id	name
+2	James                                                           
+Warnings:
+Note	1105	scan_table_name: ./test/tu4, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "name"='James                                                                                                                                                                                                                                                           ', scan_direction: 0
+select * from tu4 where name='王五';
+id	name
+4	王五                                                          
+Warnings:
+Note	1105	scan_table_name: ./test/tu4, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "name"='王五                                                                                                                                                                                                                                                  ', scan_direction: 0
+set global eloq_report_debug_info=0;
+set @@session.sql_mode=@old_sql_mode;
+drop table tu3,tu4;
+##
+## Test capacity of char() with different charset.
+##
+create table tu (info char(6)) character set utf8;
+show create table tu;
+Table	Create Table
+tu	CREATE TABLE `tu` (
+  `info` char(6) DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=utf8mb3
+SET @old_cs_client = @@character_set_client;
+SET @old_cs_results = @@character_set_results;
+SET @old_cs_connection = @@character_set_connection;
+set names latin1;
+insert into tu values ('诚招加');
+ERROR 22001: Data too long for column 'info' at row 1
+insert into tu values ('ASDFGHJ');
+ERROR 22001: Data too long for column 'info' at row 1
+insert into tu values ('诚招');
+insert into tu values ('ASDFGH');
+select * from tu;
+info
+诚招
+ASDFGH
+set global eloq_report_debug_info=1;
+select * from tu where info='诚招加盟';
+info
+Warnings:
+Note	1105	scan_table_name: ./test/tu, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"='诚招    ', scan_direction: 0
+select * from tu where info='诚招';
+info
+诚招
+Warnings:
+Note	1105	scan_table_name: ./test/tu, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"='诚招    ', scan_direction: 0
+select * from tu where info='ASDFGH';
+info
+ASDFGH
+Warnings:
+Note	1105	scan_table_name: ./test/tu, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"='ASDFGH            ', scan_direction: 0
+select * from tu where info='ASDFGH' or info='诚招';
+info
+诚招
+ASDFGH
+Warnings:
+Note	1105	scan_table_name: ./test/tu, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+set global eloq_report_debug_info=0;
+delete from tu;
+set names utf8;
+insert into tu values ('诚招加盟商加盟');
+ERROR 22001: Data too long for column 'info' at row 1
+insert into tu values ('诚招加盟商加');
+insert into tu values ('ASDFGHJ');
+ERROR 22001: Data too long for column 'info' at row 1
+insert into tu values ('ASDFGH');
+select * from tu;
+info
+诚招加盟商加
+ASDFGH
+set global eloq_report_debug_info=1;
+select * from tu where info='诚招加盟商加';
+info
+诚招加盟商加
+Warnings:
+Note	1105	scan_table_name: ./test/tu, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"='诚招加盟商加', scan_direction: 0
+select * from tu where info='ASDFGH';
+info
+ASDFGH
+Warnings:
+Note	1105	scan_table_name: ./test/tu, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"='ASDFGH            ', scan_direction: 0
+select * from tu where info='诚招加盟商加' or info='ASDFGH' or info='诚招加盟';
+info
+诚招加盟商加
+ASDFGH
+Warnings:
+Note	1105	scan_table_name: ./test/tu, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+set global eloq_report_debug_info=0;
+delete from tu;
+set names utf8mb4;
+insert into tu values ('诚招加盟商加盟');
+ERROR 22001: Data too long for column 'info' at row 1
+insert into tu values ('诚招加盟商加');
+insert into tu values ('ASDFGHJ');
+ERROR 22001: Data too long for column 'info' at row 1
+insert into tu values ('ASDFGH');
+select * from tu;
+info
+诚招加盟商加
+ASDFGH
+set global eloq_report_debug_info=1;
+select * from tu where info='诚招加盟商加';
+info
+诚招加盟商加
+Warnings:
+Note	1105	scan_table_name: ./test/tu, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"='诚招加盟商加', scan_direction: 0
+select * from tu where info='ASDFGH';
+info
+ASDFGH
+Warnings:
+Note	1105	scan_table_name: ./test/tu, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"='ASDFGH            ', scan_direction: 0
+select * from tu where info='诚招加盟商加' or info='ASDFGH' or info='诚招加盟';
+info
+诚招加盟商加
+ASDFGH
+Warnings:
+Note	1105	scan_table_name: ./test/tu, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+SET character_set_client = @old_cs_client;
+SET character_set_results = @old_cs_results;
+SET character_set_connection = @old_cs_connection;
+set global eloq_report_debug_info=0;
+drop table tu;
+##
+## Test Binary, VarBinary, BLOB, and TEXT type
+##
+create table tbinary (id int, info binary(16)) character set utf8;
+show create table tbinary;
+Table	Create Table
+tbinary	CREATE TABLE `tbinary` (
+  `id` int(11) DEFAULT NULL,
+  `info` binary(16) DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=utf8mb3
+create table tvarbinary (id int, info varbinary(16)) character set utf8;
+show create table tvarbinary;
+Table	Create Table
+tvarbinary	CREATE TABLE `tvarbinary` (
+  `id` int(11) DEFAULT NULL,
+  `info` varbinary(16) DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=utf8mb3
+insert into tbinary values (1,'1234567890'),(2,1234567890),(3,'1234567890 '),(4, 'asdfghjASDFGH');
+insert into tbinary values (5, '诚招加盟商加');
+ERROR 22001: Data too long for column 'info' at row 1
+insert into tbinary values (5, '诚招加盟商');
+insert into tbinary (id) values (6);
+insert into tbinary values (7, 0x00112233445566778899aabbccddeeff);
+insert into tbinary values (8, 0xaabbccddeeff00);
+select id, hex(info) from tbinary;
+id	hex(info)
+1	31323334353637383930000000000000
+2	31323334353637383930000000000000
+3	31323334353637383930200000000000
+4	6173646667686A415344464748000000
+5	E8AF9AE68B9BE58AA0E79B9FE5958600
+6	NULL
+7	00112233445566778899AABBCCDDEEFF
+8	AABBCCDDEEFF00000000000000000000
+insert into tvarbinary values (1,'1234567890'),(2,1234567890),(3,'1234567890 '),(4, 'asdfghjASDFGH');
+insert into tvarbinary values (5, '诚招加盟商加');
+ERROR 22001: Data too long for column 'info' at row 1
+insert into tvarbinary values (5, '诚招加盟商');
+insert into tvarbinary (id) values (6);
+insert into tvarbinary values (7, 0x00112233445566778899aabbccddeeff);
+insert into tvarbinary values (8, 0xaabbccddeeff00);
+select id, hex(info) from tvarbinary;
+id	hex(info)
+1	31323334353637383930
+2	31323334353637383930
+3	3132333435363738393020
+4	6173646667686A415344464748
+5	E8AF9AE68B9BE58AA0E79B9FE59586
+6	NULL
+7	00112233445566778899AABBCCDDEEFF
+8	AABBCCDDEEFF00
+create table ttinyblob (id int, info tinyblob) character set utf8;
+show create table ttinyblob;
+Table	Create Table
+ttinyblob	CREATE TABLE `ttinyblob` (
+  `id` int(11) DEFAULT NULL,
+  `info` tinyblob DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=utf8mb3
+create table tblob (id int, info blob) character set utf8;
+show create table tblob;
+Table	Create Table
+tblob	CREATE TABLE `tblob` (
+  `id` int(11) DEFAULT NULL,
+  `info` blob DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=utf8mb3
+create table tmediumblob (id int, info mediumblob) character set utf8;
+show create table tmediumblob;
+Table	Create Table
+tmediumblob	CREATE TABLE `tmediumblob` (
+  `id` int(11) DEFAULT NULL,
+  `info` mediumblob DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=utf8mb3
+create table tlongblob (id int, info longblob) character set utf8;
+show create table tlongblob;
+Table	Create Table
+tlongblob	CREATE TABLE `tlongblob` (
+  `id` int(11) DEFAULT NULL,
+  `info` longblob DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=utf8mb3
+insert into ttinyblob values (1, 1234567890),(2,'1234567890'),(3, '1234567890  '),(4, 'qwertyuiopQWERTYUIOP'),(5, '诚招加盟商加盟诚招加盟商加盟'),(6, ']{+=-*/%$@!&');
+insert into ttinyblob (id) values (6);
+insert into ttinyblob values (7, 0xaabbccddeeff00), (8, 0x00112233445566778899aabbccddeeff);
+select id, hex(info) from ttinyblob;
+id	hex(info)
+1	31323334353637383930
+2	31323334353637383930
+3	313233343536373839302020
+4	71776572747975696F7051574552545955494F50
+5	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9FE8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F
+6	5D7B2B3D2D2A2F2524402126
+6	NULL
+7	AABBCCDDEEFF00
+8	00112233445566778899AABBCCDDEEFF
+insert into tblob values (1, 1234567890),(2,'1234567890'),(3, '1234567890  '),(4, 'qwertyuiopQWERTYUIOP'),(5, '诚招加盟商加盟诚招加盟商加盟'),(6, ']{+=-*/%$@!&');
+insert into tblob (id) values (6);
+insert into tblob values (7, 0xaabbccddeeff00), (8, 0x00112233445566778899aabbccddeeff);
+select id, hex(info) from tblob;
+id	hex(info)
+1	31323334353637383930
+2	31323334353637383930
+3	313233343536373839302020
+4	71776572747975696F7051574552545955494F50
+5	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9FE8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F
+6	5D7B2B3D2D2A2F2524402126
+6	NULL
+7	AABBCCDDEEFF00
+8	00112233445566778899AABBCCDDEEFF
+insert into tmediumblob values (1, 1234567890),(2,'1234567890'),(3, '1234567890  '),(4, 'qwertyuiopQWERTYUIOP'),(5, '诚招加盟商加盟诚招加盟商加盟'),(6, ']{+=-*/%$@!&');
+insert into tmediumblob (id) values (6);
+insert into tmediumblob values (7, 0xaabbccddeeff00), (8, 0x00112233445566778899aabbccddeeff);
+select id, hex(info) from tmediumblob;
+id	hex(info)
+1	31323334353637383930
+2	31323334353637383930
+3	313233343536373839302020
+4	71776572747975696F7051574552545955494F50
+5	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9FE8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F
+6	5D7B2B3D2D2A2F2524402126
+6	NULL
+7	AABBCCDDEEFF00
+8	00112233445566778899AABBCCDDEEFF
+insert into tlongblob values (1, 1234567890),(2,'1234567890'),(3, '1234567890  '),(4, 'qwertyuiopQWERTYUIOP'),(5, '诚招加盟商加盟诚招加盟商加盟'),(6, ']{+=-*/%$@!&');
+insert into tlongblob (id) values (6);
+insert into tlongblob values (7, 0xaabbccddeeff00), (8, 0x00112233445566778899aabbccddeeff);
+select id, hex(info) from tlongblob;
+id	hex(info)
+1	31323334353637383930
+2	31323334353637383930
+3	313233343536373839302020
+4	71776572747975696F7051574552545955494F50
+5	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9FE8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F
+6	5D7B2B3D2D2A2F2524402126
+6	NULL
+7	AABBCCDDEEFF00
+8	00112233445566778899AABBCCDDEEFF
+create table ttinytext (id int, info tinytext) character set utf8;
+show create table ttinytext;
+Table	Create Table
+ttinytext	CREATE TABLE `ttinytext` (
+  `id` int(11) DEFAULT NULL,
+  `info` tinytext DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=utf8mb3
+create table ttext (id int, info text) character set utf8;
+show create table ttext;
+Table	Create Table
+ttext	CREATE TABLE `ttext` (
+  `id` int(11) DEFAULT NULL,
+  `info` text DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=utf8mb3
+create table tmediumtext (id int, info mediumtext) character set utf8;
+show create table tmediumtext;
+Table	Create Table
+tmediumtext	CREATE TABLE `tmediumtext` (
+  `id` int(11) DEFAULT NULL,
+  `info` mediumtext DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=utf8mb3
+create table tlongtext (id int, info longtext) character set utf8;
+show create table tlongtext;
+Table	Create Table
+tlongtext	CREATE TABLE `tlongtext` (
+  `id` int(11) DEFAULT NULL,
+  `info` longtext DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=utf8mb3
+insert into ttinytext values (1, 1234567890),(2,'1234567890'),(3, '1234567890  '),(4, 'qwertyuiopQWERTYUIOP'),(5, '诚招加盟商加盟诚招加盟商加盟'),(6, ']{+=-*/%$@!&');
+insert into ttinytext (id) values (6);
+select id, info from ttinytext;
+id	info
+1	1234567890
+2	1234567890
+3	1234567890  
+4	qwertyuiopQWERTYUIOP
+5	诚招加盟商加盟诚招加盟商加盟
+6	]{+=-*/%$@!&
+6	NULL
+insert into ttext values (1, 1234567890),(2,'1234567890'),(3, '1234567890  '),(4, 'qwertyuiopQWERTYUIOP'),(5, '诚招加盟商加盟诚招加盟商加盟'),(6, ']{+=-*/%$@!&');
+insert into ttext (id) values (6);
+select id, info from ttext;
+id	info
+1	1234567890
+2	1234567890
+3	1234567890  
+4	qwertyuiopQWERTYUIOP
+5	诚招加盟商加盟诚招加盟商加盟
+6	]{+=-*/%$@!&
+6	NULL
+insert into tmediumtext values (1, 1234567890),(2,'1234567890'),(3, '1234567890  '),(4, 'qwertyuiopQWERTYUIOP'),(5, '诚招加盟商加盟诚招加盟商加盟'),(6, ']{+=-*/%$@!&');
+insert into tmediumtext (id) values (6);
+select id, info from tmediumtext;
+id	info
+1	1234567890
+2	1234567890
+3	1234567890  
+4	qwertyuiopQWERTYUIOP
+5	诚招加盟商加盟诚招加盟商加盟
+6	]{+=-*/%$@!&
+6	NULL
+insert into tlongtext values (1, 1234567890),(2,'1234567890'),(3, '1234567890  '),(4, 'qwertyuiopQWERTYUIOP'),(5, '诚招加盟商加盟诚招加盟商加盟'),(6, ']{+=-*/%$@!&');
+insert into tlongtext (id) values (6);
+select id, info from tlongtext;
+id	info
+1	1234567890
+2	1234567890
+3	1234567890  
+4	qwertyuiopQWERTYUIOP
+5	诚招加盟商加盟诚招加盟商加盟
+6	]{+=-*/%$@!&
+6	NULL
+# restart
+set global eloq_report_debug_info=1;
+# Test BINARY type
+select id, hex(info) from tbinary where info=1234567890;
+id	hex(info)
+1	31323334353637383930000000000000
+2	31323334353637383930000000000000
+3	31323334353637383930200000000000
+Warnings:
+Note	1105	scan_table_name: ./test/tbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+Warning	1292	Truncated incorrect DECIMAL value: '1234567890\x00\x00\x00\x00\x00\x00'
+Warning	1292	Truncated incorrect DECIMAL value: '1234567890\x00\x00\x00\x00\x00\x00'
+Warning	1292	Truncated incorrect DECIMAL value: '1234567890 \x00\x00\x00\x00\x00'
+Warning	1292	Truncated incorrect DECIMAL value: 'asdfghjASDFGH\x00\x00\x00'
+Warning	1292	Truncated incorrect DECIMAL value: '\xE8\xAF\x9A\xE6\x8B\x9B\xE5\x8A\xA0\xE7\x9B\x9F\xE5\x95\x86\x00'
+Warning	1292	Truncated incorrect DECIMAL value: '\x00\x11"3DUfw\x88\x99\xAA\xBB\xCC\xDD\xEE\xFF'
+Warning	1292	Truncated incorrect DECIMAL value: '\xAA\xBB\xCC\xDD\xEE\xFF\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+select id, hex(info) from tbinary where info='1234567890';
+id	hex(info)
+Warnings:
+Note	1105	scan_table_name: ./test/tbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0x31323334353637383930000000000000, scan_direction: 0
+select id, hex(info) from tbinary where info='1234567890\0\0\0\0\0\0';
+id	hex(info)
+1	31323334353637383930000000000000
+2	31323334353637383930000000000000
+Warnings:
+Note	1105	scan_table_name: ./test/tbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0x31323334353637383930000000000000, scan_direction: 0
+select id, hex(info) from tbinary where info='1234567890 ';
+id	hex(info)
+Warnings:
+Note	1105	scan_table_name: ./test/tbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0x31323334353637383930200000000000, scan_direction: 0
+select id, hex(info) from tbinary where info='1234567890 \0\0\0\0\0';
+id	hex(info)
+3	31323334353637383930200000000000
+Warnings:
+Note	1105	scan_table_name: ./test/tbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0x31323334353637383930200000000000, scan_direction: 0
+select id, hex(info) from tbinary where info='诚招加盟商';
+id	hex(info)
+Warnings:
+Note	1105	scan_table_name: ./test/tbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0xe8af9ae68b9be58aa0e79b9fe5958600, scan_direction: 0
+select id, hex(info) from tbinary where info='诚招加盟商\0';
+id	hex(info)
+5	E8AF9AE68B9BE58AA0E79B9FE5958600
+Warnings:
+Note	1105	scan_table_name: ./test/tbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0xe8af9ae68b9be58aa0e79b9fe5958600, scan_direction: 0
+select id, hex(info) from tbinary where info='asdfghjASDFGH';
+id	hex(info)
+Warnings:
+Note	1105	scan_table_name: ./test/tbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0x6173646667686a415344464748000000, scan_direction: 0
+select id, hex(info) from tbinary where info='asdfghjASDFGH\0\0\0';
+id	hex(info)
+4	6173646667686A415344464748000000
+Warnings:
+Note	1105	scan_table_name: ./test/tbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0x6173646667686a415344464748000000, scan_direction: 0
+select id, hex(info) from tbinary where info=0xaabbccddeeff00;
+id	hex(info)
+Warnings:
+Note	1105	scan_table_name: ./test/tbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0xaabbccddeeff00000000000000000000, scan_direction: 0
+select id, hex(info) from tbinary where info=0xaabbccddeeff00000000000000000000;
+id	hex(info)
+8	AABBCCDDEEFF00000000000000000000
+Warnings:
+Note	1105	scan_table_name: ./test/tbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0xaabbccddeeff00000000000000000000, scan_direction: 0
+select id, hex(info) from tbinary where info like 1234567890;
+id	hex(info)
+Warnings:
+Note	1105	scan_table_name: ./test/tbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from tbinary where info like '1234567890';
+id	hex(info)
+Warnings:
+Note	1105	scan_table_name: ./test/tbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from tbinary where info like '1234567890\0\0\0\0\0\0';
+id	hex(info)
+1	31323334353637383930000000000000
+2	31323334353637383930000000000000
+Warnings:
+Note	1105	scan_table_name: ./test/tbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from tbinary where info like 'asdfghjASDFGH';
+id	hex(info)
+Warnings:
+Note	1105	scan_table_name: ./test/tbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from tbinary where info like 'asdfghjASDFGH\0\0\0';
+id	hex(info)
+4	6173646667686A415344464748000000
+Warnings:
+Note	1105	scan_table_name: ./test/tbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from tbinary where info like 0xaabbccddeeff00;
+id	hex(info)
+Warnings:
+Note	1105	scan_table_name: ./test/tbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from tbinary where info like 0xaabbccddeeff00000000000000000000;
+id	hex(info)
+8	AABBCCDDEEFF00000000000000000000
+Warnings:
+Note	1105	scan_table_name: ./test/tbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from tbinary where info is null;
+id	hex(info)
+6	NULL
+Warnings:
+Note	1105	scan_table_name: ./test/tbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+# Test VARBINARY type
+select id, hex(info) from tvarbinary where info=1234567890;
+id	hex(info)
+1	31323334353637383930
+2	31323334353637383930
+3	3132333435363738393020
+Warnings:
+Note	1105	scan_table_name: ./test/tvarbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+Note	1292	Truncated incorrect DECIMAL value: '1234567890 '
+Warning	1292	Truncated incorrect DECIMAL value: 'asdfghjASDFGH'
+Warning	1292	Truncated incorrect DECIMAL value: '\xE8\xAF\x9A\xE6\x8B\x9B\xE5\x8A\xA0\xE7\x9B\x9F\xE5\x95\x86'
+Warning	1292	Truncated incorrect DECIMAL value: '\x00\x11"3DUfw\x88\x99\xAA\xBB\xCC\xDD\xEE\xFF'
+Warning	1292	Truncated incorrect DECIMAL value: '\xAA\xBB\xCC\xDD\xEE\xFF\x00'
+select id, hex(info) from tvarbinary where info='1234567890';
+id	hex(info)
+1	31323334353637383930
+2	31323334353637383930
+Warnings:
+Note	1105	scan_table_name: ./test/tvarbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0x31323334353637383930, scan_direction: 0
+select id, hex(info) from tvarbinary where info='1234567890 ';
+id	hex(info)
+3	3132333435363738393020
+Warnings:
+Note	1105	scan_table_name: ./test/tvarbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0x3132333435363738393020, scan_direction: 0
+select id, hex(info) from tvarbinary where info='诚招加盟商';
+id	hex(info)
+5	E8AF9AE68B9BE58AA0E79B9FE59586
+Warnings:
+Note	1105	scan_table_name: ./test/tvarbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0xe8af9ae68b9be58aa0e79b9fe59586, scan_direction: 0
+select id, hex(info) from tvarbinary where info='asdfghjASDFGH';
+id	hex(info)
+4	6173646667686A415344464748
+Warnings:
+Note	1105	scan_table_name: ./test/tvarbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0x6173646667686a415344464748, scan_direction: 0
+select id, hex(info) from tvarbinary where info=0xaabbccddeeff00;
+id	hex(info)
+8	AABBCCDDEEFF00
+Warnings:
+Note	1105	scan_table_name: ./test/tvarbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0xaabbccddeeff00, scan_direction: 0
+select id, hex(info) from tvarbinary where info like 'asdfghjASDFGH';
+id	hex(info)
+4	6173646667686A415344464748
+Warnings:
+Note	1105	scan_table_name: ./test/tvarbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from tvarbinary where info like 1234567890;
+id	hex(info)
+1	31323334353637383930
+2	31323334353637383930
+Warnings:
+Note	1105	scan_table_name: ./test/tvarbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from tvarbinary where info like '1234567890';
+id	hex(info)
+1	31323334353637383930
+2	31323334353637383930
+Warnings:
+Note	1105	scan_table_name: ./test/tvarbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from tvarbinary where info like '1234567890 ';
+id	hex(info)
+3	3132333435363738393020
+Warnings:
+Note	1105	scan_table_name: ./test/tvarbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from tvarbinary where info like 0xaabbccddeeff00;
+id	hex(info)
+8	AABBCCDDEEFF00
+Warnings:
+Note	1105	scan_table_name: ./test/tvarbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from tvarbinary where info is null;
+id	hex(info)
+6	NULL
+Warnings:
+Note	1105	scan_table_name: ./test/tvarbinary, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+# Test TINYBLOB type
+select id, hex(info) from ttinyblob where info is NULL;
+id	hex(info)
+6	NULL
+Warnings:
+Note	1105	scan_table_name: ./test/ttinyblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from ttinyblob where info=1234567890;
+id	hex(info)
+1	31323334353637383930
+2	31323334353637383930
+3	313233343536373839302020
+Warnings:
+Note	1105	scan_table_name: ./test/ttinyblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+Note	1292	Truncated incorrect DECIMAL value: '1234567890  '
+Warning	1292	Truncated incorrect DECIMAL value: 'qwertyuiopQWERTYUIOP'
+Warning	1292	Truncated incorrect DECIMAL value: '\xE8\xAF\x9A\xE6\x8B\x9B\xE5\x8A\xA0\xE7\x9B\x9F\xE5\x95\x86\xE5\x8A\xA0\xE7\x9B\x9F\xE8\xAF\x9A\xE6\x8B\x9B\xE5\x8A\xA0\xE7\...'
+Warning	1292	Truncated incorrect DECIMAL value: ']{+=-*/%$@!&'
+Warning	1292	Truncated incorrect DECIMAL value: '\xAA\xBB\xCC\xDD\xEE\xFF\x00'
+Warning	1292	Truncated incorrect DECIMAL value: '\x00\x11"3DUfw\x88\x99\xAA\xBB\xCC\xDD\xEE\xFF'
+select id, hex(info) from ttinyblob where info='1234567890';
+id	hex(info)
+1	31323334353637383930
+2	31323334353637383930
+Warnings:
+Note	1105	scan_table_name: ./test/ttinyblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0x31323334353637383930, scan_direction: 0
+select id, hex(info) from ttinyblob where info='1234567890  ';
+id	hex(info)
+3	313233343536373839302020
+Warnings:
+Note	1105	scan_table_name: ./test/ttinyblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0x313233343536373839302020, scan_direction: 0
+select id, hex(info) from ttinyblob where info = '诚招加盟商加盟诚招加盟商加盟';
+id	hex(info)
+5	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9FE8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F
+Warnings:
+Note	1105	scan_table_name: ./test/ttinyblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0xe8af9ae68b9be58aa0e79b9fe59586e58aa0e79b9fe8af9ae68b9be58aa0e79b9fe59586e58aa0e79b9f, scan_direction: 0
+select id, hex(info) from ttinyblob where info=0x00112233445566778899aabbccddeeff;
+id	hex(info)
+8	00112233445566778899AABBCCDDEEFF
+Warnings:
+Note	1105	scan_table_name: ./test/ttinyblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0x00112233445566778899aabbccddeeff, scan_direction: 0
+select id, hex(info) from ttinyblob where info like '诚招加盟商加盟诚招加盟商加盟';
+id	hex(info)
+5	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9FE8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F
+Warnings:
+Note	1105	scan_table_name: ./test/ttinyblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from ttinyblob where info like 'qwertyuiopQWERTYUIO%';
+id	hex(info)
+4	71776572747975696F7051574552545955494F50
+Warnings:
+Note	1105	scan_table_name: ./test/ttinyblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from ttinyblob where info like 0x00112233445566778899aabbccddeeff;
+id	hex(info)
+8	00112233445566778899AABBCCDDEEFF
+Warnings:
+Note	1105	scan_table_name: ./test/ttinyblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+# Test BLOB type
+select id, hex(info) from tblob where info is NULL;
+id	hex(info)
+6	NULL
+Warnings:
+Note	1105	scan_table_name: ./test/tblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from tblob where info=1234567890;
+id	hex(info)
+1	31323334353637383930
+2	31323334353637383930
+3	313233343536373839302020
+Warnings:
+Note	1105	scan_table_name: ./test/tblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+Note	1292	Truncated incorrect DECIMAL value: '1234567890  '
+Warning	1292	Truncated incorrect DECIMAL value: 'qwertyuiopQWERTYUIOP'
+Warning	1292	Truncated incorrect DECIMAL value: '\xE8\xAF\x9A\xE6\x8B\x9B\xE5\x8A\xA0\xE7\x9B\x9F\xE5\x95\x86\xE5\x8A\xA0\xE7\x9B\x9F\xE8\xAF\x9A\xE6\x8B\x9B\xE5\x8A\xA0\xE7\...'
+Warning	1292	Truncated incorrect DECIMAL value: ']{+=-*/%$@!&'
+Warning	1292	Truncated incorrect DECIMAL value: '\xAA\xBB\xCC\xDD\xEE\xFF\x00'
+Warning	1292	Truncated incorrect DECIMAL value: '\x00\x11"3DUfw\x88\x99\xAA\xBB\xCC\xDD\xEE\xFF'
+select id, hex(info) from tblob where info='1234567890';
+id	hex(info)
+1	31323334353637383930
+2	31323334353637383930
+Warnings:
+Note	1105	scan_table_name: ./test/tblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0x31323334353637383930, scan_direction: 0
+select id, hex(info) from tblob where info='1234567890  ';
+id	hex(info)
+3	313233343536373839302020
+Warnings:
+Note	1105	scan_table_name: ./test/tblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0x313233343536373839302020, scan_direction: 0
+select id, hex(info) from tblob where info = '诚招加盟商加盟诚招加盟商加盟';
+id	hex(info)
+5	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9FE8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F
+Warnings:
+Note	1105	scan_table_name: ./test/tblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0xe8af9ae68b9be58aa0e79b9fe59586e58aa0e79b9fe8af9ae68b9be58aa0e79b9fe59586e58aa0e79b9f, scan_direction: 0
+select id, hex(info) from tblob where info=0x00112233445566778899aabbccddeeff;
+id	hex(info)
+8	00112233445566778899AABBCCDDEEFF
+Warnings:
+Note	1105	scan_table_name: ./test/tblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0x00112233445566778899aabbccddeeff, scan_direction: 0
+select id, hex(info) from tblob where info like '诚招加盟商加盟诚招加盟商加盟';
+id	hex(info)
+5	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9FE8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F
+Warnings:
+Note	1105	scan_table_name: ./test/tblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from tblob where info like 'qwertyuiopQWERTYUIO%';
+id	hex(info)
+4	71776572747975696F7051574552545955494F50
+Warnings:
+Note	1105	scan_table_name: ./test/tblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from tblob where info like 0x00112233445566778899aabbccddeeff;
+id	hex(info)
+8	00112233445566778899AABBCCDDEEFF
+Warnings:
+Note	1105	scan_table_name: ./test/tblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+# Test MEDIUMBLOB type
+select id, hex(info) from tmediumblob where info is NULL;
+id	hex(info)
+6	NULL
+Warnings:
+Note	1105	scan_table_name: ./test/tmediumblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from tmediumblob where info=1234567890;
+id	hex(info)
+1	31323334353637383930
+2	31323334353637383930
+3	313233343536373839302020
+Warnings:
+Note	1105	scan_table_name: ./test/tmediumblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+Note	1292	Truncated incorrect DECIMAL value: '1234567890  '
+Warning	1292	Truncated incorrect DECIMAL value: 'qwertyuiopQWERTYUIOP'
+Warning	1292	Truncated incorrect DECIMAL value: '\xE8\xAF\x9A\xE6\x8B\x9B\xE5\x8A\xA0\xE7\x9B\x9F\xE5\x95\x86\xE5\x8A\xA0\xE7\x9B\x9F\xE8\xAF\x9A\xE6\x8B\x9B\xE5\x8A\xA0\xE7\...'
+Warning	1292	Truncated incorrect DECIMAL value: ']{+=-*/%$@!&'
+Warning	1292	Truncated incorrect DECIMAL value: '\xAA\xBB\xCC\xDD\xEE\xFF\x00'
+Warning	1292	Truncated incorrect DECIMAL value: '\x00\x11"3DUfw\x88\x99\xAA\xBB\xCC\xDD\xEE\xFF'
+select id, hex(info) from tmediumblob where info='1234567890';
+id	hex(info)
+1	31323334353637383930
+2	31323334353637383930
+Warnings:
+Note	1105	scan_table_name: ./test/tmediumblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0x31323334353637383930, scan_direction: 0
+select id, hex(info) from tmediumblob where info='1234567890  ';
+id	hex(info)
+3	313233343536373839302020
+Warnings:
+Note	1105	scan_table_name: ./test/tmediumblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0x313233343536373839302020, scan_direction: 0
+select id, hex(info) from tmediumblob where info = '诚招加盟商加盟诚招加盟商加盟';
+id	hex(info)
+5	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9FE8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F
+Warnings:
+Note	1105	scan_table_name: ./test/tmediumblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0xe8af9ae68b9be58aa0e79b9fe59586e58aa0e79b9fe8af9ae68b9be58aa0e79b9fe59586e58aa0e79b9f, scan_direction: 0
+select id, hex(info) from tmediumblob where info=0x00112233445566778899aabbccddeeff;
+id	hex(info)
+8	00112233445566778899AABBCCDDEEFF
+Warnings:
+Note	1105	scan_table_name: ./test/tmediumblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0x00112233445566778899aabbccddeeff, scan_direction: 0
+select id, hex(info) from tmediumblob where info like '诚招加盟商加盟诚招加盟商加盟';
+id	hex(info)
+5	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9FE8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F
+Warnings:
+Note	1105	scan_table_name: ./test/tmediumblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from tmediumblob where info like 'qwertyuiopQWERTYUIO%';
+id	hex(info)
+4	71776572747975696F7051574552545955494F50
+Warnings:
+Note	1105	scan_table_name: ./test/tmediumblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from tmediumblob where info like 0x00112233445566778899aabbccddeeff;
+id	hex(info)
+8	00112233445566778899AABBCCDDEEFF
+Warnings:
+Note	1105	scan_table_name: ./test/tmediumblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+# Test LONGBLOB type
+select id, hex(info) from tlongblob where info is NULL;
+id	hex(info)
+6	NULL
+Warnings:
+Note	1105	scan_table_name: ./test/tlongblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from tlongblob where info=1234567890;
+id	hex(info)
+1	31323334353637383930
+2	31323334353637383930
+3	313233343536373839302020
+Warnings:
+Note	1105	scan_table_name: ./test/tlongblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+Note	1292	Truncated incorrect DECIMAL value: '1234567890  '
+Warning	1292	Truncated incorrect DECIMAL value: 'qwertyuiopQWERTYUIOP'
+Warning	1292	Truncated incorrect DECIMAL value: '\xE8\xAF\x9A\xE6\x8B\x9B\xE5\x8A\xA0\xE7\x9B\x9F\xE5\x95\x86\xE5\x8A\xA0\xE7\x9B\x9F\xE8\xAF\x9A\xE6\x8B\x9B\xE5\x8A\xA0\xE7\...'
+Warning	1292	Truncated incorrect DECIMAL value: ']{+=-*/%$@!&'
+Warning	1292	Truncated incorrect DECIMAL value: '\xAA\xBB\xCC\xDD\xEE\xFF\x00'
+Warning	1292	Truncated incorrect DECIMAL value: '\x00\x11"3DUfw\x88\x99\xAA\xBB\xCC\xDD\xEE\xFF'
+select id, hex(info) from tlongblob where info='1234567890';
+id	hex(info)
+1	31323334353637383930
+2	31323334353637383930
+Warnings:
+Note	1105	scan_table_name: ./test/tlongblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0x31323334353637383930, scan_direction: 0
+select id, hex(info) from tlongblob where info='1234567890  ';
+id	hex(info)
+3	313233343536373839302020
+Warnings:
+Note	1105	scan_table_name: ./test/tlongblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0x313233343536373839302020, scan_direction: 0
+select id, hex(info) from tlongblob where info = '诚招加盟商加盟诚招加盟商加盟';
+id	hex(info)
+5	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9FE8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F
+Warnings:
+Note	1105	scan_table_name: ./test/tlongblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0xe8af9ae68b9be58aa0e79b9fe59586e58aa0e79b9fe8af9ae68b9be58aa0e79b9fe59586e58aa0e79b9f, scan_direction: 0
+select id, hex(info) from tlongblob where info=0x00112233445566778899aabbccddeeff;
+id	hex(info)
+8	00112233445566778899AABBCCDDEEFF
+Warnings:
+Note	1105	scan_table_name: ./test/tlongblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"=0x00112233445566778899aabbccddeeff, scan_direction: 0
+select id, hex(info) from tlongblob where info like '诚招加盟商加盟诚招加盟商加盟';
+id	hex(info)
+5	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9FE8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F
+Warnings:
+Note	1105	scan_table_name: ./test/tlongblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from tlongblob where info like 'qwertyuiopQWERTYUIO%';
+id	hex(info)
+4	71776572747975696F7051574552545955494F50
+Warnings:
+Note	1105	scan_table_name: ./test/tlongblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from tlongblob where info like 0x00112233445566778899aabbccddeeff;
+id	hex(info)
+8	00112233445566778899AABBCCDDEEFF
+Warnings:
+Note	1105	scan_table_name: ./test/tlongblob, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+# Test TINYTEXT type
+select id, hex(info) from ttinytext where info is NULL;
+id	hex(info)
+6	NULL
+Warnings:
+Note	1105	scan_table_name: ./test/ttinytext, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from ttinytext where info=1234567890;
+id	hex(info)
+1	31323334353637383930
+2	31323334353637383930
+3	313233343536373839302020
+Warnings:
+Note	1105	scan_table_name: ./test/ttinytext, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+Note	1292	Truncated incorrect DECIMAL value: '1234567890  '
+Warning	1292	Truncated incorrect DECIMAL value: 'qwertyuiopQWERTYUIOP'
+Warning	1292	Truncated incorrect DECIMAL value: '诚招加盟商加盟诚招加盟商加盟'
+Warning	1292	Truncated incorrect DECIMAL value: ']{+=-*/%$@!&'
+select id, hex(info) from ttinytext where info='1234567890';
+id	hex(info)
+1	31323334353637383930
+2	31323334353637383930
+3	313233343536373839302020
+Warnings:
+Note	1105	scan_table_name: ./test/ttinytext, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info">='1234567890', scan_direction: 0
+select id, hex(info) from ttinytext where info='1234567890  ';
+id	hex(info)
+1	31323334353637383930
+2	31323334353637383930
+3	313233343536373839302020
+Warnings:
+Note	1105	scan_table_name: ./test/ttinytext, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info">='1234567890', scan_direction: 0
+select id, hex(info) from ttinytext where info = '诚招加盟商加盟诚招加盟商加盟';
+id	hex(info)
+5	C3A8C2AFC5A1C3A6E280B9E280BAC3A5C5A0C2A0C3A7E280BAC5B8C3A5E280A2E280A0C3A5C5A0C2A0C3A7E280BAC5B8C3A8C2AFC5A1C3A6E280B9E280BAC3A5C5A0C2A0C3A7E280BAC5B8C3A5E280A2E280A0C3A5C5A0C2A0C3A7E280BAC5B8
+Warnings:
+Note	1105	scan_table_name: ./test/ttinytext, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info">='诚招加盟商加盟诚招加盟商加盟', scan_direction: 0
+select id, hex(info) from ttinytext where info like '诚招加盟商加盟诚招加盟商加盟';
+id	hex(info)
+5	C3A8C2AFC5A1C3A6E280B9E280BAC3A5C5A0C2A0C3A7E280BAC5B8C3A5E280A2E280A0C3A5C5A0C2A0C3A7E280BAC5B8C3A8C2AFC5A1C3A6E280B9E280BAC3A5C5A0C2A0C3A7E280BAC5B8C3A5E280A2E280A0C3A5C5A0C2A0C3A7E280BAC5B8
+Warnings:
+Note	1105	scan_table_name: ./test/ttinytext, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from ttinytext where info like 'qwertyuiopQWERTYUIO%';
+id	hex(info)
+4	71776572747975696F7051574552545955494F50
+Warnings:
+Note	1105	scan_table_name: ./test/ttinytext, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+# Test TEXT type
+select id, hex(info) from ttext where info is NULL;
+id	hex(info)
+6	NULL
+Warnings:
+Note	1105	scan_table_name: ./test/ttext, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from ttext where info=1234567890;
+id	hex(info)
+1	31323334353637383930
+2	31323334353637383930
+3	313233343536373839302020
+Warnings:
+Note	1105	scan_table_name: ./test/ttext, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+Note	1292	Truncated incorrect DECIMAL value: '1234567890  '
+Warning	1292	Truncated incorrect DECIMAL value: 'qwertyuiopQWERTYUIOP'
+Warning	1292	Truncated incorrect DECIMAL value: '诚招加盟商加盟诚招加盟商加盟'
+Warning	1292	Truncated incorrect DECIMAL value: ']{+=-*/%$@!&'
+select id, hex(info) from ttext where info='1234567890';
+id	hex(info)
+1	31323334353637383930
+2	31323334353637383930
+3	313233343536373839302020
+Warnings:
+Note	1105	scan_table_name: ./test/ttext, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info">='1234567890', scan_direction: 0
+select id, hex(info) from ttext where info='1234567890  ';
+id	hex(info)
+1	31323334353637383930
+2	31323334353637383930
+3	313233343536373839302020
+Warnings:
+Note	1105	scan_table_name: ./test/ttext, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info">='1234567890', scan_direction: 0
+select id, hex(info) from ttext where info = '诚招加盟商加盟诚招加盟商加盟';
+id	hex(info)
+5	C3A8C2AFC5A1C3A6E280B9E280BAC3A5C5A0C2A0C3A7E280BAC5B8C3A5E280A2E280A0C3A5C5A0C2A0C3A7E280BAC5B8C3A8C2AFC5A1C3A6E280B9E280BAC3A5C5A0C2A0C3A7E280BAC5B8C3A5E280A2E280A0C3A5C5A0C2A0C3A7E280BAC5B8
+Warnings:
+Note	1105	scan_table_name: ./test/ttext, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info">='诚招加盟商加盟诚招加盟商加盟', scan_direction: 0
+select id, hex(info) from ttext where info like '诚招加盟商加盟诚招加盟商加盟';
+id	hex(info)
+5	C3A8C2AFC5A1C3A6E280B9E280BAC3A5C5A0C2A0C3A7E280BAC5B8C3A5E280A2E280A0C3A5C5A0C2A0C3A7E280BAC5B8C3A8C2AFC5A1C3A6E280B9E280BAC3A5C5A0C2A0C3A7E280BAC5B8C3A5E280A2E280A0C3A5C5A0C2A0C3A7E280BAC5B8
+Warnings:
+Note	1105	scan_table_name: ./test/ttext, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from ttext where info like 'qwertyuiopQWERTYUIO%';
+id	hex(info)
+4	71776572747975696F7051574552545955494F50
+Warnings:
+Note	1105	scan_table_name: ./test/ttext, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+# Test MEDIUMTEXT type
+select id, hex(info) from tmediumtext where info is NULL;
+id	hex(info)
+6	NULL
+Warnings:
+Note	1105	scan_table_name: ./test/tmediumtext, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from tmediumtext where info=1234567890;
+id	hex(info)
+1	31323334353637383930
+2	31323334353637383930
+3	313233343536373839302020
+Warnings:
+Note	1105	scan_table_name: ./test/tmediumtext, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+Note	1292	Truncated incorrect DECIMAL value: '1234567890  '
+Warning	1292	Truncated incorrect DECIMAL value: 'qwertyuiopQWERTYUIOP'
+Warning	1292	Truncated incorrect DECIMAL value: '诚招加盟商加盟诚招加盟商加盟'
+Warning	1292	Truncated incorrect DECIMAL value: ']{+=-*/%$@!&'
+select id, hex(info) from tmediumtext where info='1234567890';
+id	hex(info)
+1	31323334353637383930
+2	31323334353637383930
+3	313233343536373839302020
+Warnings:
+Note	1105	scan_table_name: ./test/tmediumtext, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info">='1234567890', scan_direction: 0
+select id, hex(info) from tmediumtext where info='1234567890  ';
+id	hex(info)
+1	31323334353637383930
+2	31323334353637383930
+3	313233343536373839302020
+Warnings:
+Note	1105	scan_table_name: ./test/tmediumtext, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info">='1234567890', scan_direction: 0
+select id, hex(info) from tmediumtext where info = '诚招加盟商加盟诚招加盟商加盟';
+id	hex(info)
+5	C3A8C2AFC5A1C3A6E280B9E280BAC3A5C5A0C2A0C3A7E280BAC5B8C3A5E280A2E280A0C3A5C5A0C2A0C3A7E280BAC5B8C3A8C2AFC5A1C3A6E280B9E280BAC3A5C5A0C2A0C3A7E280BAC5B8C3A5E280A2E280A0C3A5C5A0C2A0C3A7E280BAC5B8
+Warnings:
+Note	1105	scan_table_name: ./test/tmediumtext, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info">='诚招加盟商加盟诚招加盟商加盟', scan_direction: 0
+select id, hex(info) from tmediumtext where info like '诚招加盟商加盟诚招加盟商加盟';
+id	hex(info)
+5	C3A8C2AFC5A1C3A6E280B9E280BAC3A5C5A0C2A0C3A7E280BAC5B8C3A5E280A2E280A0C3A5C5A0C2A0C3A7E280BAC5B8C3A8C2AFC5A1C3A6E280B9E280BAC3A5C5A0C2A0C3A7E280BAC5B8C3A5E280A2E280A0C3A5C5A0C2A0C3A7E280BAC5B8
+Warnings:
+Note	1105	scan_table_name: ./test/tmediumtext, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from tmediumtext where info like 'qwertyuiopQWERTYUIO%';
+id	hex(info)
+4	71776572747975696F7051574552545955494F50
+Warnings:
+Note	1105	scan_table_name: ./test/tmediumtext, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+# Test LONGTEXT type
+select id, hex(info) from tlongtext where info is NULL;
+id	hex(info)
+6	NULL
+Warnings:
+Note	1105	scan_table_name: ./test/tlongtext, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from tlongtext where info=1234567890;
+id	hex(info)
+1	31323334353637383930
+2	31323334353637383930
+3	313233343536373839302020
+Warnings:
+Note	1105	scan_table_name: ./test/tlongtext, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+Note	1292	Truncated incorrect DECIMAL value: '1234567890  '
+Warning	1292	Truncated incorrect DECIMAL value: 'qwertyuiopQWERTYUIOP'
+Warning	1292	Truncated incorrect DECIMAL value: '诚招加盟商加盟诚招加盟商加盟'
+Warning	1292	Truncated incorrect DECIMAL value: ']{+=-*/%$@!&'
+select id, hex(info) from tlongtext where info='1234567890';
+id	hex(info)
+1	31323334353637383930
+2	31323334353637383930
+3	313233343536373839302020
+Warnings:
+Note	1105	scan_table_name: ./test/tlongtext, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info">='1234567890', scan_direction: 0
+select id, hex(info) from tlongtext where info='1234567890  ';
+id	hex(info)
+1	31323334353637383930
+2	31323334353637383930
+3	313233343536373839302020
+Warnings:
+Note	1105	scan_table_name: ./test/tlongtext, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info">='1234567890', scan_direction: 0
+select id, hex(info) from tlongtext where info = '诚招加盟商加盟诚招加盟商加盟';
+id	hex(info)
+5	C3A8C2AFC5A1C3A6E280B9E280BAC3A5C5A0C2A0C3A7E280BAC5B8C3A5E280A2E280A0C3A5C5A0C2A0C3A7E280BAC5B8C3A8C2AFC5A1C3A6E280B9E280BAC3A5C5A0C2A0C3A7E280BAC5B8C3A5E280A2E280A0C3A5C5A0C2A0C3A7E280BAC5B8
+Warnings:
+Note	1105	scan_table_name: ./test/tlongtext, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info">='诚招加盟商加盟诚招加盟商加盟', scan_direction: 0
+select id, hex(info) from tlongtext where info like '诚招加盟商加盟诚招加盟商加盟';
+id	hex(info)
+5	C3A8C2AFC5A1C3A6E280B9E280BAC3A5C5A0C2A0C3A7E280BAC5B8C3A5E280A2E280A0C3A5C5A0C2A0C3A7E280BAC5B8C3A8C2AFC5A1C3A6E280B9E280BAC3A5C5A0C2A0C3A7E280BAC5B8C3A5E280A2E280A0C3A5C5A0C2A0C3A7E280BAC5B8
+Warnings:
+Note	1105	scan_table_name: ./test/tlongtext, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, hex(info) from tlongtext where info like 'qwertyuiopQWERTYUIO%';
+id	hex(info)
+4	71776572747975696F7051574552545955494F50
+Warnings:
+Note	1105	scan_table_name: ./test/tlongtext, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+set global eloq_report_debug_info=0;
+drop table tbinary, tvarbinary, ttinyblob, tblob, tmediumblob, tlongblob, ttinytext, ttext, tmediumtext, tlongtext;
+##
+## Test NO PAD collation
+##
+set names utf8;
+create table tvarcharnopad (id int, info varchar(16) collate utf8_nopad_bin) character set utf8;
+show create table tvarcharnopad;
+Table	Create Table
+tvarcharnopad	CREATE TABLE `tvarcharnopad` (
+  `id` int(11) DEFAULT NULL,
+  `info` varchar(16) CHARACTER SET utf8mb3 COLLATE utf8mb3_nopad_bin DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=utf8mb3
+create table tvarchar (id int, info varchar(16) collate utf8_bin) character set utf8;
+show create table tvarchar;
+Table	Create Table
+tvarchar	CREATE TABLE `tvarchar` (
+  `id` int(11) DEFAULT NULL,
+  `info` varchar(16) DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=utf8mb3
+create table tmediumtextnopad (id int, info mediumtext collate utf8_nopad_bin) character set utf8;
+show create table tmediumtextnopad;
+Table	Create Table
+tmediumtextnopad	CREATE TABLE `tmediumtextnopad` (
+  `id` int(11) DEFAULT NULL,
+  `info` mediumtext CHARACTER SET utf8mb3 COLLATE utf8mb3_nopad_bin DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=utf8mb3
+create table tmediumtext (id int, info mediumtext collate utf8_bin) character set utf8;
+show create table tmediumtext;
+Table	Create Table
+tmediumtext	CREATE TABLE `tmediumtext` (
+  `id` int(11) DEFAULT NULL,
+  `info` mediumtext DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=utf8mb3
+create table tchar (id int, info char(32) collate utf8_bin) character set utf8;
+show create table tchar;
+Table	Create Table
+tchar	CREATE TABLE `tchar` (
+  `id` int(11) DEFAULT NULL,
+  `info` char(32) DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=utf8mb3
+create table tcharnopad (id int, info char(32) collate utf8_nopad_bin) character set utf8;
+show create table tcharnopad;
+Table	Create Table
+tcharnopad	CREATE TABLE `tcharnopad` (
+  `id` int(11) DEFAULT NULL,
+  `info` char(32) CHARACTER SET utf8mb3 COLLATE utf8mb3_nopad_bin DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=utf8mb3
+insert into tvarcharnopad values (1, 'qwertASDFG'),(2, 'qwertASDFG  '),(3, '诚招加盟商加盟'),(4, '诚招加盟商加盟  ');
+select id, info, hex(info) from tvarcharnopad;
+id	info	hex(info)
+1	qwertASDFG	71776572744153444647
+2	qwertASDFG  	717765727441534446472020
+3	诚招加盟商加盟	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F
+4	诚招加盟商加盟  	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F2020
+insert into tvarchar values (1, 'qwertASDFG'),(2, 'qwertASDFG  '),(3, '诚招加盟商加盟'),(4, '诚招加盟商加盟  ');
+select id, info, hex(info) from tvarchar;
+id	info	hex(info)
+1	qwertASDFG	71776572744153444647
+2	qwertASDFG  	717765727441534446472020
+3	诚招加盟商加盟	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F
+4	诚招加盟商加盟  	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F2020
+insert into tmediumtextnopad values (1, 'qwertASDFG'),(2, 'qwertASDFG  '),(3, '诚招加盟商加盟'),(4, '诚招加盟商加盟  ');
+select id, info, hex(info) from tmediumtextnopad;
+id	info	hex(info)
+1	qwertASDFG	71776572744153444647
+2	qwertASDFG  	717765727441534446472020
+3	诚招加盟商加盟	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F
+4	诚招加盟商加盟  	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F2020
+insert into tmediumtext values (1, 'qwertASDFG'),(2, 'qwertASDFG  '),(3, '诚招加盟商加盟'),(4, '诚招加盟商加盟  ');
+select id, info, hex(info) from tmediumtext;
+id	info	hex(info)
+1	qwertASDFG	71776572744153444647
+2	qwertASDFG  	717765727441534446472020
+3	诚招加盟商加盟	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F
+4	诚招加盟商加盟  	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F2020
+insert into tchar values (1, 'qwertASDFG'),(2,'qwertASDFG  '),(3, '诚招加盟商加盟'), (4, '诚招加盟商加盟  ');
+select id, info, hex(info) from tchar;
+id	info	hex(info)
+1	qwertASDFG	71776572744153444647
+2	qwertASDFG	71776572744153444647
+3	诚招加盟商加盟	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F
+4	诚招加盟商加盟	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F
+insert into tcharnopad values (1, 'qwertASDFG'),(2,'qwertASDFG  '),(3, '诚招加盟商加盟'), (4, '诚招加盟商加盟  ');
+select id, info, hex(info) from tcharnopad;
+id	info	hex(info)
+1	qwertASDFG	71776572744153444647
+2	qwertASDFG	71776572744153444647
+3	诚招加盟商加盟	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F
+4	诚招加盟商加盟	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F
+# restart
+set global eloq_report_debug_info=1;
+SET @old_cs_client = @@character_set_client;
+SET @old_cs_results = @@character_set_results;
+SET @old_cs_connection = @@character_set_connection;
+set names utf8;
+# VARCHAR type
+select id, info, hex(info) from tvarcharnopad where info='qwertASDFG';
+id	info	hex(info)
+1	qwertASDFG	71776572744153444647
+Warnings:
+Note	1105	scan_table_name: ./test/tvarcharnopad, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, info, hex(info) from tvarcharnopad where info='诚招加盟商加盟  ';
+id	info	hex(info)
+4	诚招加盟商加盟  	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F2020
+Warnings:
+Note	1105	scan_table_name: ./test/tvarcharnopad, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, info, hex(info) from tvarchar where info='qwertASDFG';
+id	info	hex(info)
+1	qwertASDFG	71776572744153444647
+2	qwertASDFG  	717765727441534446472020
+Warnings:
+Note	1105	scan_table_name: ./test/tvarchar, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info">='qwertASDFG', scan_direction: 0
+select id, info, hex(info) from tvarchar where info='诚招加盟商加盟  ';
+id	info	hex(info)
+3	诚招加盟商加盟	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F
+4	诚招加盟商加盟  	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F2020
+Warnings:
+Note	1105	scan_table_name: ./test/tvarchar, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info">='诚招加盟商加盟', scan_direction: 0
+# TEXT type
+select id, info, hex(info) from tmediumtextnopad where info='qwertASDFG';
+id	info	hex(info)
+1	qwertASDFG	71776572744153444647
+Warnings:
+Note	1105	scan_table_name: ./test/tmediumtextnopad, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, info, hex(info) from tmediumtextnopad where info='诚招加盟商加盟  ';
+id	info	hex(info)
+4	诚招加盟商加盟  	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F2020
+Warnings:
+Note	1105	scan_table_name: ./test/tmediumtextnopad, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, info, hex(info) from tmediumtext where info='qwertASDFG';
+id	info	hex(info)
+1	qwertASDFG	71776572744153444647
+2	qwertASDFG  	717765727441534446472020
+Warnings:
+Note	1105	scan_table_name: ./test/tmediumtext, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info">='qwertASDFG', scan_direction: 0
+select id, info, hex(info) from tmediumtext where info='诚招加盟商加盟  ';
+id	info	hex(info)
+3	诚招加盟商加盟	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F
+4	诚招加盟商加盟  	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F2020
+Warnings:
+Note	1105	scan_table_name: ./test/tmediumtext, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info">='诚招加盟商加盟', scan_direction: 0
+##
+## Test PAD_CHAR_TO_FULL_LENGTH with NO PAD
+##
+select @@session.sql_mode;
+@@session.sql_mode
+STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION
+select id, info, hex(info) from tchar where info='qwertASDFG';
+id	info	hex(info)
+1	qwertASDFG	71776572744153444647
+2	qwertASDFG	71776572744153444647
+Warnings:
+Note	1105	scan_table_name: ./test/tchar, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"='qwertASDFG                                                                                      ', scan_direction: 0
+select id, info, hex(info) from tchar where info='诚招加盟商加盟  ';
+id	info	hex(info)
+3	诚招加盟商加盟	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F
+4	诚招加盟商加盟	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F
+Warnings:
+Note	1105	scan_table_name: ./test/tchar, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"='诚招加盟商加盟                                                                           ', scan_direction: 0
+select id, info, hex(info) from tcharnopad where info='qwertASDFG';
+id	info	hex(info)
+1	qwertASDFG	71776572744153444647
+2	qwertASDFG	71776572744153444647
+Warnings:
+Note	1105	scan_table_name: ./test/tcharnopad, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, info, hex(info) from tcharnopad where info='诚招加盟商加盟  ';
+id	info	hex(info)
+Warnings:
+Note	1105	scan_table_name: ./test/tcharnopad, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+# With PAD_CHAR_TO_FULL_LENGTH
+set @old_sql_mode=@@session.sql_mode;
+set @@session.sql_mode='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION,PAD_CHAR_TO_FULL_LENGTH';
+select id, info, hex(info) from tchar where info='qwertASDFG';
+id	info	hex(info)
+1	qwertASDFG                      	7177657274415344464720202020202020202020202020202020202020202020
+2	qwertASDFG                      	7177657274415344464720202020202020202020202020202020202020202020
+Warnings:
+Note	1105	scan_table_name: ./test/tchar, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"='qwertASDFG                                                                                      ', scan_direction: 0
+select id, info, hex(info) from tchar where info='诚招加盟商加盟  ';
+id	info	hex(info)
+3	诚招加盟商加盟                         	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F20202020202020202020202020202020202020202020202020
+4	诚招加盟商加盟                         	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F20202020202020202020202020202020202020202020202020
+Warnings:
+Note	1105	scan_table_name: ./test/tchar, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: "info"='诚招加盟商加盟                                                                           ', scan_direction: 0
+select id, info, hex(info) from tcharnopad where info='qwertASDFG';
+id	info	hex(info)
+Warnings:
+Note	1105	scan_table_name: ./test/tcharnopad, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, info, hex(info) from tcharnopad where info='qwertASDFG                      ';
+id	info	hex(info)
+1	qwertASDFG                      	7177657274415344464720202020202020202020202020202020202020202020
+2	qwertASDFG                      	7177657274415344464720202020202020202020202020202020202020202020
+Warnings:
+Note	1105	scan_table_name: ./test/tcharnopad, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, info, hex(info) from tcharnopad where info='诚招加盟商加盟  ';
+id	info	hex(info)
+Warnings:
+Note	1105	scan_table_name: ./test/tcharnopad, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+select id, info, hex(info) from tcharnopad where info='诚招加盟商加盟                         ';
+id	info	hex(info)
+3	诚招加盟商加盟                         	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F20202020202020202020202020202020202020202020202020
+4	诚招加盟商加盟                         	E8AF9AE68B9BE58AA0E79B9FE59586E58AA0E79B9F20202020202020202020202020202020202020202020202020
+Warnings:
+Note	1105	scan_table_name: ./test/tcharnopad, scan_start_key: NegativeInf, inclusive: 0, used_key_parts: 65535, pushed_cond: , scan_direction: 0
+set global eloq_report_debug_info=0;
+set @@session.sql_mode=@old_sql_mode;
+SET character_set_client = @old_cs_client;
+SET character_set_results = @old_cs_results;
+SET character_set_connection = @old_cs_connection;
+drop table tvarcharnopad, tvarchar, tmediumtextnopad, tmediumtext, tchar, tcharnopad;

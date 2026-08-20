@@ -1,0 +1,67 @@
+set @@default_storage_engine= eloq;
+select @@default_storage_engine;
+@@default_storage_engine
+ELOQ
+DROP TABLE IF EXISTS t1;
+create table t1(i int primary key, j int) engine= eloq;
+insert into t1 values(1,1);
+insert into t1 values(2,2);
+connect  conn-tx1,localhost,root,,test,$MONO1_PORT;
+select * from t1;
+i	j
+1	1
+2	2
+connect  conn-tx2,localhost,root,,test,$MONO1_PORT;
+select * from t1;
+i	j
+1	1
+2	2
+connection conn-tx1;
+set session transaction isolation level repeatable read;
+select @@tx_isolation;
+@@tx_isolation
+REPEATABLE-READ
+connection conn-tx2;
+set session transaction isolation level repeatable read;
+select @@tx_isolation;
+@@tx_isolation
+REPEATABLE-READ
+update t1 set j=1 where i=1;
+update t1 set j=2 where i=2;
+#### test "select ... lock in share mode".
+insert into t1 values(3,3);
+select * from t1;
+i	j
+1	1
+2	2
+3	3
+## r4s - r4s , no confilcts
+connection conn-tx1;
+begin;
+select * from t1 where i=3 lock in share mode;
+i	j
+3	3
+connection conn-tx2;
+select * from t1 where i=3 lock in share mode;
+i	j
+3	3
+connection conn-tx1;
+select * from t1 where i=3 lock in share mode;
+i	j
+3	3
+commit;
+## r4s - w , confilcts
+connection conn-tx1;
+begin;
+select * from t1 where i=3 lock in share mode;
+i	j
+3	3
+select * from t1 where i=2;
+i	j
+2	2
+connection conn-tx2;
+update t1 set j=13 where i=3;
+connection conn-tx1;
+commit;
+ERROR HY000: Eloq: failed to commit transaction. try restarting transaction. OCC break repeatable read isolation level.
+drop table t1;

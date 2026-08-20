@@ -1,0 +1,4 @@
+# Default values that set to kv storage server config.
+
+[mysqld]
+eloq_random_scan_sort=on

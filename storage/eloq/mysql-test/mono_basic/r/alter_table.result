@@ -1,0 +1,392 @@
+DROP DATABASE IF EXISTS mono;
+set @@default_storage_engine= eloq;
+affected rows: 0
+CREATE DATABASE IF NOT EXISTS mono;
+affected rows: 1
+USE mono;
+affected rows: 0
+###************************************************************###
+###             Test CREATE INDEX
+###************************************************************###
+#
+# test 1
+#
+CREATE TABLE t1 (a INT primary key, b int, c varchar(16), d char(16));
+affected rows: 0
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int(11) NOT NULL,
+  `b` int(11) DEFAULT NULL,
+  `c` varchar(16) DEFAULT NULL,
+  `d` char(16) DEFAULT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+affected rows: 1
+CREATE INDEX idx_b on t1(b);
+affected rows: 0
+info: Records: 0  Duplicates: 0  Warnings: 0
+CREATE INDEX idx_c on t1(c);
+affected rows: 0
+info: Records: 0  Duplicates: 0  Warnings: 0
+CREATE INDEX idx_d on t1(d);
+affected rows: 0
+info: Records: 0  Duplicates: 0  Warnings: 0
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int(11) NOT NULL,
+  `b` int(11) DEFAULT NULL,
+  `c` varchar(16) DEFAULT NULL,
+  `d` char(16) DEFAULT NULL,
+  PRIMARY KEY (`a`),
+  KEY `idx_b` (`b`),
+  KEY `idx_c` (`c`),
+  KEY `idx_d` (`d`)
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+affected rows: 1
+#
+# test 2
+#
+SET SQL_WARNINGS=1;
+CREATE TABLE t2 (
+auto int(5) unsigned NOT NULL auto_increment,
+string char(10) default "hello",
+tiny tinyint(4) DEFAULT '0' NOT NULL ,
+short smallint(6) DEFAULT '1' NOT NULL ,
+medium mediumint(8) DEFAULT '0' NOT NULL,
+long_int int(11) DEFAULT '0' NOT NULL,
+longlong bigint(13) DEFAULT '0' NOT NULL,
+real_float float(13,1) DEFAULT 0.0 NOT NULL,
+real_double double(16,4),
+utiny tinyint(3) unsigned DEFAULT '0' NOT NULL,
+ushort smallint(5) unsigned zerofill DEFAULT '00000' NOT NULL,
+umedium mediumint(8) unsigned DEFAULT '0' NOT NULL,
+ulong int(11) unsigned DEFAULT '0' NOT NULL,
+ulonglong bigint(13) unsigned DEFAULT '0' NOT NULL,
+time_stamp timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+date_field date,
+time_field time,
+date_time datetime,
+blob_col blob,
+tinyblob_col tinyblob,
+mediumblob_col mediumblob  not null default '',
+longblob_col longblob  not null default '',
+options enum('one','two','tree') not null ,
+flags set('one','two','tree') not null default '',
+PRIMARY KEY (auto)
+);
+insert into t2 values (10, 1,1,1,1,1,1,1,1,1,1,1,1,1,NULL,0,0,0,1,1,1,1,'one','one');
+insert into t2 values (NULL,2,2,2,2,2,2,2,2,2,2,2,2,2,NULL,NULL,NULL,NULL,NULL,NULL,2,2,'two','two,one');
+insert ignore into t2 values (0,1/3,3,3,3,3,3,3,3,3,3,3,3,3,NULL,'19970303','10:10:10','19970303101010','','','','3',3,3);
+Warnings:
+Warning	1265	Data truncated for column 'string' at row 1
+insert ignore into t2 values (0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,NULL,19970807,080706,19970403090807,-1,-1,-1,'-1',-1,-1);
+Warnings:
+Warning	1264	Out of range value for column 'utiny' at row 1
+Warning	1264	Out of range value for column 'ushort' at row 1
+Warning	1264	Out of range value for column 'umedium' at row 1
+Warning	1264	Out of range value for column 'ulong' at row 1
+Warning	1264	Out of range value for column 'ulonglong' at row 1
+Warning	1265	Data truncated for column 'options' at row 1
+Warning	1265	Data truncated for column 'flags' at row 1
+insert ignore into t2 values (0,-4294967295,-4294967295,-4294967295,-4294967295,-4294967295,-4294967295,-4294967295,-4294967295,-4294967295,-4294967295,-4294967295,-4294967295,-4294967295,NULL,0,0,0,-4294967295,-4294967295,-4294967295,'-4294967295',0,"one,two,tree");
+Warnings:
+Warning	1265	Data truncated for column 'string' at row 1
+Warning	1264	Out of range value for column 'tiny' at row 1
+Warning	1264	Out of range value for column 'short' at row 1
+Warning	1264	Out of range value for column 'medium' at row 1
+Warning	1264	Out of range value for column 'long_int' at row 1
+Warning	1264	Out of range value for column 'utiny' at row 1
+Warning	1264	Out of range value for column 'ushort' at row 1
+Warning	1264	Out of range value for column 'umedium' at row 1
+Warning	1264	Out of range value for column 'ulong' at row 1
+Warning	1264	Out of range value for column 'ulonglong' at row 1
+Warning	1265	Data truncated for column 'options' at row 1
+insert ignore into t2 values (0,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,NULL,0,0,0,4294967295,4294967295,4294967295,'4294967295',0,0);
+Warnings:
+Warning	1264	Out of range value for column 'tiny' at row 1
+Warning	1264	Out of range value for column 'short' at row 1
+Warning	1264	Out of range value for column 'medium' at row 1
+Warning	1264	Out of range value for column 'long_int' at row 1
+Warning	1264	Out of range value for column 'utiny' at row 1
+Warning	1264	Out of range value for column 'ushort' at row 1
+Warning	1264	Out of range value for column 'umedium' at row 1
+Warning	1265	Data truncated for column 'options' at row 1
+insert into t2 (tiny) values (1);
+select auto,string,tiny,short,medium,long_int,longlong,real_float,real_double,utiny,ushort,umedium,ulong,ulonglong,mod(floor(time_stamp/1000000),1000000)-mod(curdate(),1000000),date_field,time_field,date_time,blob_col,tinyblob_col,mediumblob_col,longblob_col from t2;
+auto	string	tiny	short	medium	long_int	longlong	real_float	real_double	utiny	ushort	umedium	ulong	ulonglong	mod(floor(time_stamp/1000000),1000000)-mod(curdate(),1000000)	date_field	time_field	date_time	blob_col	tinyblob_col	mediumblob_col	longblob_col
+1	1	1	1	1	1	1	1.0	1.0000	1	00001	1	1	1	0	0000-00-00	00:00:00	0000-00-00 00:00:00	1	1	1	1
+2	2	2	2	2	2	2	2.0	2.0000	2	00002	2	2	2	0	NULL	NULL	NULL	NULL	NULL	2	2
+3	0.33333333	3	3	3	3	3	3.0	3.0000	3	00003	3	3	3	0	1997-03-03	10:10:10	1997-03-03 10:10:10				3
+4	-1	-1	-1	-1	-1	-1	-1.0	-1.0000	0	00000	0	0	0	0	1997-08-07	08:07:06	1997-04-03 09:08:07	-1	-1	-1	-1
+5	-429496729	-128	-32768	-8388608	-2147483648	-4294967295	-4294967296.0	-4294967295.0000	0	00000	0	0	0	0	0000-00-00	00:00:00	0000-00-00 00:00:00	-4294967295	-4294967295	-4294967295	-4294967295
+6	4294967295	127	32767	8388607	2147483647	4294967295	4294967296.0	4294967295.0000	255	65535	16777215	4294967295	4294967295	0	0000-00-00	00:00:00	0000-00-00 00:00:00	4294967295	4294967295	4294967295	4294967295
+7	hello	1	1	0	0	0	0.0	NULL	0	00000	0	0	0	0	NULL	NULL	NULL	NULL	NULL		
+# Restart server.
+# restart
+CREATE INDEX idx_utiny ON t2 (utiny);
+CREATE INDEX idx_tiny ON t2 (tiny);
+CREATE INDEX idx_short ON t2 (short);
+CREATE INDEX any_name ON t2 (medium);
+CREATE INDEX idx_longlong ON t2 (longlong);
+CREATE INDEX idx_real_float ON t2 (real_float);
+CREATE INDEX idx_ushort ON t2 (ushort);
+CREATE INDEX idx_umedium ON t2 (umedium);
+CREATE INDEX idx_ulong ON t2 (ulong);
+CREATE INDEX idx_ulonglong ON t2 (ulonglong,ulong);
+CREATE INDEX idx_options ON t2 (options,flags);
+CREATE INDEX test on t2 ( auto ) ;
+CREATE INDEX test2 on t2 ( ulonglong,ulong) ;
+Warnings:
+Note	1831	Duplicate index `test2`. This is deprecated and will be disallowed in a future release
+CREATE INDEX test3 on t2 ( medium ) ;
+Warnings:
+Note	1831	Duplicate index `test3`. This is deprecated and will be disallowed in a future release
+DROP INDEX test ON t2;
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `auto` int(5) unsigned NOT NULL AUTO_INCREMENT,
+  `string` char(10) DEFAULT 'hello',
+  `tiny` tinyint(4) NOT NULL DEFAULT 0,
+  `short` smallint(6) NOT NULL DEFAULT 1,
+  `medium` mediumint(8) NOT NULL DEFAULT 0,
+  `long_int` int(11) NOT NULL DEFAULT 0,
+  `longlong` bigint(13) NOT NULL DEFAULT 0,
+  `real_float` float(13,1) NOT NULL DEFAULT 0.0,
+  `real_double` double(16,4) DEFAULT NULL,
+  `utiny` tinyint(3) unsigned NOT NULL DEFAULT 0,
+  `ushort` smallint(5) unsigned zerofill NOT NULL DEFAULT 00000,
+  `umedium` mediumint(8) unsigned NOT NULL DEFAULT 0,
+  `ulong` int(11) unsigned NOT NULL DEFAULT 0,
+  `ulonglong` bigint(13) unsigned NOT NULL DEFAULT 0,
+  `time_stamp` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `date_field` date DEFAULT NULL,
+  `time_field` time DEFAULT NULL,
+  `date_time` datetime DEFAULT NULL,
+  `blob_col` blob DEFAULT NULL,
+  `tinyblob_col` tinyblob DEFAULT NULL,
+  `mediumblob_col` mediumblob NOT NULL DEFAULT '',
+  `longblob_col` longblob NOT NULL DEFAULT '',
+  `options` enum('one','two','tree') NOT NULL,
+  `flags` set('one','two','tree') NOT NULL DEFAULT '',
+  PRIMARY KEY (`auto`),
+  KEY `idx_utiny` (`utiny`),
+  KEY `idx_tiny` (`tiny`),
+  KEY `idx_short` (`short`),
+  KEY `any_name` (`medium`),
+  KEY `idx_longlong` (`longlong`),
+  KEY `idx_real_float` (`real_float`),
+  KEY `idx_ushort` (`ushort`),
+  KEY `idx_umedium` (`umedium`),
+  KEY `idx_ulong` (`ulong`),
+  KEY `idx_ulonglong` (`ulonglong`,`ulong`),
+  KEY `idx_options` (`options`,`flags`),
+  KEY `test2` (`ulonglong`,`ulong`),
+  KEY `test3` (`medium`)
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+select auto,string,tiny,short,medium,long_int,longlong,real_float,real_double,utiny,ushort,umedium,ulong,ulonglong,mod(floor(time_stamp/1000000),1000000)-mod(curdate(),1000000),time_field,blob_col,tinyblob_col,mediumblob_col,longblob_col from t2;
+auto	string	tiny	short	medium	long_int	longlong	real_float	real_double	utiny	ushort	umedium	ulong	ulonglong	mod(floor(time_stamp/1000000),1000000)-mod(curdate(),1000000)	time_field	blob_col	tinyblob_col	mediumblob_col	longblob_col
+1	1	1	1	1	1	1	1.0	1.0000	1	00001	1	1	1	0	00:00:00	1	1	1	1
+2	2	2	2	2	2	2	2.0	2.0000	2	00002	2	2	2	0	NULL	NULL	NULL	2	2
+3	0.33333333	3	3	3	3	3	3.0	3.0000	3	00003	3	3	3	0	10:10:10				3
+4	-1	-1	-1	-1	-1	-1	-1.0	-1.0000	0	00000	0	0	0	0	08:07:06	-1	-1	-1	-1
+5	-429496729	-128	-32768	-8388608	-2147483648	-4294967295	-4294967296.0	-4294967295.0000	0	00000	0	0	0	0	00:00:00	-4294967295	-4294967295	-4294967295	-4294967295
+6	4294967295	127	32767	8388607	2147483647	4294967295	4294967296.0	4294967295.0000	255	65535	16777215	4294967295	4294967295	0	00:00:00	4294967295	4294967295	4294967295	4294967295
+7	hello	1	1	0	0	0	0.0	NULL	0	00000	0	0	0	0	NULL	NULL	NULL		
+#
+# test 3 virtual column
+#
+CREATE TABLE jemp (
+c JSON,
+e DATE NOT NULL,
+g INT GENERATED ALWAYS AS (json_unquote(json_extract(c, "$.id"))),
+n VARCHAR(64) GENERATED ALWAYS AS (json_unquote(json_extract(c, "$.name"))) PERSISTENT
+);
+INSERT INTO jemp (c, e) VALUES
+('{"id": "1", "name": "Fred"}', 20211201), ('{"id": "2", "name": "Wilma"}', 20211231),
+('{"id": "3", "name": "Barney"}', 20220321), ('{"id": "4", "name": "Betty"}', 20220610);
+CREATE INDEX idx_g ON jemp (g);
+CREATE INDEX idx_n ON jemp (n);
+CREATE INDEX idx_ge ON jemp (g, e);
+CREATE INDEX idx_ne ON jemp (n, e);
+SHOW CREATE TABLE jemp;
+Table	Create Table
+jemp	CREATE TABLE `jemp` (
+  `c` longtext CHARACTER SET utf8mb4 DEFAULT NULL CHECK (json_valid(`c`)),
+  `e` date NOT NULL,
+  `g` int(11) GENERATED ALWAYS AS (json_unquote(json_extract(`c`,'$.id'))) VIRTUAL,
+  `n` varchar(64) GENERATED ALWAYS AS (json_unquote(json_extract(`c`,'$.name'))) STORED,
+  KEY `idx_g` (`g`),
+  KEY `idx_n` (`n`),
+  KEY `idx_ge` (`g`,`e`),
+  KEY `idx_ne` (`n`,`e`)
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+INSERT INTO jemp (c, e) VALUES
+('{"id": "5", "name": "John"}', 20220712), ('{"id": "6", "name": "Pop"}', 20221012),
+('{"id": "7", "name": "James"}', 20221102), ('{"id": "8", "name": "Allen"}', 20221118);
+select json_unquote(json_extract(c, "$.name")) as name, e from jemp where g > 3;
+name	e
+Betty	2022-06-10
+John	2022-07-12
+Pop	2022-10-12
+James	2022-11-02
+Allen	2022-11-18
+select json_unquote(json_extract(c, "$.name")) as name, e from jemp ignore index (idx_g) where n > "Betty";
+name	e
+Fred	2021-12-01
+James	2022-11-02
+John	2022-07-12
+Pop	2022-10-12
+Wilma	2021-12-31
+select json_unquote(json_extract(c, "$.name")) as name, e from jemp where e > 20220101 AND g > 4;
+name	e
+John	2022-07-12
+Pop	2022-10-12
+James	2022-11-02
+Allen	2022-11-18
+select json_unquote(json_extract(c, "$.name")) as name, e from jemp where e > 20220101 AND n > "Barney";
+name	e
+Betty	2022-06-10
+James	2022-11-02
+John	2022-07-12
+Pop	2022-10-12
+#
+# test 4 
+#
+create table t3 (c0 int primary key, c1 char(200), c2 varchar(200), c3 text, c4 int);
+Insert data...
+select count(*) from t3;
+count(*)
+10000
+create index idx_c1 on t3 (c1);
+create index idx_c2 on t3 (c2);
+create index idx_c3 on t3 (c3(10));
+create index idx_c4c1 on t3 (c4, c1);
+create index idx_c4c2 on t3 (c4, c2);
+create index idx_c4c3 on t3 (c4, c3(8));
+show create table t3;
+Table	Create Table
+t3	CREATE TABLE `t3` (
+  `c0` int(11) NOT NULL,
+  `c1` char(200) DEFAULT NULL,
+  `c2` varchar(200) DEFAULT NULL,
+  `c3` text DEFAULT NULL,
+  `c4` int(11) DEFAULT NULL,
+  PRIMARY KEY (`c0`),
+  KEY `idx_c1` (`c1`),
+  KEY `idx_c2` (`c2`),
+  KEY `idx_c3` (`c3`(10)),
+  KEY `idx_c4c1` (`c4`,`c1`),
+  KEY `idx_c4c2` (`c4`,`c2`),
+  KEY `idx_c4c3` (`c4`,`c3`(8))
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+insert into t3 values (10001, 'char value after add index', 'varchar value after add index', 'text value after add index', 10001);
+insert into t3 values (10002, 'char value after add index', 'varchar value after add index', 'text value after add index', 10002);
+insert into t3 values (10003, 'char value after add index', 'varchar value after add index', 'text value after add index', 10003);
+select c0, c1, c2, c3 from t3 where c4 < 10;
+c0	c1	c2	c3
+1	charvalue_0	varcharvalue_0	0_textvalues
+2	charvalue_1	varcharvalue_1	1_textvalues
+3	charvalue_2	varcharvalue_2	2_textvalues
+4	charvalue_3	varcharvalue_3	3_textvalues
+5	charvalue_4	varcharvalue_4	4_textvalues
+6	charvalue_5	varcharvalue_5	5_textvalues
+7	charvalue_6	varcharvalue_6	6_textvalues
+8	charvalue_7	varcharvalue_7	7_textvalues
+9	charvalue_8	varcharvalue_8	8_textvalues
+10	charvalue_9	varcharvalue_9	9_textvalues
+select c0, c1, c2, c3 from t3 use index (idx_c1) where c4 >=100 and c4 < 110;
+c0	c1	c2	c3
+101	charvalue_100	varcharvalue_100	100_textvalues
+102	charvalue_101	varcharvalue_101	101_textvalues
+103	charvalue_102	varcharvalue_102	102_textvalues
+104	charvalue_103	varcharvalue_103	103_textvalues
+105	charvalue_104	varcharvalue_104	104_textvalues
+106	charvalue_105	varcharvalue_105	105_textvalues
+107	charvalue_106	varcharvalue_106	106_textvalues
+108	charvalue_107	varcharvalue_107	107_textvalues
+109	charvalue_108	varcharvalue_108	108_textvalues
+110	charvalue_109	varcharvalue_109	109_textvalues
+select c0, c1, c2, c3 from t3 use index (idx_c2) where c4 >=200 and c4 < 210;
+c0	c1	c2	c3
+201	charvalue_200	varcharvalue_200	200_textvalues
+202	charvalue_201	varcharvalue_201	201_textvalues
+203	charvalue_202	varcharvalue_202	202_textvalues
+204	charvalue_203	varcharvalue_203	203_textvalues
+205	charvalue_204	varcharvalue_204	204_textvalues
+206	charvalue_205	varcharvalue_205	205_textvalues
+207	charvalue_206	varcharvalue_206	206_textvalues
+208	charvalue_207	varcharvalue_207	207_textvalues
+209	charvalue_208	varcharvalue_208	208_textvalues
+210	charvalue_209	varcharvalue_209	209_textvalues
+select c0, c1, c2, c3 from t3 use index (idx_c3) where c3 = 'text value after add index';
+c0	c1	c2	c3
+10001	char value after add index	varchar value after add index	text value after add index
+10002	char value after add index	varchar value after add index	text value after add index
+10003	char value after add index	varchar value after add index	text value after add index
+select c0, c1, c2, c3 from t3 use index (idx_c4c1) where c4 >=400 and c4 < 410;
+c0	c1	c2	c3
+401	charvalue_400	varcharvalue_400	400_textvalues
+402	charvalue_401	varcharvalue_401	401_textvalues
+403	charvalue_402	varcharvalue_402	402_textvalues
+404	charvalue_403	varcharvalue_403	403_textvalues
+405	charvalue_404	varcharvalue_404	404_textvalues
+406	charvalue_405	varcharvalue_405	405_textvalues
+407	charvalue_406	varcharvalue_406	406_textvalues
+408	charvalue_407	varcharvalue_407	407_textvalues
+409	charvalue_408	varcharvalue_408	408_textvalues
+410	charvalue_409	varcharvalue_409	409_textvalues
+select c0, c1, c2, c3 from t3 use index (idx_c4c2) where c4 >=500 and c4 < 510;
+c0	c1	c2	c3
+501	charvalue_500	varcharvalue_500	500_textvalues
+502	charvalue_501	varcharvalue_501	501_textvalues
+503	charvalue_502	varcharvalue_502	502_textvalues
+504	charvalue_503	varcharvalue_503	503_textvalues
+505	charvalue_504	varcharvalue_504	504_textvalues
+506	charvalue_505	varcharvalue_505	505_textvalues
+507	charvalue_506	varcharvalue_506	506_textvalues
+508	charvalue_507	varcharvalue_507	507_textvalues
+509	charvalue_508	varcharvalue_508	508_textvalues
+510	charvalue_509	varcharvalue_509	509_textvalues
+select c0, c1, c2, c3 from t3 use index (idx_c4c3) where c4 > 10000;
+c0	c1	c2	c3
+10001	char value after add index	varchar value after add index	text value after add index
+10002	char value after add index	varchar value after add index	text value after add index
+10003	char value after add index	varchar value after add index	text value after add index
+drop index idx_c1 on t3;
+drop index idx_c2 on t3;
+drop index idx_c3 on t3;
+show create table t3;
+Table	Create Table
+t3	CREATE TABLE `t3` (
+  `c0` int(11) NOT NULL,
+  `c1` char(200) DEFAULT NULL,
+  `c2` varchar(200) DEFAULT NULL,
+  `c3` text DEFAULT NULL,
+  `c4` int(11) DEFAULT NULL,
+  PRIMARY KEY (`c0`),
+  KEY `idx_c4c1` (`c4`,`c1`),
+  KEY `idx_c4c2` (`c4`,`c2`),
+  KEY `idx_c4c3` (`c4`,`c3`(8))
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+alter table t3 comment 'Comment on table t3';
+alter table t3 modify column c0 int comment 'Comment on primary key c0';
+show create table t3;
+Table	Create Table
+t3	CREATE TABLE `t3` (
+  `c0` int(11) NOT NULL COMMENT 'Comment on primary key c0',
+  `c1` char(200) DEFAULT NULL,
+  `c2` varchar(200) DEFAULT NULL,
+  `c3` text DEFAULT NULL,
+  `c4` int(11) DEFAULT NULL,
+  PRIMARY KEY (`c0`),
+  KEY `idx_c4c1` (`c4`,`c1`),
+  KEY `idx_c4c2` (`c4`,`c2`),
+  KEY `idx_c4c3` (`c4`,`c3`(8))
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COMMENT='Comment on table t3'
+#
+# Clean up
+DROP TABLE t1, t2, jemp, t3;
+DROP DATABASE IF EXISTS mono;

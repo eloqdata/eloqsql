@@ -1,0 +1,24 @@
+!include include/default_my.cnf
+
+!include include/eloq_kv_keyspace.cnf
+
+
+[mysqld]
+plugin-maturity=experimental
+skip-log-bin
+default-storage-engine=eloq
+default-tmp-storage-engine=eloq
+collation-server=latin1_bin
+eloq_config = @ENV.MYSQLTEST_VARDIR/../../../storage/eloq/mysql-test/mono_main/data_substrate.cnf
+
+[mysqld.1]
+loose-thread-handling=   pool-of-threads
+loose-thread_pool_size= 2 
+loose-thread_pool_max_threads= 2 
+extra-port=        @ENV.MASTER_EXTRA_PORT
+extra-max-connections=1
+
+[ENV]
+MASTER_EXTRA_PORT= @OPT.port
+MONO1_PORT=              @mysqld.1.port
+MONO1_SOCK=              @mysqld.1.socket

@@ -1,0 +1,140 @@
+--source include/have_eloq.inc
+
+set @@default_storage_engine= eloq;
+select @@default_storage_engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+create table t1(i int primary key, j int) engine= eloq;
+
+insert into t1 values(1,1);
+insert into t1 values(2,2);
+
+--connect (conn-tx1,localhost,root,,test,$MONO1_PORT)
+select * from t1;        # 1,1 | 2,2
+--connect (conn-tx2,localhost,root,,test,$MONO1_PORT)
+select * from t1;        # 1,1 | 2,2
+
+####### repeatable read #######
+--connection conn-tx1
+set session transaction isolation level repeatable read;
+select @@tx_isolation;
+--connection conn-tx2
+set session transaction isolation level repeatable read;
+select @@tx_isolation;
+
+--connection conn-tx1
+
+--echo ## w-w confilcts
+# tx1 [b-w(i=1) -            - c ]
+# tx2 [         - b/w(i=1)/c -   ]   
+## result: tx1 succeeds, tx2 fails to acquire WriteIntent when do read before update.
+
+--connection conn-tx1
+begin;
+# Do read in Update operation will acquire WriteIntent lock.
+update t1 set j=11 where i=1;
+select * from t1 where i=1; # 1,11
+
+--connection conn-tx2
+# This "Update" query conflict with above query.  Under OCC Protocol, read in update also 
+# acquire WriteIntent lock but not block when fail. 
+--error 213
+update t1 set j=21 where i=1;
+
+select * from t1 where i=1;  # 1,1
+
+--connection conn-tx1
+select * from t1 where i=1;  # 1,11
+commit;
+
+--connection conn-tx2
+update t1 set j=21 where i=1;
+select * from t1;            # 1,21 | 2,2
+
+--echo ## r4w - r4w confilcts
+## tx1: [b-r4w(i=1) -            - c]
+## tx2: [         - b/r4w(i=1)/c -  ]
+## result: tx1 succeeds, tx2 fails to acquire WriteIntent when do read before update.
+--connection conn-tx1
+begin;
+select * from t1 where i=2 for update;    # 2,2
+
+--connection conn-tx2
+# Under Occ Protocol, this query also acquire WriteIntent lock, but not block when fail.
+--error 213 
+select * from t1 where i=2 for update;    # 2,2
+
+--connection conn-tx1
+select * from t1 where i=2 for update;    # 2,2
+commit;
+
+select * from t1;       # 1,21 | 2,2
+
+--echo ## r4w - w confilcts
+## tx1: [b-r4w(i=1) -            - w(i=1)-c]
+## tx2: [         - b/w(i=1)/c -           ]
+## result: tx1 succeeds, tx2 fails to acquire WriteIntent when do read before update.
+--connection conn-tx1
+begin;
+select * from t1 where i=2 for update;    # 2,2
+
+--connection conn-tx2
+# This "Update" query conflict with above query.  Under OCC Protocol, read in update also 
+# acquire WriteIntent lock but not block when fail. 
+--error 213
+update t1 set j=12 where i=2;
+
+select * from t1 where i=2;    # 2,2
+
+--connection conn-tx1
+update t1 set j=12 where i=2;
+commit;
+
+select * from t1;      # 1,21 | 2,2
+
+
+#### test "select ... lock in share mode".
+insert into t1 values(3,3);
+select * from t1;      # 1,21 | 2,2 | 3,3
+
+--echo ## r4s - r4s , no confilcts
+## tx1: [b-r4s(i=1) -            - r4s(i=1)-c]
+## tx2: [         - b/r4s(i=1)/c -           ]
+## result: all succeed
+--connection conn-tx1
+begin;
+select * from t1 where i=3 lock in share mode;    # 3,3
+
+--connection conn-tx2
+select * from t1 where i=3 lock in share mode;    # 3,3
+
+--connection conn-tx1
+select * from t1 where i=3 lock in share mode;    # 3,3
+commit;
+
+
+--echo ## r4s - w , confilcts
+## tx1: [b-r4s(i=1) -            - r4s(i=1)-c]
+## tx2: [         - b/w(i=1)/c -           ]
+## result: tx1 fail
+--connection conn-tx1
+begin;
+# Under OccRead/OCC Protocol, "lock in share mode" doesn't acquire read lock. Under Locking, it acquires read lock.
+select * from t1 where i=3 lock in share mode;    # 3,3
+select * from t1 where i=2;  # 2,12
+
+--connection conn-tx2
+# Under OccRead/OCC Protocol, this "Update" query succeeds; 
+# Under Locking Protocol, it is blocked waiting for lock.
+update t1 set j=13 where i=3;
+
+--connection conn-tx1
+# Under OccRead/OCC Protocol, this tx fail. Under Locking Protocol, this tx succeeds.
+--error 199
+commit;
+
+
+drop table t1;

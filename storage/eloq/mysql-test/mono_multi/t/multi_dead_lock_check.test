@@ -1,0 +1,206 @@
+--source include/have_eloq.inc
+--let $mono_server_count= 3
+--source include/mono_init.inc
+
+--disable_warnings
+call mtr.add_suppression("mariadbd: Table 't1' is marked as crashed and should be repaired");
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+DROP TABLE IF EXISTS t3;
+--enable_warnings
+
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(1,1);
+insert into t1 values(2,1);
+insert into t1 values(3,1);
+
+create table t2(i int primary key, j int) engine=eloq;
+insert into t2 values(1,1);
+insert into t2 values(2,1);
+insert into t2 values(3,1);
+
+select * from t1;
+select * from t2;
+
+--connection serv_2
+begin;
+update t1 set j=2 where i=1;
+update t2 set j=2 where i=2;
+update t1 set j=2 where i=3;
+
+--connection serv_1
+begin;
+update t2 set j=2 where i=1;
+update t1 set j=2 where i=2;
+update t2 set j=2 where i=3;
+
+send update t1 set j=3 where i=1;
+
+--connection serv_2
+send update t2 set j=3 where i=3;
+# rely on timeout mechanism to detect deadlock
+--connection serv_2
+reap;
+select * from t1;
+select * from t2;
+commit;
+
+--connection serv_1
+--error HA_ERR_LOCK_DEADLOCK
+reap;
+select * from t1;
+select * from t2;
+commit;
+
+select * from t1;
+select * from t2;
+
+drop table t1;
+drop table t2;
+
+
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(1,1);
+insert into t1 values(2,1);
+insert into t1 values(3,1);
+insert into t1 values(4,1);
+insert into t1 values(5,1);
+
+--connection serv_1
+begin;
+update t1 set j=2 where i=1;
+
+--connection serv_2
+begin;
+update t1 set j=2 where i=2;
+
+--connection serv_3
+begin;
+update t1 set j=2 where i=3;
+
+--connection serv_1_1
+begin;
+update t1 set j=2 where i=4;
+
+--connection serv_2_1
+begin;
+update t1 set j=2 where i=5;
+
+--connection serv_1
+send update t1 set j=3 where i=5;
+
+--connection serv_2
+send update t1 set j=3 where i=1;
+
+--connection serv_3
+send update t1 set j=3 where i=2;
+
+--connection serv_1_1
+send update t1 set j=3 where i=3;
+
+--connection serv_2_1
+send update t1 set j=3 where i=4;
+# rely on timeout mechanism to detect deadlock
+
+--sleep 5
+--connection serv_1
+--error HA_ERR_LOCK_DEADLOCK
+reap;
+commit;
+
+--connection serv_2
+reap;
+commit;
+
+--connection serv_3
+reap;
+commit;
+
+--connection serv_1_1
+reap;
+commit;
+
+--connection serv_2_1
+reap;
+commit;
+
+select * from t1;
+drop table t1;
+
+#Test if incomplate dead lock can work right
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(1,1);
+insert into t1 values(2,1);
+insert into t1 values(3,1);
+
+
+--connection serv_1
+begin;
+update t1 set j=2 where i=1;
+
+--connection serv_2
+begin;
+update t1 set j=2 where i=2;
+
+--connection serv_3
+begin;
+update t1 set j=2 where i=3;
+
+--connection serv_2
+send update t1 set j=3 where i=1;
+
+--connection serv_3_1
+SET SESSION debug_dbug="+d,eloq;trigger_dead_lock_detection;node_id=0";
+
+--sleep 5
+--connection serv_1
+commit;
+
+--connection serv_2
+reap;
+commit;
+
+--connection serv_3
+commit;
+
+--connection serv_1
+select * from t1;
+drop table t1;
+
+
+#Test the dead lock with multi blocked ccrequest in one transaction can work right
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(1,1);
+insert into t1 values(2,1);
+insert into t1 values(3,1);
+insert into t1 values(4,1);
+insert into t1 values(5,1);
+insert into t1 values(6,1);
+
+
+--connection serv_1
+begin;
+update t1 set j=2 where i<4;
+
+--connection serv_2
+begin;
+update t1 set j=2 where i>3;
+send update t1 set j=3 where i<4;
+
+--connection serv_1
+send update t1 set j=3 where i>3;
+# rely on timeout mechanism to detect deadlock
+
+--sleep 5
+--connection serv_1
+--error HA_ERR_LOCK_DEADLOCK
+reap;
+commit;
+
+--connection serv_2
+reap;
+commit;
+
+--connection serv_1
+select * from t1;
+drop table t1;

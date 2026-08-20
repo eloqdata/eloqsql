@@ -1,0 +1,72 @@
+--source include/have_eloq.inc
+set @@default_storage_engine= eloq;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+--echo # Test: Range split SHOULD downgrade lock and retry at phase 8 when deadlock detected
+--echo # When range split is at phase 8 and deadlock is detected, it should
+--echo # downgrade write intent lock and retry phase 8 instead of fully aborting.
+--echo #
+--echo # This test uses the split_flush_commit_acquire_all_deadlock fault injector
+--echo # to simulate a deadlock at phase 8, which triggers the downgrade and retry logic.
+
+create table t1 (c0 int auto_increment, c1 char(250), c2 char(250), c3 char(250), c4 int, primary key(c0));
+
+# Insert initial data
+insert into t1 values (0,'initial', 'data', 'row', 1);
+
+# Step 1: Enable fault injector to simulate deadlock at phase 8
+# This fault injector will inject a DEAD_LOCK_ABORT error when range split
+# reaches phase 8 (Commit Acquire All Write Lock), which will trigger the
+# downgrade and retry logic
+SET SESSION debug_dbug="+d,eloq;split_flush_commit_acquire_all_deadlock;node_id=-1";
+
+# Build up enough data in t1 to trigger range split
+# We need to exceed range_max_size (1MB for testing builds, 256MB otherwise)
+# Using the same pattern as range_read_block_on_write_lock.test: double the data each time
+# 11 iterations: 1 -> 2 -> 4 -> 8 -> 16 -> 32 -> 64 -> 128 -> 256 -> 512 -> 1024 -> 2048 rows
+# With char(250) columns, this should exceed the threshold
+let $counter= 11;
+--disable_result_log
+--disable_query_log
+while($counter)
+{
+    insert into t1 select * from t1;
+    dec $counter;
+}
+--enable_query_log
+--enable_result_log
+
+--echo # Step 2: Trigger range split with checkpoint
+--echo # Range split will progress through phases 1-7, and at phase 8:
+--echo # - The fault injector will inject DEAD_LOCK_ABORT error
+--echo # - IsDeadlock() will return true
+--echo # - Range split will downgrade write intent lock via PostWriteType::DowngradeLock
+--echo # - Range split will retry phase 8 after downgrade
+SET SESSION debug_dbug="+d,eloq;at_once;node_id=-1;action=NOTIFY_CHECKPOINTER";
+
+# Wait for checkpoint to process and range split to start
+--sleep 5
+
+# Wait for range split to reach phase 8, trigger fault injector, downgrade, and retry
+--sleep 10
+
+--echo # Step 3: Verify range split completed successfully
+--connection default
+# Verify range split completed by checking that data is accessible
+# If range split failed, we would see errors or the split wouldn't complete
+select count(*) from t1;
+
+--echo # Step 4: Verify no queries are still blocked
+--connection default
+# After range split completes, there should be no blocked queries
+let $wait_condition=
+    select count(*) = 0 from information_schema.processlist
+    where info like "select%from t1%"
+    and id != CONNECTION_ID();
+--source include/wait_condition.inc
+
+# Cleanup
+drop table t1;

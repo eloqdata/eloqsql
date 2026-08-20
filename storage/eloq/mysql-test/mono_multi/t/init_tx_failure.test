@@ -1,0 +1,23 @@
+--source include/have_eloq.inc
+--let $mono_server_count= 3
+--source include/mono_init.inc
+--sleep 3 #Here is bug, If not sleep, the mysqld will not return result.
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (pk int primary key, sk int) ENGINE=eloq;
+INSERT INTO t1 VALUES (1, 1),(2, 2);
+SELECT * FROM t1;
+
+--connection serv_2
+SET SESSION debug_dbug="+d,eloq;init_tx_error;node_id=1";
+--error 202
+INSERT INTO t1 VALUES(1, 0);
+
+--connection serv_1
+SET SESSION debug_dbug="-d,eloq;init_tx_error;node_id=1";
+--sleep 2
+SELECT * FROM t1;
+DROP TABLE t1;

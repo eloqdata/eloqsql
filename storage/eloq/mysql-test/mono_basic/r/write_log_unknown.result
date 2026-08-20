@@ -1,0 +1,23 @@
+set @@default_storage_engine= eloq;
+DROP TABLE IF EXISTS t1;
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(1,1);
+select * from t1;
+i	j
+1	1
+SET SESSION debug_dbug="+d,eloq;log_closure_result_unknown;node_id=-1";
+SET SESSION debug_dbug="+d,eloq;write_log_result_unknown;node_id=-1";
+SET SESSION debug_dbug="+d,eloq;recover_local_txn;node_id=-1";
+insert into t1 values(2,2);
+ERROR HY000: Eloq: failed to commit transaction. try restarting transaction. Log service is unreachable, transaction status is unknown.
+insert into t1 values(2,2);
+SET SESSION debug_dbug="-d,eloq;log_closure_result_unknown;node_id=-1";
+SET SESSION debug_dbug="-d,eloq;write_log_result_unknown;node_id=-1";
+SET SESSION debug_dbug="-d,eloq;recover_local_txn;node_id=-1";
+insert into t1 values(3,3);
+select * from t1;
+i	j
+1	1
+2	2
+3	3
+drop table t1;

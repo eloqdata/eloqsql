@@ -1,0 +1,18 @@
+--source include/have_eloq.inc
+
+--disable_warnings
+DROP TABLE IF EXISTS `t.1`;
+DROP TABLE IF EXISTS `t 1`;
+--enable_warnings
+
+#Test create table has dot, space in its name
+CREATE TABLE `t.1` (pk int primary key, c char(1)) ENGINE=eloq;
+INSERT INTO `t.1` VALUES (1,'a'),(2,'b');
+SELECT * from `t.1`;
+
+CREATE TABLE `t 1` (pk int primary key, c char(1)) ENGINE=eloq;
+INSERT INTO `t 1` VALUES (1,'a'),(2,'b');
+SELECT * from `t 1`;
+
+DROP TABLE `t.1`;
+DROP TABLE `t 1`;

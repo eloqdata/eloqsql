@@ -1,0 +1,523 @@
+--source include/have_eloq.inc
+--source include/have_hash_partition.inc
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+set @@default_storage_engine= eloq;
+
+CREATE TABLE t1 (
+  i1 INT PRIMARY KEY,
+  i2 INT (64),
+  c1 VARCHAR(64),
+  c2 CHAR(64),
+  KEY idx_i2_c1 (i2, c1)
+) ENGINE=eloq;
+
+INSERT INTO t1 VALUES
+(1, 1, "hello1", "world1"),
+(2, 1, "hello2", "world1"),
+(3, 2, "hello3", "world2"),
+(4, 2, "hello4", "world2"),
+(5, 3, "hello5", "world3"),
+(6, 3, "hello6", "world3");
+
+--source include/restart_mysqld.inc
+set global eloq_report_debug_info=1;
+
+# Scan table with PK index and filter it with pushdown condition.
+SELECT * FROM t1 WHERE c2="world2";
+SELECT * FROM t1 WHERE c2>"world2";
+SELECT * FROM t1 WHERE c2>="world2";
+SELECT * FROM t1 WHERE c2<"world2";
+SELECT * FROM t1 WHERE c2<="world2";
+SELECT * FROM t1 WHERE c2<>"world2";
+
+# Scan table with SK index and filter it with pushdown condition.
+SELECT * FROM t1 WHERE i2=2 AND c2="world2";
+SELECT * FROM t1 WHERE i2>2 AND c2>"world2";
+SELECT * FROM t1 WHERE i2>=2 AND c2>="world2";
+SELECT * FROM t1 WHERE i2<2 AND c2<"world2" ORDER BY i2 DESC;
+SELECT * FROM t1 WHERE i2<=2 AND c2<="world2" ORDER BY i2 DESC;
+SELECT * FROM t1 WHERE i2<>2 AND c2<>"world2";
+
+# Scan table with SK index and pushdown condition will be ignored if it is active index.
+SELECT * FROM t1 WHERE i2=2 AND c1="hello3";
+SELECT * FROM t1 WHERE i2>2 AND c1>"hello3";
+SELECT * FROM t1 WHERE i2>=2 AND c1>="hello3";
+SELECT * FROM t1 WHERE i2<2 AND c1<"hello3" ORDER BY i2 DESC;
+SELECT * FROM t1 WHERE i2<=2 AND c1<="hello3" ORDER BY i2 DESC;
+SELECT * FROM t1 WHERE i2<>2 AND c1<>"hello3";
+
+set global eloq_report_debug_info=0;
+
+# Test for special character.
+CREATE OR REPLACE TABLE t1 (
+  i1 INT PRIMARY KEY,
+  i2 INT (64),
+  c1 VARCHAR(64),
+  c2 CHAR(64),
+  KEY idx_i2_c1 (i2, c1)
+) ENGINE=eloq;
+
+INSERT INTO t1 VALUES
+(1, 1, "hello1", "'world'"),
+(2, 1, "hello2", "''world''"),
+(3, 2, "hello3", "'''world'''"),
+(4, 2, "hello4", "''''world''''"),
+(5, 3, "hello5", "\\world\\"),
+(6, 3, "hello6", "\\\\world\\\\");
+
+--source include/restart_mysqld.inc
+set global eloq_report_debug_info=1;
+
+SELECT * FROM t1 WHERE i2=1 AND c2="'world'";
+SELECT * FROM t1 WHERE i2=1 AND c2="''world''";
+SELECT * FROM t1 WHERE i2=2 AND c2="'''world'''";
+SELECT * FROM t1 WHERE i2=2 AND c2="''''world''''";
+SELECT * FROM t1 WHERE i2=3 AND c2="\\world\\";
+SELECT * FROM t1 WHERE i2=3 AND c2="\\\\world\\\\";
+
+set global eloq_report_debug_info=0;
+
+# Test for int64 overflow and type unmatch.
+CREATE OR REPLACE TABLE t1 (i BIGINT PRIMARY KEY, j BIGINT) ENGINE=eloq;
+
+INSERT INTO t1 VALUES (1, 1);
+INSERT INTO t1 VALUES (2.2, 2.2);
+INSERT INTO t1 VALUES ("3.3", "3.3");
+SELECT * FROM t1;
+
+--source include/restart_mysqld.inc
+set global eloq_report_debug_info=1;
+
+SELECT * FROM t1 WHERE i=1;
+SELECT * FROM t1 WHERE j=1;
+SELECT * FROM t1 WHERE i<1;
+SELECT * FROM t1 WHERE j<1;
+SELECT * FROM t1 WHERE i=2.2;
+SELECT * FROM t1 WHERE j=2.2;
+SELECT * FROM t1 WHERE i<2.2;
+SELECT * FROM t1 WHERE j<2.2;
+SELECT * FROM t1 WHERE i="3";
+SELECT * FROM t1 WHERE j="3";
+SELECT * FROM t1 WHERE i<"3.3";
+SELECT * FROM t1 WHERE j<"3.3";
+
+--error ER_WARN_DATA_OUT_OF_RANGE
+INSERT INTO t1 VALUES (18446744073709551615, 18446744073709551615);
+INSERT INTO t1 VALUES (9223372036854775807, 9223372036854775807);
+
+--source include/restart_mysqld.inc
+set global eloq_report_debug_info=1;
+
+SELECT * FROM t1 WHERE i=18446744073709551615; 
+SELECT * FROM t1 WHERE i<18446744073709551615; # wrong result, but same with innodb
+SELECT * FROM t1 WHERE j=18446744073709551615;
+SELECT * FROM t1 WHERE j<18446744073709551615;
+
+set global eloq_report_debug_info=0;
+DROP TABLE t1;
+
+--echo ##
+--echo ## Test system table mysql.help_topic
+--echo ##
+set global eloq_report_debug_info=1;
+select help_topic_id,name from mysql.help_topic ignore index(name) where name = 'SHOW CREATE VIEW';
+select count(*) from mysql.help_topic ignore index(name) where name = 'SHOW CREATE VIEW';
+
+--echo ##
+--echo ## Test character set utf8mb3, and utf8mb4 for char
+--echo ##
+create table tu3 (id int, name char(64)) character set utf8;
+show create table tu3;
+insert into tu3 values (1, 'John'),(2, 'James'),(3, '张三'),(4, '王五');
+select * from tu3;
+
+create table tu4 (id int, name char(64)) character set utf8mb4;
+show create table tu4;
+insert into tu4 values (1, 'John'),(2, 'James'),(3, '张三'),(4, '王五');
+select * from tu4;
+
+# restart server
+--source include/restart_mysqld.inc
+set global eloq_report_debug_info=1;
+
+select * from tu3 where name='John';
+select * from tu3 where name='张三';
+
+select * from tu4 where name='James';
+select * from tu4 where name='王五';
+
+# Test sql_mode: PAD_CHAR_TO_FULL_LENGTH
+set @old_sql_mode=@@session.sql_mode;
+set @@session.sql_mode='PAD_CHAR_TO_FULL_LENGTH';
+
+select * from tu3 where name='John';
+select * from tu3 where name='张三';
+
+select * from tu4 where name='James';
+select * from tu4 where name='王五';
+
+set global eloq_report_debug_info=0;
+set @@session.sql_mode=@old_sql_mode;
+drop table tu3,tu4;
+
+--echo ##
+--echo ## Test capacity of char() with different charset.
+--echo ##
+create table tu (info char(6)) character set utf8;
+show create table tu;
+
+SET @old_cs_client = @@character_set_client;
+SET @old_cs_results = @@character_set_results;
+SET @old_cs_connection = @@character_set_connection;
+
+set names latin1;
+--error ER_DATA_TOO_LONG
+insert into tu values ('诚招加');
+--error ER_DATA_TOO_LONG
+insert into tu values ('ASDFGHJ');
+insert into tu values ('诚招');
+insert into tu values ('ASDFGH');
+select * from tu;
+
+set global eloq_report_debug_info=1;
+select * from tu where info='诚招加盟';
+select * from tu where info='诚招';
+select * from tu where info='ASDFGH';
+select * from tu where info='ASDFGH' or info='诚招';
+
+set global eloq_report_debug_info=0;
+delete from tu;
+set names utf8;
+--error ER_DATA_TOO_LONG
+insert into tu values ('诚招加盟商加盟');
+insert into tu values ('诚招加盟商加');
+--error ER_DATA_TOO_LONG
+insert into tu values ('ASDFGHJ');
+insert into tu values ('ASDFGH');
+select * from tu;
+
+set global eloq_report_debug_info=1;
+select * from tu where info='诚招加盟商加';
+select * from tu where info='ASDFGH';
+select * from tu where info='诚招加盟商加' or info='ASDFGH' or info='诚招加盟';
+
+set global eloq_report_debug_info=0;
+delete from tu;
+
+set names utf8mb4;
+--error ER_DATA_TOO_LONG
+insert into tu values ('诚招加盟商加盟');
+insert into tu values ('诚招加盟商加');
+--error ER_DATA_TOO_LONG
+insert into tu values ('ASDFGHJ');
+insert into tu values ('ASDFGH');
+select * from tu;
+
+set global eloq_report_debug_info=1;
+select * from tu where info='诚招加盟商加';
+select * from tu where info='ASDFGH';
+select * from tu where info='诚招加盟商加' or info='ASDFGH' or info='诚招加盟';
+
+# clean up
+SET character_set_client = @old_cs_client;
+SET character_set_results = @old_cs_results;
+SET character_set_connection = @old_cs_connection;
+
+set global eloq_report_debug_info=0;
+drop table tu;
+
+--echo ##
+--echo ## Test Binary, VarBinary, BLOB, and TEXT type
+--echo ##
+create table tbinary (id int, info binary(16)) character set utf8;
+show create table tbinary;
+create table tvarbinary (id int, info varbinary(16)) character set utf8;
+show create table tvarbinary;
+
+insert into tbinary values (1,'1234567890'),(2,1234567890),(3,'1234567890 '),(4, 'asdfghjASDFGH');
+--error ER_DATA_TOO_LONG
+insert into tbinary values (5, '诚招加盟商加');
+insert into tbinary values (5, '诚招加盟商');
+insert into tbinary (id) values (6);
+insert into tbinary values (7, 0x00112233445566778899aabbccddeeff);
+insert into tbinary values (8, 0xaabbccddeeff00);
+select id, hex(info) from tbinary;
+
+insert into tvarbinary values (1,'1234567890'),(2,1234567890),(3,'1234567890 '),(4, 'asdfghjASDFGH');
+--error ER_DATA_TOO_LONG
+insert into tvarbinary values (5, '诚招加盟商加');
+insert into tvarbinary values (5, '诚招加盟商');
+insert into tvarbinary (id) values (6);
+insert into tvarbinary values (7, 0x00112233445566778899aabbccddeeff);
+insert into tvarbinary values (8, 0xaabbccddeeff00);
+select id, hex(info) from tvarbinary;
+
+create table ttinyblob (id int, info tinyblob) character set utf8;
+show create table ttinyblob;
+create table tblob (id int, info blob) character set utf8;
+show create table tblob;
+create table tmediumblob (id int, info mediumblob) character set utf8;
+show create table tmediumblob;
+create table tlongblob (id int, info longblob) character set utf8;
+show create table tlongblob;
+
+insert into ttinyblob values (1, 1234567890),(2,'1234567890'),(3, '1234567890  '),(4, 'qwertyuiopQWERTYUIOP'),(5, '诚招加盟商加盟诚招加盟商加盟'),(6, ']{+=-*/%$@!&');
+insert into ttinyblob (id) values (6);
+insert into ttinyblob values (7, 0xaabbccddeeff00), (8, 0x00112233445566778899aabbccddeeff);
+select id, hex(info) from ttinyblob;
+
+insert into tblob values (1, 1234567890),(2,'1234567890'),(3, '1234567890  '),(4, 'qwertyuiopQWERTYUIOP'),(5, '诚招加盟商加盟诚招加盟商加盟'),(6, ']{+=-*/%$@!&');
+insert into tblob (id) values (6);
+insert into tblob values (7, 0xaabbccddeeff00), (8, 0x00112233445566778899aabbccddeeff);
+select id, hex(info) from tblob;
+
+insert into tmediumblob values (1, 1234567890),(2,'1234567890'),(3, '1234567890  '),(4, 'qwertyuiopQWERTYUIOP'),(5, '诚招加盟商加盟诚招加盟商加盟'),(6, ']{+=-*/%$@!&');
+insert into tmediumblob (id) values (6);
+insert into tmediumblob values (7, 0xaabbccddeeff00), (8, 0x00112233445566778899aabbccddeeff);
+select id, hex(info) from tmediumblob;
+
+insert into tlongblob values (1, 1234567890),(2,'1234567890'),(3, '1234567890  '),(4, 'qwertyuiopQWERTYUIOP'),(5, '诚招加盟商加盟诚招加盟商加盟'),(6, ']{+=-*/%$@!&');
+insert into tlongblob (id) values (6);
+insert into tlongblob values (7, 0xaabbccddeeff00), (8, 0x00112233445566778899aabbccddeeff);
+select id, hex(info) from tlongblob;
+
+
+create table ttinytext (id int, info tinytext) character set utf8;
+show create table ttinytext;
+create table ttext (id int, info text) character set utf8;
+show create table ttext;
+
+create table tmediumtext (id int, info mediumtext) character set utf8;
+show create table tmediumtext;
+
+create table tlongtext (id int, info longtext) character set utf8;
+show create table tlongtext;
+
+insert into ttinytext values (1, 1234567890),(2,'1234567890'),(3, '1234567890  '),(4, 'qwertyuiopQWERTYUIOP'),(5, '诚招加盟商加盟诚招加盟商加盟'),(6, ']{+=-*/%$@!&');
+insert into ttinytext (id) values (6);
+select id, info from ttinytext;
+
+insert into ttext values (1, 1234567890),(2,'1234567890'),(3, '1234567890  '),(4, 'qwertyuiopQWERTYUIOP'),(5, '诚招加盟商加盟诚招加盟商加盟'),(6, ']{+=-*/%$@!&');
+insert into ttext (id) values (6);
+select id, info from ttext;
+
+insert into tmediumtext values (1, 1234567890),(2,'1234567890'),(3, '1234567890  '),(4, 'qwertyuiopQWERTYUIOP'),(5, '诚招加盟商加盟诚招加盟商加盟'),(6, ']{+=-*/%$@!&');
+insert into tmediumtext (id) values (6);
+select id, info from tmediumtext;
+
+insert into tlongtext values (1, 1234567890),(2,'1234567890'),(3, '1234567890  '),(4, 'qwertyuiopQWERTYUIOP'),(5, '诚招加盟商加盟诚招加盟商加盟'),(6, ']{+=-*/%$@!&');
+insert into tlongtext (id) values (6);
+select id, info from tlongtext;
+
+
+# restart server
+--source include/restart_mysqld.inc
+set global eloq_report_debug_info=1;
+
+--echo # Test BINARY type
+select id, hex(info) from tbinary where info=1234567890;
+select id, hex(info) from tbinary where info='1234567890';
+select id, hex(info) from tbinary where info='1234567890\0\0\0\0\0\0';
+select id, hex(info) from tbinary where info='1234567890 ';
+select id, hex(info) from tbinary where info='1234567890 \0\0\0\0\0';
+select id, hex(info) from tbinary where info='诚招加盟商';
+select id, hex(info) from tbinary where info='诚招加盟商\0';
+select id, hex(info) from tbinary where info='asdfghjASDFGH';
+select id, hex(info) from tbinary where info='asdfghjASDFGH\0\0\0';
+select id, hex(info) from tbinary where info=0xaabbccddeeff00;
+select id, hex(info) from tbinary where info=0xaabbccddeeff00000000000000000000;
+select id, hex(info) from tbinary where info like 1234567890;
+select id, hex(info) from tbinary where info like '1234567890';
+select id, hex(info) from tbinary where info like '1234567890\0\0\0\0\0\0';
+select id, hex(info) from tbinary where info like 'asdfghjASDFGH';
+select id, hex(info) from tbinary where info like 'asdfghjASDFGH\0\0\0';
+select id, hex(info) from tbinary where info like 0xaabbccddeeff00;
+select id, hex(info) from tbinary where info like 0xaabbccddeeff00000000000000000000;
+select id, hex(info) from tbinary where info is null;
+
+--echo # Test VARBINARY type
+select id, hex(info) from tvarbinary where info=1234567890;
+select id, hex(info) from tvarbinary where info='1234567890';
+select id, hex(info) from tvarbinary where info='1234567890 ';
+select id, hex(info) from tvarbinary where info='诚招加盟商';
+select id, hex(info) from tvarbinary where info='asdfghjASDFGH';
+select id, hex(info) from tvarbinary where info=0xaabbccddeeff00;
+select id, hex(info) from tvarbinary where info like 'asdfghjASDFGH';
+select id, hex(info) from tvarbinary where info like 1234567890;
+select id, hex(info) from tvarbinary where info like '1234567890';
+select id, hex(info) from tvarbinary where info like '1234567890 ';
+select id, hex(info) from tvarbinary where info like 0xaabbccddeeff00;
+select id, hex(info) from tvarbinary where info is null;
+
+--echo # Test TINYBLOB type
+select id, hex(info) from ttinyblob where info is NULL;
+select id, hex(info) from ttinyblob where info=1234567890;
+select id, hex(info) from ttinyblob where info='1234567890';
+select id, hex(info) from ttinyblob where info='1234567890  ';
+select id, hex(info) from ttinyblob where info = '诚招加盟商加盟诚招加盟商加盟';
+select id, hex(info) from ttinyblob where info=0x00112233445566778899aabbccddeeff;
+select id, hex(info) from ttinyblob where info like '诚招加盟商加盟诚招加盟商加盟';
+select id, hex(info) from ttinyblob where info like 'qwertyuiopQWERTYUIO%';
+select id, hex(info) from ttinyblob where info like 0x00112233445566778899aabbccddeeff;
+
+--echo # Test BLOB type
+select id, hex(info) from tblob where info is NULL;
+select id, hex(info) from tblob where info=1234567890;
+select id, hex(info) from tblob where info='1234567890';
+select id, hex(info) from tblob where info='1234567890  ';
+select id, hex(info) from tblob where info = '诚招加盟商加盟诚招加盟商加盟';
+select id, hex(info) from tblob where info=0x00112233445566778899aabbccddeeff;
+select id, hex(info) from tblob where info like '诚招加盟商加盟诚招加盟商加盟';
+select id, hex(info) from tblob where info like 'qwertyuiopQWERTYUIO%';
+select id, hex(info) from tblob where info like 0x00112233445566778899aabbccddeeff;
+
+--echo # Test MEDIUMBLOB type
+select id, hex(info) from tmediumblob where info is NULL;
+select id, hex(info) from tmediumblob where info=1234567890;
+select id, hex(info) from tmediumblob where info='1234567890';
+select id, hex(info) from tmediumblob where info='1234567890  ';
+select id, hex(info) from tmediumblob where info = '诚招加盟商加盟诚招加盟商加盟';
+select id, hex(info) from tmediumblob where info=0x00112233445566778899aabbccddeeff;
+select id, hex(info) from tmediumblob where info like '诚招加盟商加盟诚招加盟商加盟';
+select id, hex(info) from tmediumblob where info like 'qwertyuiopQWERTYUIO%';
+select id, hex(info) from tmediumblob where info like 0x00112233445566778899aabbccddeeff;
+
+--echo # Test LONGBLOB type
+select id, hex(info) from tlongblob where info is NULL;
+select id, hex(info) from tlongblob where info=1234567890;
+select id, hex(info) from tlongblob where info='1234567890';
+select id, hex(info) from tlongblob where info='1234567890  ';
+select id, hex(info) from tlongblob where info = '诚招加盟商加盟诚招加盟商加盟';
+select id, hex(info) from tlongblob where info=0x00112233445566778899aabbccddeeff;
+select id, hex(info) from tlongblob where info like '诚招加盟商加盟诚招加盟商加盟';
+select id, hex(info) from tlongblob where info like 'qwertyuiopQWERTYUIO%';
+select id, hex(info) from tlongblob where info like 0x00112233445566778899aabbccddeeff;
+
+--echo # Test TINYTEXT type
+select id, hex(info) from ttinytext where info is NULL;
+select id, hex(info) from ttinytext where info=1234567890;
+select id, hex(info) from ttinytext where info='1234567890';
+select id, hex(info) from ttinytext where info='1234567890  ';
+select id, hex(info) from ttinytext where info = '诚招加盟商加盟诚招加盟商加盟';
+select id, hex(info) from ttinytext where info like '诚招加盟商加盟诚招加盟商加盟';
+select id, hex(info) from ttinytext where info like 'qwertyuiopQWERTYUIO%';
+
+--echo # Test TEXT type
+select id, hex(info) from ttext where info is NULL;
+select id, hex(info) from ttext where info=1234567890;
+select id, hex(info) from ttext where info='1234567890';
+select id, hex(info) from ttext where info='1234567890  ';
+select id, hex(info) from ttext where info = '诚招加盟商加盟诚招加盟商加盟';
+select id, hex(info) from ttext where info like '诚招加盟商加盟诚招加盟商加盟';
+select id, hex(info) from ttext where info like 'qwertyuiopQWERTYUIO%';
+
+--echo # Test MEDIUMTEXT type
+select id, hex(info) from tmediumtext where info is NULL;
+select id, hex(info) from tmediumtext where info=1234567890;
+select id, hex(info) from tmediumtext where info='1234567890';
+select id, hex(info) from tmediumtext where info='1234567890  ';
+select id, hex(info) from tmediumtext where info = '诚招加盟商加盟诚招加盟商加盟';
+select id, hex(info) from tmediumtext where info like '诚招加盟商加盟诚招加盟商加盟';
+select id, hex(info) from tmediumtext where info like 'qwertyuiopQWERTYUIO%';
+
+--echo # Test LONGTEXT type
+select id, hex(info) from tlongtext where info is NULL;
+select id, hex(info) from tlongtext where info=1234567890;
+select id, hex(info) from tlongtext where info='1234567890';
+select id, hex(info) from tlongtext where info='1234567890  ';
+select id, hex(info) from tlongtext where info = '诚招加盟商加盟诚招加盟商加盟';
+select id, hex(info) from tlongtext where info like '诚招加盟商加盟诚招加盟商加盟';
+select id, hex(info) from tlongtext where info like 'qwertyuiopQWERTYUIO%';
+
+set global eloq_report_debug_info=0;
+drop table tbinary, tvarbinary, ttinyblob, tblob, tmediumblob, tlongblob, ttinytext, ttext, tmediumtext, tlongtext;
+
+--echo ##
+--echo ## Test NO PAD collation
+--echo ##
+set names utf8;
+create table tvarcharnopad (id int, info varchar(16) collate utf8_nopad_bin) character set utf8;
+show create table tvarcharnopad;
+create table tvarchar (id int, info varchar(16) collate utf8_bin) character set utf8;
+show create table tvarchar;
+
+create table tmediumtextnopad (id int, info mediumtext collate utf8_nopad_bin) character set utf8;
+show create table tmediumtextnopad;
+create table tmediumtext (id int, info mediumtext collate utf8_bin) character set utf8;
+show create table tmediumtext;
+
+create table tchar (id int, info char(32) collate utf8_bin) character set utf8;
+show create table tchar;
+create table tcharnopad (id int, info char(32) collate utf8_nopad_bin) character set utf8;
+show create table tcharnopad;
+
+insert into tvarcharnopad values (1, 'qwertASDFG'),(2, 'qwertASDFG  '),(3, '诚招加盟商加盟'),(4, '诚招加盟商加盟  ');
+select id, info, hex(info) from tvarcharnopad;
+insert into tvarchar values (1, 'qwertASDFG'),(2, 'qwertASDFG  '),(3, '诚招加盟商加盟'),(4, '诚招加盟商加盟  ');
+select id, info, hex(info) from tvarchar;
+
+insert into tmediumtextnopad values (1, 'qwertASDFG'),(2, 'qwertASDFG  '),(3, '诚招加盟商加盟'),(4, '诚招加盟商加盟  ');
+select id, info, hex(info) from tmediumtextnopad; 
+insert into tmediumtext values (1, 'qwertASDFG'),(2, 'qwertASDFG  '),(3, '诚招加盟商加盟'),(4, '诚招加盟商加盟  ');
+select id, info, hex(info) from tmediumtext;
+
+insert into tchar values (1, 'qwertASDFG'),(2,'qwertASDFG  '),(3, '诚招加盟商加盟'), (4, '诚招加盟商加盟  ');
+select id, info, hex(info) from tchar;
+insert into tcharnopad values (1, 'qwertASDFG'),(2,'qwertASDFG  '),(3, '诚招加盟商加盟'), (4, '诚招加盟商加盟  ');
+select id, info, hex(info) from tcharnopad;
+
+# restart server
+--source include/restart_mysqld.inc
+set global eloq_report_debug_info=1;
+
+SET @old_cs_client = @@character_set_client;
+SET @old_cs_results = @@character_set_results;
+SET @old_cs_connection = @@character_set_connection;
+set names utf8;
+
+--echo # VARCHAR type
+select id, info, hex(info) from tvarcharnopad where info='qwertASDFG';
+select id, info, hex(info) from tvarcharnopad where info='诚招加盟商加盟  ';
+select id, info, hex(info) from tvarchar where info='qwertASDFG';
+select id, info, hex(info) from tvarchar where info='诚招加盟商加盟  ';
+--echo # TEXT type
+select id, info, hex(info) from tmediumtextnopad where info='qwertASDFG';
+select id, info, hex(info) from tmediumtextnopad where info='诚招加盟商加盟  ';
+select id, info, hex(info) from tmediumtext where info='qwertASDFG';
+select id, info, hex(info) from tmediumtext where info='诚招加盟商加盟  ';
+
+--echo ##
+--echo ## Test PAD_CHAR_TO_FULL_LENGTH with NO PAD
+--echo ##
+select @@session.sql_mode;
+
+select id, info, hex(info) from tchar where info='qwertASDFG';
+select id, info, hex(info) from tchar where info='诚招加盟商加盟  ';
+
+select id, info, hex(info) from tcharnopad where info='qwertASDFG';
+select id, info, hex(info) from tcharnopad where info='诚招加盟商加盟  ';
+
+--echo # With PAD_CHAR_TO_FULL_LENGTH
+set @old_sql_mode=@@session.sql_mode;
+set @@session.sql_mode='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION,PAD_CHAR_TO_FULL_LENGTH';
+
+select id, info, hex(info) from tchar where info='qwertASDFG';
+select id, info, hex(info) from tchar where info='诚招加盟商加盟  ';
+
+select id, info, hex(info) from tcharnopad where info='qwertASDFG';
+select id, info, hex(info) from tcharnopad where info='qwertASDFG                      ';
+
+select id, info, hex(info) from tcharnopad where info='诚招加盟商加盟  ';
+select id, info, hex(info) from tcharnopad where info='诚招加盟商加盟                         ';
+
+# clean up
+set global eloq_report_debug_info=0;
+set @@session.sql_mode=@old_sql_mode;
+SET character_set_client = @old_cs_client;
+SET character_set_results = @old_cs_results;
+SET character_set_connection = @old_cs_connection;
+drop table tvarcharnopad, tvarchar, tmediumtextnopad, tmediumtext, tchar, tcharnopad;

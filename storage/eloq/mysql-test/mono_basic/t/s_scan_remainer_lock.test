@@ -1,0 +1,30 @@
+--source include/have_eloq.inc
+set @@default_storage_engine= eloq;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+create table t1(i int primary key auto_increment, j int)engine=eloq;
+--let $count = 1
+while ($count < 200)
+{
+    insert into t1 values(null, 1);
+    --inc $count
+}
+select * from t1;
+
+#To test when scan a table, the locks of remainder records will be release
+# and do not affect other transcations.
+begin;
+update t1 set j=2 where i<=100;
+
+--connect (con1,localhost,root,,test,$MONO1_PORT)
+begin;
+update t1 set j=3 where i>100;
+commit;
+
+--connection default
+commit;
+select * from t1;
+drop table t1;

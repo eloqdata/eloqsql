@@ -1,0 +1,28 @@
+--source include/have_eloq.inc
+set @@default_storage_engine=eloq;
+
+--let $mono_server_count=3
+--source include/mono_init.inc
+
+# Connect to serv1: Create and call procedure proc1 on table t1
+--connection serv_1
+CREATE TABLE t1 (id INT);
+DELIMITER $$;
+CREATE PROCEDURE proc1 (OUT cnt INT) COMMENT 'comment1' BEGIN SELECT COUNT(*) INTO cnt FROM t1; END$$
+DELIMITER ;$$
+SELECT routine_name FROM information_schema.routines WHERE routine_type='PROCEDURE' AND routine_name='proc1';
+INSERT INTO t1 VALUES (1), (2), (3);
+CALL proc1(@cnt);
+SELECT @cnt;
+
+# Connect to serv2: Drop procedure proc1
+--connection serv_2
+DROP PROCEDURE proc1;
+
+# Connect to serv1: Call procedure proc1
+--connection serv_1
+SELECT routine_name FROM information_schema.routines WHERE routine_type='PROCEDURE' AND routine_name='proc1';
+--error ER_SP_DOES_NOT_EXIST
+CALL proc1(@cnt);
+
+DROP TABLE t1;

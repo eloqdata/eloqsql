@@ -1,0 +1,41 @@
+--source include/have_eloq.inc
+set @@default_storage_engine=eloq;
+
+--let $mono_server_count=3
+--source include/mono_init.inc
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+# Connect to serv1: Create view v1 on table t1
+--connection serv_1
+CREATE TABLE t1 (
+    id INT PRIMARY KEY, create_time DATETIME(3) NOT NULL
+) ENGINE=eloq;
+
+CREATE VIEW v1 AS
+    SELECT * FROM t1 WHERE create_time > "2022-5-24" ORDER BY create_time DESC;
+    
+INSERT INTO t1 values
+    (100000, "2022-05-20 08:01:02.123"),
+    (100001, "2022-05-21 08:01:02.123"),
+    (100002, "2022-05-22 08:01:02.123"),
+    (100003, "2022-05-23 08:01:02.123"),
+    (100004, "2022-05-24 08:01:02.123"),
+    (100005, "2022-05-25 08:01:02.123"),
+    (100006, "2022-05-26 08:01:02.123");
+
+SELECT * FROM v1;
+
+# Connect to serv2: Alter view v1
+--connection serv_2
+ALTER VIEW v1 AS
+    SELECT * FROM t1 WHERE create_time < "2022-5-24" ORDER BY create_time DESC;
+
+# Connect to serv1: Select v1
+--connection serv_1
+SELECT * FROM v1;
+
+DROP VIEW v1;
+DROP TABLE t1;

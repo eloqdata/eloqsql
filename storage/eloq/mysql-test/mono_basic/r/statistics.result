@@ -1,0 +1,36 @@
+DROP DATABASE IF EXISTS db1;
+set @@default_storage_engine= eloq;
+CREATE DATABASE IF NOT EXISTS db1;
+CREATE TABLE t1 (i INT, j CHAR(4), k DATETIME, UNIQUE u_ijk(i, j, k));
+INSERT INTO t1 VALUES (0, 'a', "2023-11-20");
+INSERT INTO t1 VALUES (1, 'c', "2023-11-21");
+INSERT INTO t1 VALUES (2, 'd', "2023-11-22");
+INSERT INTO t1 VALUES (3, 'e', "2023-11-23");
+INSERT INTO t1 VALUES (4, 'f', "2023-11-24");
+INSERT INTO t1 VALUES (5, 'g', "2023-11-25");
+EXPLAIN SELECT * FROM t1 WHERE i BETWEEN 1 AND 4 AND k BETWEEN "2023-11-22" AND "2023-11-24";
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	range	u_ijk	u_ijk	5	NULL	#	Using where; Using index
+SELECT * FROM t1 WHERE i BETWEEN 1 AND 4 AND k BETWEEN "2023-11-22" AND "2023-11-24";
+i	j	k
+2	d	2023-11-22 00:00:00
+3	e	2023-11-23 00:00:00
+4	f	2023-11-24 00:00:00
+DROP TABLE t1;
+CREATE TABLE t1 (i INT, j CHAR(4), k DATETIME, KEY k_ijk(i, j, k));
+INSERT INTO t1 VALUES (0, 'a', "2023-11-20");
+INSERT INTO t1 VALUES (1, 'c', "2023-11-21");
+INSERT INTO t1 VALUES (2, 'd', "2023-11-22");
+INSERT INTO t1 VALUES (3, 'e', "2023-11-23");
+INSERT INTO t1 VALUES (4, 'f', "2023-11-24");
+INSERT INTO t1 VALUES (5, 'g', "2023-11-25");
+EXPLAIN SELECT * FROM t1 WHERE i BETWEEN 1 AND 4 AND k BETWEEN "2023-11-22" AND "2023-11-24";
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	range	k_ijk	k_ijk	5	NULL	#	Using where; Using index
+SELECT * FROM t1 WHERE i BETWEEN 1 AND 4 AND k BETWEEN "2023-11-22" AND "2023-11-24";
+i	j	k
+2	d	2023-11-22 00:00:00
+3	e	2023-11-23 00:00:00
+4	f	2023-11-24 00:00:00
+DROP TABLE t1;
+DROP DATABASE IF EXISTS db1;

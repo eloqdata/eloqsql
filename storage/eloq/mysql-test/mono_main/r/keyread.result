@@ -1,0 +1,9 @@
+create table t1 (f1 int not null, f2 int, f3 int, primary key (f1,f2), key(f2,f3)) engine=eloq;
+create view v1 as select * from t1 where f2 = 1;
+select distinct f1 from v1;
+f1
+drop view v1;
+drop table t1;
+CREATE TABLE t1 (a CHAR KEY,b BLOB) ENGINE=ELOQ;
+DELETE FROM t1 ORDER BY a LIMIT 1;
+DROP TABLE t1;

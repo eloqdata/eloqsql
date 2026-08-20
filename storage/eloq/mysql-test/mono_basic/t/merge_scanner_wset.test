@@ -1,0 +1,24 @@
+--source include/have_eloq.inc
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+SET @orig_eloq_random_scan_sort=@@eloq_random_scan_sort;
+SET GLOBAL eloq_random_scan_sort=OFF;
+SELECT @@eloq_random_scan_sort;
+
+CREATE TABLE t1 (i INT PRIMARY KEY, j INT) ENGINE=eloq;
+INSERT INTO t1 VALUES (1, 1), (2, 2), (3, 3), (4, 4), (5, 5);
+
+START TRANSACTION;
+UPDATE t1 SET j=j*10 WHERE i BETWEEN 3 AND 5;
+
+# Because WriteSet is not empty, the transaction should merge sort WriteSet and ScanScanner.
+SELECT count(*) FROM t1;
+SELECT * FROM t1;
+COMMIT;
+
+SET GLOBAL eloq_random_scan_sort=@orig_eloq_random_scan_sort;
+SELECT @@eloq_random_scan_sort;
+DROP TABLE t1;

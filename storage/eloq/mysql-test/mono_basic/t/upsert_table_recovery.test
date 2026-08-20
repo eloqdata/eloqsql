@@ -1,0 +1,17 @@
+--source include/have_eloq.inc
+
+--disable_warnings
+DROP DATABASE IF EXISTS db1;
+--enable_warnings
+--enable_info
+set @@default_storage_engine= eloq;
+
+# Crash after commit_log and before post_all_lock.
+SET SESSION debug_dbug="+d,eloq;upsert_table_post_all_lock;node_id=-1";
+
+CREATE TABLE t1(i INT);
+--source include/restart_mysqld.inc
+SELECT COUNT(*) FROM t1;
+
+DROP TABLE t1;
+--disable_info

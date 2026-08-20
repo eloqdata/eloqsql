@@ -1,0 +1,47 @@
+DROP DATABASE IF EXISTS mono_test;
+set @@default_storage_engine= eloq;
+affected rows: 0
+CREATE DATABASE IF NOT EXISTS mono_test;
+affected rows: 1
+USE mono_test;
+affected rows: 0
+SET SESSION debug_dbug="+d,eloq;upsert_table_post_all_lock;node_id=-1";
+affected rows: 0
+CREATE TABLE t1(i INT);
+affected rows: 0
+affected rows: 0
+# restart
+USE mono_test;
+affected rows: 0
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+0
+affected rows: 1
+# Test create table with auto increment
+SET SESSION debug_dbug="+d,eloq;upsert_table_crash_after_prepare_log;node_id=-1;action=panic";
+affected rows: 0
+CREATE TABLE t2(a INT AUTO_INCREMENT PRIMARY KEY, b INT);
+ERROR HY000: Lost connection to server during query
+USE mono_test;
+affected rows: 0
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `a` int(11) NOT NULL AUTO_INCREMENT,
+  `b` int(11) DEFAULT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+affected rows: 1
+INSERT INTO t2 (b) VALUES (11),(22),(33);
+affected rows: 3
+info: Records: 3  Duplicates: 0  Warnings: 0
+SELECT * FROM t2;
+a	b
+1	11
+2	22
+3	33
+affected rows: 3
+DROP TABLE t1,t2;
+affected rows: 0
+DROP DATABASE mono_test;
+affected rows: 0

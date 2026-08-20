@@ -14,12 +14,12 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1335 USA
 
 
-INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/include)
+INCLUDE_DIRECTORIES(${ELOQSQL_SOURCE_DIR}/include)
 
 IF (WIN32)
   ADD_EXECUTABLE(my_safe_process safe_process_win.cc)
   ADD_EXECUTABLE(my_safe_kill safe_kill_win.cc)
-  TARGET_INCLUDE_DIRECTORIES(my_safe_kill PRIVATE ${CMAKE_SOURCE_DIR}/include)
+  TARGET_INCLUDE_DIRECTORIES(my_safe_kill PRIVATE ${ELOQSQL_SOURCE_DIR}/include)
   TARGET_LINK_LIBRARIES(my_safe_kill mysys psapi)
 ELSE()
   ADD_EXECUTABLE(my_safe_process safe_process.cc)

@@ -1,0 +1,40 @@
+call mtr.add_suppression("Error reading file './test/t1.frm'");
+DROP TABLE IF EXISTS t1,t2;
+CREATE TABLE t1 (id int, name char(16), data int, key idx_d (data)) ENGINE=eloq;
+INSERT INTO t1 VALUES (1,'abc', 10),(2,'xyz', 20);
+#
+# Test ALTER TABLE
+ALTER TABLE t1 add column address char(8) not null;
+ERROR 42000: The storage engine for the table doesn't support ALTER TABLE
+#
+# Test LOCK TABLES
+LOCK TABLES t1 read;
+ERROR 42000: The storage engine for the table doesn't support LOCK TABLE[S]
+#
+# Test RENAME
+RENAME TABLE t1 to t2;
+ERROR 42000: The storage engine for the table doesn't support RENAME TABLE
+#
+# Test CHECKSUM
+CHECKSUM TABLE t1;
+Table	Checksum
+test.t1	NULL
+Warnings:
+Error	1178	The storage engine for the table doesn't support CHECKSUM TABLE
+Error	1031	Storage engine ELOQ of the table `test`.`t1` doesn't have this option
+#
+# Test TRUNCATE
+TRUNCATE t1;
+ERROR 42000: The storage engine for the table doesn't support TRUNCATE
+#
+# Test UNIQUE
+CREATE TABLE t2 (id int, number int unique);
+INSERT INTO t2 VALUES (1, 10),(2, 20);
+DROP TABLE t2;
+CREATE TABLE t2 (id int, number int, unique index idx_number (number));
+INSERT INTO t2 VALUES (1, 10),(2, 20);
+DROP TABLE t2;
+CREATE TABLE t2 (id int, c1 int, c2 int, unique idx_c1c2 (c1,c2) );
+INSERT INTO t2 VALUES (1, 10, 100),(2, 20, 200);
+DROP TABLE t2;
+DROP TABLE t1;

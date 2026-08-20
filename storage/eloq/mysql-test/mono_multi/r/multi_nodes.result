@@ -1,0 +1,32 @@
+set @@default_storage_engine= eloq;
+include/mono_init.inc
+DROP TABLE IF EXISTS t2;
+create table t2(i int primary key, j int);
+insert into t2 values(1,1);
+connection serv_2;
+select * from t2;
+i	j
+1	1
+Begin;
+update t2 set j=2;
+connection serv_1;
+select * from t2;
+i	j
+1	1
+connection serv_2;
+commit;
+connection serv_1;
+select * from t2;
+i	j
+1	2
+Begin;
+update t2 set j=3;
+connection serv_3;
+# restart
+connection serv_1;
+commit;
+ERROR HY000: Eloq: failed to commit transaction. try restarting transaction. OCC break repeatable read isolation level.
+select * from t2;
+i	j
+1	2
+drop table t2;

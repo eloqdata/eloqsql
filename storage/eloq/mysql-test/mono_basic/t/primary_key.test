@@ -1,0 +1,35 @@
+--source include/have_eloq.inc
+
+# test auto_incre primary key. it will bypass unique key check if 
+# the pk value is auto gnerated. Otherwise unique check will be
+# executed when specifying pk value explictly.
+create table tp1(f0 int primary key auto_increment, f1 int, f2 int);
+insert into tp1(f1,f2) values(1,1);
+insert into tp1(f1,f2) values(1,1);
+insert into tp1(f0,f1,f2) values(10,1,1);
+insert into tp1(f1,f2) values(1,1);
+# In this version, eloq will ingore the input for increment field,
+# so below insert will succeed
+insert into tp1(f0,f1,f2) values(10,1,1);
+select * from tp1 order by f0;
+
+create table tp2(f0 int primary key, f1 int auto_increment, f2 int, KEY(f1));
+insert into tp2(f0,f2) values(1,1);
+insert into tp2(f0,f2) values(2,2);
+insert into tp2(f0,f1,f2) values(3,10,3);
+insert into tp2(f0,f2) values(4,4);
+# fail due to duplicate primary key
+--error ER_DUP_ENTRY
+insert into tp2(f0,f2) values(1,1);
+select * from tp2 order by f0;
+
+# test uuid primary key. uuid will bypass primary key unique check.
+create table tp3(f1 int, f2 int);
+insert into tp3(f1,f2) values(1,1);
+insert into tp3(f1,f2) values(1,1);
+insert into tp3(f1,f2) values(1,1);
+select f1,f2 from tp3;
+
+drop table tp1;
+drop table tp2;
+drop table tp3;

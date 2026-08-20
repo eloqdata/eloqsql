@@ -1,0 +1,19 @@
+
+# Use default setting for mysqld processes
+!include include/default_mysqld.cnf
+!include include/default_client.cnf
+
+!include include/eloq_kv_keyspace.cnf
+
+
+[mysqld]
+plugin-maturity=experimental
+default-storage-engine=eloq
+skip-log-bin
+eloq_config = @ENV.MYSQLTEST_VARDIR/../../../storage/eloq/mysql-test/mono_basic/data_substrate.cnf
+
+[mysqld.1]
+
+[ENV]
+MONO1_PORT=              @mysqld.1.port
+MONO1_SOCK=              @mysqld.1.socket

@@ -1,0 +1,81 @@
+--source include/have_eloq.inc
+#set @@default_storage_engine= eloq;
+#--source include/have_innodb.inc
+#set default_storage_engine=InnoDB;
+set session transaction isolation level READ COMMITTED;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+--enable_warnings
+
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(1,1);
+select * from t1;
+show create table t1;
+
+Begin;
+insert into t1 values(2,2);
+select * from t1;
+
+Rollback;
+select * from t1;
+
+Begin;
+insert into t1 values(2,2);
+select * from t1;
+
+commit;
+select * from t1;
+
+drop table t1;
+# Expected error, https://dev.mysql.com/doc/dev/mysql-server/latest/PAGE_CHECK_EXPECTED_ERRORS.html
+--error ER_NO_SUCH_TABLE
+select * from t1;
+
+create table t1(i int primary key, j int) engine=eloq;
+# "send" indicate following statemnet will run in background and it will return directly.
+# It must have "reap" to receive the messages in same connection. In the middle you can
+# change to other connection and run statements.
+--send insert into t1 values(1,1);
+
+--connect (con1,localhost,root,,test,$MONO1_PORT)
+set session transaction isolation level READ COMMITTED;
+# wait_condition = sleep, but it is more flexible and can wait less time than sleep.
+--let $wait_condition= SELECT count(*)>0 FROM t1
+--source include/wait_condition.inc
+
+select * from t1;
+
+--connection default
+reap;
+
+Begin;
+update t1 set j=2;
+
+--connection con1
+select * from t1;
+--error 213
+update t1 set j=3;  # error, because ReadForWrite also acquire WriteIntent under OCC, but not blocked if fail.
+
+--connection default
+select * from t1;
+commit;
+select * from t1;
+
+--connection con1
+drop table t1;
+
+#Test restart mysqld: https://dev.mysql.com/doc/dev/mysql-server/latest/PAGE_STOPPING_AND_RESTARTING_SERVER_DURING_TEST.html
+create table t1(i int primary key, j int) engine=eloq;
+create table t2(i int primary key, j int) engine=eloq;
+begin;
+insert into t1 values(1,1);
+insert into t2 values(2,2);
+commit;
+#--source include/restart_mysqld.inc
+select * from t1;
+select * from t2;
+
+drop table t1;
+drop table t2;

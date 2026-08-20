@@ -1,0 +1,66 @@
+--source include/have_eloq.inc
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+create table t1(i int primary key auto_increment, j int)engine=eloq;
+insert into t1 values(null, 1);
+select * from t1;
+
+--connect (con1,localhost,root,,test,$MONO1_PORT)
+insert into t1 values(null, 2);
+select * from t1;
+
+--connection default
+select * from t1;
+
+--let $count = 1
+
+while ($count < 260)
+{
+    insert into t1 values(null, 3);
+    --inc $count
+}
+
+select * from t1;
+delete from t1;
+
+begin;
+insert into t1 values(null, 4);
+insert into t1 values(null, 4);
+insert into t1 values(null, 4);
+insert into t1 values(null, 4);
+select * from t1;
+rollback;
+
+select * from t1;
+insert into t1 values(null, 5);
+select * from t1;
+
+--source include/restart_mysqld.inc
+select * from t1;
+insert into t1 values(null, 6);
+select * from t1;
+
+drop table t1;
+
+
+#Below code test if the id restart from 1 after recreate the table
+create table t1(i int primary key auto_increment, j int)engine=eloq;
+insert into t1 values(null, 6);
+insert into t1 values(null, 6);
+insert into t1 values(null, 6);
+select * from t1;
+drop table t1;
+
+create table t1(i int primary key auto_increment, j int)engine=eloq;
+set global eloq_auto_increment="table_name=t1;offset=10000;increment=15;range=1024";
+set global eloq_auto_increment="table_name=t1;offset=5000";
+insert into t1 values(null, 7);
+select * from t1;
+
+--error 1231
+set global eloq_auto_increment="table_name=t1;offset=6000";
+set global eloq_auto_increment="";
+drop table t1;

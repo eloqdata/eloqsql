@@ -1,0 +1,79 @@
+set session transaction isolation level READ COMMITTED;
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(1,1);
+select * from t1;
+i	j
+1	1
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `i` int(11) NOT NULL,
+  `j` int(11) DEFAULT NULL,
+  PRIMARY KEY (`i`)
+) ENGINE=ELOQ DEFAULT CHARSET=latin1
+Begin;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+1	1
+2	2
+Rollback;
+select * from t1;
+i	j
+1	1
+Begin;
+insert into t1 values(2,2);
+select * from t1;
+i	j
+1	1
+2	2
+commit;
+select * from t1;
+i	j
+1	1
+2	2
+drop table t1;
+select * from t1;
+ERROR 42S02: Table 'test.t1' doesn't exist
+create table t1(i int primary key, j int) engine=eloq;
+insert into t1 values(1,1);;
+connect  con1,localhost,root,,test,$MONO1_PORT;
+set session transaction isolation level READ COMMITTED;
+select * from t1;
+i	j
+1	1
+connection default;
+Begin;
+update t1 set j=2;
+connection con1;
+select * from t1;
+i	j
+1	1
+update t1 set j=3;
+ERROR HY000: Eloq: failed due to write/write conflict. try restarting transaction.
+connection default;
+select * from t1;
+i	j
+1	2
+commit;
+select * from t1;
+i	j
+1	2
+connection con1;
+drop table t1;
+create table t1(i int primary key, j int) engine=eloq;
+create table t2(i int primary key, j int) engine=eloq;
+begin;
+insert into t1 values(1,1);
+insert into t2 values(2,2);
+commit;
+select * from t1;
+i	j
+1	1
+select * from t2;
+i	j
+2	2
+drop table t1;
+drop table t2;

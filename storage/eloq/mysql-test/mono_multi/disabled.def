@@ -1,0 +1,15 @@
+##############################################################################
+#
+#  List the test cases that are to be disabled temporarily.
+#
+#  Separate the test case name and the comment with ':'.
+#
+#    <testcasename> : BUG#<xxxx> <date disabled> <disabler> <comment>
+#
+#  Do not use any TAB characters for whitespace.
+#
+##############################################################################
+#create_table_flush_kv_fail : disable temporarily
+recover_uncommitted_tx : disable temporarily
+fault_inject_for_upsert_2 : disable due to unstable results
+recover_timeout : disable due to log fault inject is separate from txservice
