@@ -26,13 +26,17 @@ ln -s $WORKSPACE/eloqsql_src eloqsql
 ln -s $WORKSPACE/eloq_test_src eloq_test
 
 cd /home/$current_user/workspace/eloqsql
-git submodule sync
-git submodule update --init --recursive
+bash scripts/checkout_product_submodules.sh
 
-cd /home/$current_user/workspace/eloqsql/data_substrate
-ln -s $WORKSPACE/logservice_src eloq_log_service
-cd tx_service
-ln -s $WORKSPACE/raft_host_manager_src raft_host_manager
+if [ -f "/opt/eloq/third_party/share/eloq/third-party-manifest.yml" ]; then
+    export ELOQ_THIRD_PARTY_PREFIX=/opt/eloq/third_party
+elif [ -f "data_substrate/third_party/install/share/eloq/third-party-manifest.yml" ]; then
+    export ELOQ_THIRD_PARTY_PREFIX="${PWD}/data_substrate/third_party/install"
+fi
+if [ -n "${ELOQ_THIRD_PARTY_PREFIX:-}" ]; then
+    export CMAKE_PREFIX_PATH="${ELOQ_THIRD_PARTY_PREFIX}${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}"
+    export LD_LIBRARY_PATH="${ELOQ_THIRD_PARTY_PREFIX}/lib:${ELOQ_THIRD_PARTY_PREFIX}/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+fi
 
 # setup mc command
 # minio_server_alias will be used by mtr script for clean up mimio bucket
@@ -131,8 +135,9 @@ if [ ! -f "Makefile" ]; then
           -DWITH_DATA_STORE=ELOQDSS_ELOQSTORE \
           -DOPEN_LOG_SERVICE=OFF \
           -DFORK_HM_PROCESS=ON \
-	  -DWITH_LOG_STATE=ROCKSDB_CLOUD_S3 \
-      -DELOQ_MODULE_ENABLED=ON \
+          -DWITH_LOG_STATE=ROCKSDB_CLOUD_S3 \
+          -DELOQ_MODULE_ENABLED=ON \
+          ${ELOQ_THIRD_PARTY_PREFIX:+-DELOQ_THIRD_PARTY_PREFIX=${ELOQ_THIRD_PARTY_PREFIX} -DELOQ_THIRD_PARTY_REQUIRED=ON} \
           ../
 fi
 
@@ -153,7 +158,7 @@ echo "installing dss_server"
 cp dss_server /home/$current_user/workspace/eloqsql/install/bin/
 
 echo "building log_server"
-cd /home/$current_user/workspace/eloqsql/data_substrate/log_service
+cd /home/$current_user/workspace/eloqsql/data_substrate/eloq_log_service
 mkdir bld && cd bld
 cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DWITH_LOG_STATE=ROCKSDB_CLOUD_S3 ../
 cmake --build . --config Debug -j8

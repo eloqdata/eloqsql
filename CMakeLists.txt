@@ -43,6 +43,27 @@ MESSAGE(STATUS "Running cmake version ${CMAKE_VERSION}")
 # Option to build as library for converged binary
 option(BUILD_ELOQSQL_AS_LIBRARY "Build eloqsql as library instead of executable" OFF)
 
+# These options are consumed by both storage/eloq and Data Substrate. Declare
+# them before either subdirectory is configured so a fresh build generates
+# consistent compile definitions on its first CMake pass.
+OPTION(ELOQ_MODULE_ENABLED "Register the tx service as an ELOQ module" ON)
+OPTION(EXT_TX_PROC_ENABLED
+  "Allow external threads to move the tx service forward" ON)
+
+# ELOQ modules are driven by external processors and access coordinator state
+# that is compiled only when EXT_TX_PROC_ENABLED is enabled.
+IF(ELOQ_MODULE_ENABLED AND NOT EXT_TX_PROC_ENABLED)
+  MESSAGE(FATAL_ERROR
+    "ELOQ_MODULE_ENABLED requires EXT_TX_PROC_ENABLED=ON")
+ENDIF()
+
+# Product submodules are initialized explicitly by
+# scripts/checkout_product_submodules.sh. Prevent EloqStore from launching a
+# recursive Git update during CMake configuration, which would also bypass the
+# Data Substrate workspace's selective checkout policy.
+SET(GIT_SUBMODULE OFF CACHE BOOL
+  "Update nested Git submodules during CMake configuration" FORCE)
+
 # IF(BUILD_ELOQSQL_AS_LIBRARY)
   SET(ELOQSQL_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
   SET(ELOQSQL_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
@@ -50,6 +71,56 @@ option(BUILD_ELOQSQL_AS_LIBRARY "Build eloqsql as library instead of executable"
 
 SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}
   ${ELOQSQL_SOURCE_DIR}/cmake ${ELOQSQL_SOURCE_DIR}/cmake/Internal/CPack)
+
+# Prefer the dependency workspace owned by Data Substrate. The second path is
+# used when EloqSQL is built as part of a converged parent project.
+SET(ELOQ_THIRD_PARTY_HELPER_CANDIDATES
+  "${CMAKE_CURRENT_SOURCE_DIR}/data_substrate/cmake/EloqThirdParty.cmake"
+  "${CMAKE_CURRENT_SOURCE_DIR}/../data_substrate/cmake/EloqThirdParty.cmake")
+
+IF(DATA_SUBSTRATE_DIR)
+  SET(ELOQ_THIRD_PARTY_HELPER_CANDIDATES
+    "${DATA_SUBSTRATE_DIR}/cmake/EloqThirdParty.cmake"
+    ${ELOQ_THIRD_PARTY_HELPER_CANDIDATES})
+ENDIF()
+
+FOREACH(ELOQ_THIRD_PARTY_HELPER ${ELOQ_THIRD_PARTY_HELPER_CANDIDATES})
+  IF(EXISTS "${ELOQ_THIRD_PARTY_HELPER}")
+    INCLUDE("${ELOQ_THIRD_PARTY_HELPER}")
+    SET(ELOQ_THIRD_PARTY_HELPER_FOUND TRUE)
+    BREAK()
+  ENDIF()
+ENDFOREACH()
+
+IF(ELOQ_THIRD_PARTY_REQUIRED AND NOT ELOQ_THIRD_PARTY_HELPER_FOUND)
+  MESSAGE(FATAL_ERROR
+    "ELOQ_THIRD_PARTY_REQUIRED is ON, but data_substrate/cmake/EloqThirdParty.cmake was not found")
+ENDIF()
+
+# Data Substrate's host-manager target consumes yaml-cpp through FetchContent.
+# Reuse the manifest-fetched checkout so configuring EloqSQL does not perform a
+# second, out-of-workspace clone.
+IF(ELOQ_THIRD_PARTY_ROOT AND
+   EXISTS "${ELOQ_THIRD_PARTY_ROOT}/src/yaml-cpp/CMakeLists.txt")
+  IF(NOT DEFINED FETCHCONTENT_SOURCE_DIR_YAML-CPP OR
+     "${FETCHCONTENT_SOURCE_DIR_YAML-CPP}" STREQUAL "")
+    SET("FETCHCONTENT_SOURCE_DIR_YAML-CPP"
+      "${ELOQ_THIRD_PARTY_ROOT}/src/yaml-cpp"
+      CACHE PATH "yaml-cpp source managed by the Data Substrate workspace"
+      FORCE)
+  ENDIF()
+ENDIF()
+
+# Keep older Data Substrate revisions usable for downstream/converged builds.
+IF(NOT COMMAND eloq_assert_under_prefix)
+  FUNCTION(eloq_assert_under_prefix path_var description)
+  ENDFUNCTION()
+ENDIF()
+
+IF(NOT COMMAND eloq_assert_target_under_prefix)
+  FUNCTION(eloq_assert_target_under_prefix target description)
+  ENDFUNCTION()
+ENDIF()
 
 # Use a default manufacturer if no manufacturer was identified.
 IF(NOT DEFINED MANUFACTURER) 
@@ -639,4 +710,3 @@ IF(NOT WITHOUT_SERVER AND NOT BUILD_ELOQSQL_AS_LIBRARY)
     WORKING_DIRECTORY ${ELOQSQL_BINARY_DIR}/mysql-test)
   ADD_DEPENDENCIES(smoketest minbuild)
 ENDIF()
-

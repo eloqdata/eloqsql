@@ -30,30 +30,17 @@ ln -s $WORKSPACE/eloqsql_pr eloqsql
 ln -s $WORKSPACE/eloq_test_src eloq_test
 
 cd /home/$current_user/workspace/eloqsql
-git submodule sync
-git submodule update --init --recursive
-pr_branch_name=$(cat .git/resource/metadata.json | jq -r '.[] | select(.name=="head_name") | .value')
+bash scripts/checkout_product_submodules.sh
 
-cd /home/$current_user/workspace/eloqsql/data_substrate
-ln -s $WORKSPACE/logservice_src eloq_log_service
-
-cd eloq_log_service
-if [ -n "$pr_branch_name" ] && git ls-remote --exit-code --heads origin "$pr_branch_name" > /dev/null; then
-  git fetch origin '+refs/heads/*:refs/remotes/origin/*'
-  git checkout -b ${pr_branch_name} origin/${pr_branch_name}
-  git submodule update --init --recursive
+if [ -f "/opt/eloq/third_party/share/eloq/third-party-manifest.yml" ]; then
+    export ELOQ_THIRD_PARTY_PREFIX=/opt/eloq/third_party
+elif [ -f "data_substrate/third_party/install/share/eloq/third-party-manifest.yml" ]; then
+    export ELOQ_THIRD_PARTY_PREFIX="${PWD}/data_substrate/third_party/install"
 fi
-cd ..
-
-cd tx_service
-ln -s $WORKSPACE/raft_host_manager_src raft_host_manager
-cd raft_host_manager
-if [ -n "$pr_branch_name" ] && git ls-remote --exit-code --heads origin "$pr_branch_name" > /dev/null; then
-  git fetch origin '+refs/heads/*:refs/remotes/origin/*'
-  git checkout -b ${pr_branch_name} origin/${pr_branch_name}
-  git submodule update --init --recursive
+if [ -n "${ELOQ_THIRD_PARTY_PREFIX:-}" ]; then
+    export CMAKE_PREFIX_PATH="${ELOQ_THIRD_PARTY_PREFIX}${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}"
+    export LD_LIBRARY_PATH="${ELOQ_THIRD_PARTY_PREFIX}/lib:${ELOQ_THIRD_PARTY_PREFIX}/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 fi
-cd ..
 
 # setup mc command
 # minio_server_alias will be used by mtr script for clean up mimio bucket
@@ -153,8 +140,9 @@ if [ ! -f "Makefile" ]; then
           -DWITH_DATA_STORE=ELOQDSS_ELOQSTORE \
           -DOPEN_LOG_SERVICE=OFF \
           -DFORK_HM_PROCESS=ON \
-	  -DWITH_LOG_STATE=ROCKSDB_CLOUD_S3 \
-      -DELOQ_MODULE_ENABLED=ON \
+          -DWITH_LOG_STATE=ROCKSDB_CLOUD_S3 \
+          -DELOQ_MODULE_ENABLED=ON \
+          ${ELOQ_THIRD_PARTY_PREFIX:+-DELOQ_THIRD_PARTY_PREFIX=${ELOQ_THIRD_PARTY_PREFIX} -DELOQ_THIRD_PARTY_REQUIRED=ON} \
           ../
 fi
 

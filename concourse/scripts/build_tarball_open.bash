@@ -28,6 +28,13 @@ fi
 : "${ASAN:=OFF}"
 : "${DATA_STORE_TYPE:=ELOQDSS_ROCKSDB_CLOUD_S3}"
 : "${NCORE:=8}"
+if ! [[ "${NCORE}" =~ ^[1-9][0-9]*$ ]]; then
+  echo "NCORE must be a positive integer" >&2
+  exit 1
+fi
+if [ "${NCORE}" -gt 8 ]; then
+  NCORE=8
+fi
 
 DEST_DIR="${HOME}/EloqSQL"
 OUT_NAME="${OUT_NAME:-debug-openlog}"
@@ -35,11 +42,13 @@ OUT_NAME="${OUT_NAME:-debug-openlog}"
 # Prepare workspace layout expected by scripts
 cd "$HOME"
 ln -sfn "${WORKSPACE}/eloqsql_src" eloqsql
-ln -sfn "${WORKSPACE}/logservice_src" logservice_src || true
-mkdir -p eloqsql/storage/eloq/tx_service
-ln -sfn "${WORKSPACE}/raft_host_manager_src" eloqsql/storage/eloq/tx_service/raft_host_manager || true
 
 ELOQSQL_SRC="${HOME}/eloqsql"
+
+# Product source submodules must be initialized before the Data Substrate
+# workspace installer can be invoked.
+cd "$ELOQSQL_SRC"
+bash scripts/checkout_product_submodules.sh
 
 # Install all dependencies using Ubuntu 24.04 script
 source /etc/os-release
@@ -52,18 +61,9 @@ if [[ "$ID" == ubuntu* ]]; then
   source $HOME/venv/bin/activate
 fi
 
-# Initialize submodules per README
-cd "$ELOQSQL_SRC"
-git submodule sync
-git submodule update --init --recursive
-
-# Also ensure log_service submodules
-if [ -d "storage/eloq/log_service" ]; then
-  pushd storage/eloq/log_service
-  git submodule sync
-  git submodule update --init --recursive
-  popd
-fi
+export ELOQ_THIRD_PARTY_PREFIX="${ELOQSQL_SRC}/data_substrate/third_party/install"
+export CMAKE_PREFIX_PATH="${ELOQ_THIRD_PARTY_PREFIX}${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}"
+export LD_LIBRARY_PATH="${ELOQ_THIRD_PARTY_PREFIX}/lib:${ELOQ_THIRD_PARTY_PREFIX}/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 
 # Build EloqSQL per README with OPEN_LOG_SERVICE enabled
 mkdir build
@@ -94,6 +94,8 @@ cmake -DCMAKE_INSTALL_PREFIX="${DEST_DIR}" \
       -DBRPC_WITH_GLOG=ON \
       -DMARIA_WITH_GLOG=ON \
       -DWITH_ASAN="${ASAN}" \
+      -DELOQ_THIRD_PARTY_PREFIX="${ELOQSQL_SRC}/data_substrate/third_party/install" \
+      -DELOQ_THIRD_PARTY_REQUIRED=ON \
       -DCMAKE_C_FLAGS_DEBUG="-O0 -g -DDBUG_ON -fno-omit-frame-pointer -fno-strict-aliasing" \
       -DCMAKE_CXX_FLAGS_DEBUG="-O0 -g -DDBUG_ON -fno-omit-frame-pointer -fno-strict-aliasing -felide-constructors -Wno-error" \
       -DWITH_DATA_STORE="${DATA_STORE_TYPE}" \
@@ -120,7 +122,7 @@ copy_libraries "${DEST_DIR}/bin/mariadbd" "${DEST_DIR}/lib"
 copy_libraries "${DEST_DIR}/bin/mariadb" "${DEST_DIR}/lib"
 
 # Build and include dss_server component
-pushd "${ELOQSQL_SRC}/storage/eloq/store_handler/eloq_data_store_service"
+pushd "${ELOQSQL_SRC}/data_substrate/store_handler/eloq_data_store_service"
 rm -rf bld
 mkdir bld && cd bld
 cmake -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" -DWITH_DATA_STORE="${DATA_STORE_TYPE}" ../
@@ -130,7 +132,7 @@ mv dss_server "${DEST_DIR}/bin/"
 popd
 
 # Build and include log_service (launch_sv)
-pushd "${ELOQSQL_SRC}/storage/eloq/log_service"
+pushd "${ELOQSQL_SRC}/data_substrate/eloq_log_service"
 rm -rf bld
 mkdir bld && cd bld
 cmake -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" ../
@@ -146,7 +148,7 @@ tar -czvf eloqsql.tar.gz -C "${HOME}" EloqSQL
 # Cleanup build directories
 cd "${ELOQSQL_SRC}"
 rm -rf build
-rm -rf storage/eloq/store_handler/eloq_data_store_service/bld
-rm -rf storage/eloq/log_service/bld
+rm -rf data_substrate/store_handler/eloq_data_store_service/bld
+rm -rf data_substrate/eloq_log_service/bld
 
 echo "Build completed. Tarball created at: ${HOME}/eloqsql.tar.gz"

@@ -4,29 +4,6 @@ set -eo
 TAG=$1
 REL_BRANCH="rel_${TAG//./_}_eloqsql"
 
-# Utility: create and push a release branch for a module repo if available
-create_and_push_release_branch() {
-  local module_path="$1"
-  local release_branch="$2"
-  if [ -d "$module_path" ]; then
-    pushd "$module_path"
-    git fetch origin '+refs/heads/*:refs/remotes/origin/*'
-    if git show-ref --verify --quiet "refs/heads/$release_branch" || \
-       git ls-remote --heads origin "$release_branch" | grep -q "$release_branch"; then
-      echo "Error: release branch $release_branch already exists for $module_path (local or remote)" >&2
-      popd
-      exit 1
-    fi
-    echo "Creating release branch $release_branch for $module_path"
-    git checkout -b "$release_branch"
-    git push -u origin "$release_branch"
-    popd
-  else
-    echo "Error: module path $module_path does not exist" >&2
-    exit 1
-  fi
-}
-
 set +e
 git fetch origin '+refs/heads/*:refs/remotes/origin/*'
 set -e
@@ -46,8 +23,3 @@ if git show-ref --verify --quiet "refs/heads/$REL_BRANCH" || \
 fi
 git checkout -b "$REL_BRANCH" main
 git push origin "$REL_BRANCH"
-
-# Push release branch for submodules
-create_and_push_release_branch "storage/eloq/eloq_log_service" "$REL_BRANCH"
-create_and_push_release_branch "storage/eloq/tx_service/raft_host_manager" "$REL_BRANCH"
-

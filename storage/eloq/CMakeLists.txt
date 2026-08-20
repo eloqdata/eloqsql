@@ -67,6 +67,7 @@ if(STATISTICS)
 endif()
 
 find_package(MIMALLOC REQUIRED)
+eloq_assert_under_prefix(MIMALLOC_INCLUDE_DIR "mimalloc include directory")
 include_directories(${MIMALLOC_INCLUDE_DIR})
 
 option(SMALL_RANGE "Whether enable small range" OFF)
