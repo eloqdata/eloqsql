@@ -568,7 +568,7 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` date DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 show triggers;
 Trigger	Event	Table	Statement	Timing	Created	sql_mode	Definer	character_set_client	collation_connection	Database Collation
 t1_bi	INSERT	t1	set new.a = '2004-01-00'	BEFORE	#		root@localhost	latin1	latin1_swedish_ci	latin1_bin
@@ -669,8 +669,6 @@ select user() into user;
 set NEW.username = user;
 select count(*) from ((select 1) union (select 2)) as d1 into i;
 end|
-Warnings:
-Warning	1287	'<select expression> INTO <destination>;' is deprecated and will be removed in a future release. Please use 'SELECT <select list> INTO <destination> FROM...' instead
 update t1 set data = 1;
 connection addconroot1;
 update t1 set data = 2;
@@ -975,7 +973,7 @@ CREATE TABLE t1(c INT);
 CREATE TABLE t2(c INT);
 CREATE DEFINER=longer_than_80_456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789@localhost
 TRIGGER t1_bi BEFORE INSERT ON t1 FOR EACH ROW SET @a = 1;
-ERROR HY000: String 'longer_than_80_4567890123456789012345678901234567890123456789012345...' is too long for user name (should be no longer than 32)
+ERROR HY000: String 'longer_than_80_4567890123456789012345678901234567890123456789012345...' is too long for user name (should be no longer than 128)
 CREATE DEFINER=some_user_name@1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTYsome_user_name1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTYsome_user_name1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTYsome_user_name1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTYsome_user_name1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTYsome_user_name1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTYsome_user_name1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTYvvv234567890abcdefghijQWERTYvvvjdnkjfbewfjefnkejfnejfnERTYvvvjdnkjfbewfjefnkejfnejfn
 TRIGGER t2_bi BEFORE INSERT ON t2 FOR EACH ROW SET @a = 2;
 ERROR HY000: String '1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTYs...' is too long for host name (should be no longer than 255)
@@ -1515,8 +1513,6 @@ FOR EACH ROW BEGIN
 SELECT 1 FROM t1 c WHERE
 (@bug51650 IS NULL OR @bug51650 != c.b) AND c.b = NEW.a LIMIT 1 INTO @foo;
 END//
-Warnings:
-Warning	1287	'<select expression> INTO <destination>;' is deprecated and will be removed in a future release. Please use 'SELECT <select list> INTO <destination> FROM...' instead
 SET @bug51650 = 1;
 INSERT IGNORE INTO t2 VALUES();
 INSERT IGNORE INTO t1 SET b = '777';
@@ -1736,7 +1732,7 @@ END;
 |
 SET @@session.sql_mode = default;
 INSERT INTO t1 VALUES ('a');
-ERROR 22001: Data too long for column 'c' at row 1
+ERROR 22001: Data too long for column 'c' at row 0
 show create trigger t1_bi;
 Trigger	sql_mode	SQL Original Statement	character_set_client	collation_connection	Database Collation	Created
 t1_bi	STRICT_TRANS_TABLES,STRICT_ALL_TABLES	CREATE DEFINER=`root`@`localhost` TRIGGER t1_bi

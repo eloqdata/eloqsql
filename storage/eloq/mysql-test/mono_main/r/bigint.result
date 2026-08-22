@@ -175,14 +175,14 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(1) NOT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1 select 9223372036854775809 as 'a';
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` bigint(19) unsigned NOT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 select * from t1;
 a
 9223372036854775809

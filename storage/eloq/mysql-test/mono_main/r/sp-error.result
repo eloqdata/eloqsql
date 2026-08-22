@@ -1,7 +1,5 @@
 drop table if exists t1, t2;
 SELECT * FROM mysql.proc INTO OUTFILE 'MYSQLTEST_VARDIR/tmp/proc.txt';
-Warnings:
-Warning	1287	'<select expression> INTO <destination>;' is deprecated and will be removed in a future release. Please use 'SELECT <select list> INTO <destination> FROM...' instead
 delete from mysql.proc;
 create procedure syntaxerror(t int)|
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '' at line 1
@@ -14,8 +12,6 @@ create table t3 ( x int )|
 insert into t3 values (2), (3)|
 create procedure bad_into(out param int)
 select x from t3 into param|
-Warnings:
-Warning	1287	'<select expression> INTO <destination>;' is deprecated and will be removed in a future release. Please use 'SELECT <select list> INTO <destination> FROM...' instead
 call bad_into(@x)|
 ERROR 42000: Result consisted of more than one row
 drop procedure bad_into|
@@ -334,7 +330,7 @@ open c;
 close c;
 end|
 call bug1965()|
-ERROR 42S22: Unknown column 'valname' in 'order clause'
+ERROR 42S22: Unknown column 'valname' in 'ORDER BY'
 drop procedure bug1965|
 select 1 into a|
 ERROR 42000: Undeclared variable: a
@@ -343,7 +339,7 @@ create table t3 (column_1_0 int)|
 create procedure bug1653()
 update t3 set column_1 = 0|
 call bug1653()|
-ERROR 42S22: Unknown column 'column_1' in 'field list'
+ERROR 42S22: Unknown column 'column_1' in 'SET'
 drop table t3|
 create table t3 (column_1 int)|
 call bug1653()|
@@ -365,7 +361,7 @@ update t1 set v = 42;
 end|
 insert into t1 values (666, 51.3)|
 call bug2272()|
-ERROR 42S22: Unknown column 'v' in 'field list'
+ERROR 42S22: Unknown column 'v' in 'SET'
 delete from t1|
 drop procedure bug2272|
 create procedure bug2329_1()
@@ -379,9 +375,9 @@ declare v int;
 replace t1 set v = 5;
 end|
 call bug2329_1()|
-ERROR 42S22: Unknown column 'v' in 'field list'
+ERROR 42S22: Unknown column 'v' in 'INSERT INTO'
 call bug2329_2()|
-ERROR 42S22: Unknown column 'v' in 'field list'
+ERROR 42S22: Unknown column 'v' in 'INSERT INTO'
 drop procedure bug2329_1|
 drop procedure bug2329_2|
 create function bug3287() returns int
@@ -1064,13 +1060,13 @@ SELECT bug13037_foo;
 END|
 
 CALL bug13037_p2();
-ERROR 42S22: Unknown column 'bug13037_bar' in 'field list'
+ERROR 42S22: Unknown column 'bug13037_bar' in 'SET'
 CALL bug13037_p3();
-ERROR 42S22: Unknown column 'bug13037_foo' in 'field list'
+ERROR 42S22: Unknown column 'bug13037_foo' in 'SELECT'
 CALL bug13037_p2();
-ERROR 42S22: Unknown column 'bug13037_bar' in 'field list'
+ERROR 42S22: Unknown column 'bug13037_bar' in 'SET'
 CALL bug13037_p3();
-ERROR 42S22: Unknown column 'bug13037_foo' in 'field list'
+ERROR 42S22: Unknown column 'bug13037_foo' in 'SELECT'
 DROP PROCEDURE bug13037_p2;
 DROP PROCEDURE bug13037_p3;
 create database mysqltest1;
@@ -1235,16 +1231,16 @@ insert into t1 (id, value) values (1, 'FIRST'), (2, 'SECOND'), (3, 'THIRD');
 create procedure bug24491()
 insert into t1 (id, value) select * from (select 4 as i, 'FOURTH' as v) as y on duplicate key update v = 'DUP';
 call bug24491();
-ERROR 42S22: Unknown column 'v' in 'field list'
+ERROR 42S22: Unknown column 'v' in 'UPDATE'
 call bug24491();
-ERROR 42S22: Unknown column 'v' in 'field list'
+ERROR 42S22: Unknown column 'v' in 'UPDATE'
 drop procedure bug24491;
 create procedure bug24491()
 insert into t1 (id, value) select * from (select 4 as id, 'FOURTH' as value) as y on duplicate key update y.value = 'DUP';
 call bug24491();
-ERROR 42S22: Unknown column 'y.value' in 'field list'
+ERROR 42S22: Unknown column 'y.value' in 'UPDATE'
 call bug24491();
-ERROR 42S22: Unknown column 'y.value' in 'field list'
+ERROR 42S22: Unknown column 'y.value' in 'UPDATE'
 drop procedure bug24491;
 drop tables t1;
 DROP FUNCTION IF EXISTS bug18914_f1;
@@ -1478,7 +1474,7 @@ CREATE DATABASE mysqltest;
 USE mysqltest;
 DROP DATABASE mysqltest;
 SELECT inexistent(), 1 + ,;
-ERROR 42000: FUNCTION inexistent does not exist
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '' at line 1
 SELECT inexistent();
 ERROR 42000: FUNCTION inexistent does not exist
 SELECT .inexistent();
@@ -2751,7 +2747,7 @@ END|
 
 CALL p1()|
 Warnings:
-Warning	1366	Incorrect integer value: 'string' for column ``.``.`var1` at row 1
+Warning	1366	Incorrect integer value: 'string' for column ``.``.`var1` at row 0
 
 SET sql_mode = DEFAULT|
 CREATE PROCEDURE p2()
@@ -2813,8 +2809,6 @@ DECLARE v VARCHAR(5) DEFAULT -1;
 SELECT b FROM t1 WHERE a = 2 INTO v;
 RETURN v;
 END|
-Warnings:
-Warning	1287	'<select expression> INTO <destination>;' is deprecated and will be removed in a future release. Please use 'SELECT <select list> INTO <destination> FROM...' instead
 
 # Here we check that the NOT_FOUND condition raised in f1()
 # is not visible in the outer function (f2), i.e. the continue

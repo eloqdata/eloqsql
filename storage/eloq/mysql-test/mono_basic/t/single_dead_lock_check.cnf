@@ -14,7 +14,7 @@ thread_pool_dedicated_listener=1
 table_open_cache_instances=20
 skip-log-bin
 eloq_cc_protocol=Locking
-eloq_config = @ENV.MYSQLTEST_VARDIR/../../../storage/eloq/mysql-test/mono_basic/data_substrate.cnf
+eloq_config = @ENV.MTR_SUITE_DIR/data_substrate.cnf
 
 [mysqld.1]
 

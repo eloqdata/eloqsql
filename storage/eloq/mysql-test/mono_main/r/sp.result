@@ -248,7 +248,7 @@ return i+1|
 call sub1("sub1a", (select 7))|
 call sub1("sub1b", (select max(i) from t2))|
 call sub1("sub1c", (select i,d from t2 limit 1))|
-ERROR 21000: Operand should contain 1 column(s)
+ERROR HY000: Cannot cast 'row' as 'int' in assignment of `x`
 call sub1("sub1d", (select 1 from (select 1) a))|
 call sub2("sub2")|
 select * from t1 order by id|
@@ -313,8 +313,6 @@ repeat(select 1) into outfile 'b2';
 insert into test.t1 values (repeat("b2",3), x);
 set x = x-1;
 until x = 0 end repeat|
-Warnings:
-Warning	1287	'<select expression> INTO <destination>;' is deprecated and will be removed in a future release. Please use 'SELECT <select list> INTO <destination> FROM...' instead
 drop procedure b2|
 drop procedure if exists c|
 create procedure c(x int)
@@ -2257,7 +2255,7 @@ show create table t3|
 Table	Create Table
 t3	CREATE TABLE `t3` (
   `bug2773()` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t3|
 drop function bug2773|
 drop procedure if exists bug3788|
@@ -2311,14 +2309,14 @@ show warnings;
 end|
 call bug4902()|
 Charset	Description	Default collation	Maxlen
-Collation	Charset	Id	Default	Compiled	Sortlen
+Collation	Charset	Id	Default	Compiled	Sortlen	Pad_attribute
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `id` char(16) NOT NULL DEFAULT '',
   `data` int(11) NOT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 Database	Create Database
-test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET latin1 */
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET latin1 COLLATE latin1_bin */
 Database (foo)
 Level	Code	Message
 Field	Type	Null	Key	Default	Extra
@@ -2332,14 +2330,14 @@ Variable_name	Value
 Level	Code	Message
 call bug4902()|
 Charset	Description	Default collation	Maxlen
-Collation	Charset	Id	Default	Compiled	Sortlen
+Collation	Charset	Id	Default	Compiled	Sortlen	Pad_attribute
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `id` char(16) NOT NULL DEFAULT '',
   `data` int(11) NOT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 Database	Create Database
-test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET latin1 */
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET latin1 COLLATE latin1_bin */
 Database (foo)
 Level	Code	Message
 Field	Type	Null	Key	Default	Extra
@@ -2976,14 +2974,14 @@ select bug9775('a'),bug9775('b'),bug9775('c')|
 bug9775('a')	bug9775('b')	bug9775('c')
 a	b	
 Warnings:
-Warning	1265	Data truncated for column 'bug9775('c')' at row 1
+Warning	1265	Data truncated for column 'bug9775('c')' at row 0
 drop function bug9775|
 create function bug9775(v1 int) returns enum('a','b') return v1|
 select bug9775(1),bug9775(2),bug9775(3)|
 bug9775(1)	bug9775(2)	bug9775(3)
 a	b	
 Warnings:
-Warning	1265	Data truncated for column 'bug9775(3)' at row 1
+Warning	1265	Data truncated for column 'bug9775(3)' at row 0
 drop function bug9775|
 create function bug9775(v1 char(1)) returns set('a','b') return v1|
 select bug9775('a'),bug9775('b'),bug9775('a,b'),bug9775('c')|
@@ -2991,14 +2989,14 @@ bug9775('a')	bug9775('b')	bug9775('a,b')	bug9775('c')
 a	b	a	
 Warnings:
 Warning	1265	Data truncated for column 'v1' at row 1
-Warning	1265	Data truncated for column 'bug9775('c')' at row 1
+Warning	1265	Data truncated for column 'bug9775('c')' at row 0
 drop function bug9775|
 create function bug9775(v1 int) returns set('a','b') return v1|
 select bug9775(1),bug9775(2),bug9775(3),bug9775(4)|
 bug9775(1)	bug9775(2)	bug9775(3)	bug9775(4)
 a	b	a,b	
 Warnings:
-Warning	1265	Data truncated for column 'bug9775(4)' at row 1
+Warning	1265	Data truncated for column 'bug9775(4)' at row 0
 drop function bug9775|
 drop function if exists bug8861|
 create function bug8861(v1 int) returns year return v1|
@@ -3021,10 +3019,10 @@ create procedure bug9004_2(x char(16))
 call bug9004_1(x)|
 call bug9004_1('12345678901234567')|
 Warnings:
-Warning	1265	Data truncated for column 'x' at row 1
+Warning	1265	Data truncated for column 'x' at row 0
 call bug9004_2('12345678901234567890')|
 Warnings:
-Warning	1265	Data truncated for column 'x' at row 1
+Warning	1265	Data truncated for column 'x' at row 0
 delete from t1|
 drop procedure bug9004_1|
 drop procedure bug9004_2|
@@ -3656,17 +3654,17 @@ call bug12589_1()|
 Table	Create Table
 tm1	CREATE TEMPORARY TABLE `tm1` (
   `spv1` decimal(3,3) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 call bug12589_2()|
 Table	Create Table
 tm1	CREATE TEMPORARY TABLE `tm1` (
   `spv1` decimal(6,3) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 call bug12589_3()|
 Table	Create Table
 tm1	CREATE TEMPORARY TABLE `tm1` (
   `spv1` decimal(6,3) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop procedure bug12589_1|
 drop procedure bug12589_2|
 drop procedure bug12589_3|
@@ -4182,9 +4180,6 @@ select i as  'A local variable in a nested compound statement takes precedence o
 end;
 end;
 end|
-Warnings:
-Warning	1287	'<select expression> INTO <destination>;' is deprecated and will be removed in a future release. Please use 'SELECT <select list> INTO <destination> FROM...' instead
-Warning	1287	'<select expression> INTO <destination>;' is deprecated and will be removed in a future release. Please use 'SELECT <select list> INTO <destination> FROM...' instead
 call bug5967("a - stored procedure parameter")|
 a
 a - stored procedure parameter
@@ -4278,7 +4273,7 @@ begin
 update t3 set id=2, county=value(c);
 end|
 call bug15441('county')|
-ERROR 42S22: Unknown column 'c' in 'field list'
+ERROR 42S22: Unknown column 'c' in 'SELECT'
 drop procedure bug15441|
 create procedure bug15441(county varchar(25))
 begin
@@ -4421,7 +4416,7 @@ call bug15231_3()|
 Result
 Missed it (correct)
 Level	Code	Message
-Warning	1366	Incorrect decimal value: 'zap' for column ``.``.`x` at row 1
+Warning	1366	Incorrect decimal value: 'zap' for column ``.``.`x` at row 0
 Result
 Caught it (correct)
 call bug15231_5()|
@@ -4636,7 +4631,7 @@ show create table t3|
 Table	Create Table
 t3	CREATE TABLE `t3` (
   `i` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 select * from t3|
 i
 0
@@ -4647,7 +4642,7 @@ show create table t3|
 Table	Create Table
 t3	CREATE TABLE `t3` (
   `j` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 select * from t3|
 j
 0
@@ -4745,19 +4740,19 @@ use mysqltest1|
 call p1()|
 show create database mysqltest1|
 Database	Create Database
-mysqltest1	CREATE DATABASE `mysqltest1` /*!40100 DEFAULT CHARACTER SET koi8r */
+mysqltest1	CREATE DATABASE `mysqltest1` /*!40100 DEFAULT CHARACTER SET koi8r COLLATE koi8r_general_ci */
 show create database mysqltest2|
 Database	Create Database
-mysqltest2	CREATE DATABASE `mysqltest2` /*!40100 DEFAULT CHARACTER SET utf8mb3 */
+mysqltest2	CREATE DATABASE `mysqltest2` /*!40100 DEFAULT CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci */
 alter database mysqltest1 character set utf8|
 use mysqltest2|
 call mysqltest1.p1()|
 show create database mysqltest1|
 Database	Create Database
-mysqltest1	CREATE DATABASE `mysqltest1` /*!40100 DEFAULT CHARACTER SET koi8r */
+mysqltest1	CREATE DATABASE `mysqltest1` /*!40100 DEFAULT CHARACTER SET koi8r COLLATE koi8r_general_ci */
 show create database mysqltest2|
 Database	Create Database
-mysqltest2	CREATE DATABASE `mysqltest2` /*!40100 DEFAULT CHARACTER SET utf8mb3 */
+mysqltest2	CREATE DATABASE `mysqltest2` /*!40100 DEFAULT CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci */
 drop database mysqltest1|
 drop database mysqltest2|
 use test|
@@ -4809,20 +4804,20 @@ CREATE FUNCTION mysqltest2.bug16211_f4() RETURNS CHAR(10) CHARSET koi8r
 RETURN ""|
 SHOW CREATE FUNCTION bug16211_f1|
 Function	sql_mode	Create Function	character_set_client	collation_connection	Database Collation
-bug16211_f1		CREATE DEFINER=`root`@`localhost` FUNCTION `bug16211_f1`() RETURNS char(10) CHARSET utf8mb3
-RETURN ""	latin1	latin1_bin	utf8mb3_bin
+bug16211_f1		CREATE DEFINER=`root`@`localhost` FUNCTION `bug16211_f1`() RETURNS char(10) CHARSET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci
+RETURN ""	latin1	latin1_bin	utf8mb3_uca1400_ai_ci
 SHOW CREATE FUNCTION bug16211_f2|
 Function	sql_mode	Create Function	character_set_client	collation_connection	Database Collation
-bug16211_f2		CREATE DEFINER=`root`@`localhost` FUNCTION `bug16211_f2`() RETURNS char(10) CHARSET koi8r
-RETURN ""	latin1	latin1_bin	utf8mb3_bin
+bug16211_f2		CREATE DEFINER=`root`@`localhost` FUNCTION `bug16211_f2`() RETURNS char(10) CHARSET koi8r COLLATE koi8r_general_ci
+RETURN ""	latin1	latin1_bin	utf8mb3_uca1400_ai_ci
 SHOW CREATE FUNCTION mysqltest2.bug16211_f3|
 Function	sql_mode	Create Function	character_set_client	collation_connection	Database Collation
-bug16211_f3		CREATE DEFINER=`root`@`localhost` FUNCTION `bug16211_f3`() RETURNS char(10) CHARSET utf8mb3
-RETURN ""	latin1	latin1_bin	utf8mb3_bin
+bug16211_f3		CREATE DEFINER=`root`@`localhost` FUNCTION `bug16211_f3`() RETURNS char(10) CHARSET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci
+RETURN ""	latin1	latin1_bin	utf8mb3_uca1400_ai_ci
 SHOW CREATE FUNCTION mysqltest2.bug16211_f4|
 Function	sql_mode	Create Function	character_set_client	collation_connection	Database Collation
-bug16211_f4		CREATE DEFINER=`root`@`localhost` FUNCTION `bug16211_f4`() RETURNS char(10) CHARSET koi8r
-RETURN ""	latin1	latin1_bin	utf8mb3_bin
+bug16211_f4		CREATE DEFINER=`root`@`localhost` FUNCTION `bug16211_f4`() RETURNS char(10) CHARSET koi8r COLLATE koi8r_general_ci
+RETURN ""	latin1	latin1_bin	utf8mb3_uca1400_ai_ci
 SELECT dtd_identifier
 FROM INFORMATION_SCHEMA.ROUTINES
 WHERE ROUTINE_SCHEMA = "mysqltest1" AND ROUTINE_NAME = "bug16211_f1"|
@@ -4859,20 +4854,20 @@ ALTER DATABASE mysqltest1 CHARACTER SET cp1251|
 ALTER DATABASE mysqltest2 CHARACTER SET cp1251|
 SHOW CREATE FUNCTION bug16211_f1|
 Function	sql_mode	Create Function	character_set_client	collation_connection	Database Collation
-bug16211_f1		CREATE DEFINER=`root`@`localhost` FUNCTION `bug16211_f1`() RETURNS char(10) CHARSET utf8mb3
-RETURN ""	latin1	latin1_bin	utf8mb3_bin
+bug16211_f1		CREATE DEFINER=`root`@`localhost` FUNCTION `bug16211_f1`() RETURNS char(10) CHARSET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci
+RETURN ""	latin1	latin1_bin	utf8mb3_uca1400_ai_ci
 SHOW CREATE FUNCTION bug16211_f2|
 Function	sql_mode	Create Function	character_set_client	collation_connection	Database Collation
-bug16211_f2		CREATE DEFINER=`root`@`localhost` FUNCTION `bug16211_f2`() RETURNS char(10) CHARSET koi8r
-RETURN ""	latin1	latin1_bin	utf8mb3_bin
+bug16211_f2		CREATE DEFINER=`root`@`localhost` FUNCTION `bug16211_f2`() RETURNS char(10) CHARSET koi8r COLLATE koi8r_general_ci
+RETURN ""	latin1	latin1_bin	utf8mb3_uca1400_ai_ci
 SHOW CREATE FUNCTION mysqltest2.bug16211_f3|
 Function	sql_mode	Create Function	character_set_client	collation_connection	Database Collation
-bug16211_f3		CREATE DEFINER=`root`@`localhost` FUNCTION `bug16211_f3`() RETURNS char(10) CHARSET utf8mb3
-RETURN ""	latin1	latin1_bin	utf8mb3_bin
+bug16211_f3		CREATE DEFINER=`root`@`localhost` FUNCTION `bug16211_f3`() RETURNS char(10) CHARSET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci
+RETURN ""	latin1	latin1_bin	utf8mb3_uca1400_ai_ci
 SHOW CREATE FUNCTION mysqltest2.bug16211_f4|
 Function	sql_mode	Create Function	character_set_client	collation_connection	Database Collation
-bug16211_f4		CREATE DEFINER=`root`@`localhost` FUNCTION `bug16211_f4`() RETURNS char(10) CHARSET koi8r
-RETURN ""	latin1	latin1_bin	utf8mb3_bin
+bug16211_f4		CREATE DEFINER=`root`@`localhost` FUNCTION `bug16211_f4`() RETURNS char(10) CHARSET koi8r COLLATE koi8r_general_ci
+RETURN ""	latin1	latin1_bin	utf8mb3_uca1400_ai_ci
 SELECT dtd_identifier
 FROM INFORMATION_SCHEMA.ROUTINES
 WHERE ROUTINE_SCHEMA = "mysqltest1" AND ROUTINE_NAME = "bug16211_f1"|
@@ -4933,11 +4928,11 @@ SET @v2 = 'b'|
 SET @v3 = 'c'|
 CALL bug16676_p1('a', @v2, @v3)|
 CHARSET(p1)	COLLATION(p1)
-utf8mb3	utf8mb3_bin
+utf8mb3	utf8mb3_uca1400_ai_ci
 CHARSET(p2)	COLLATION(p2)
-utf8mb3	utf8mb3_bin
+utf8mb3	utf8mb3_uca1400_ai_ci
 CHARSET(p3)	COLLATION(p3)
-utf8mb3	utf8mb3_bin
+utf8mb3	utf8mb3_uca1400_ai_ci
 CALL bug16676_p2('a', @v2, @v3)|
 CHARSET(p1)	COLLATION(p1)
 koi8r	koi8r_general_ci
@@ -5107,7 +5102,7 @@ CREATE DEFINER=longer_than_80_45678901234567890123456789012345678901234567890123
 BEGIN
 SET @a = 1;
 END|
-ERROR HY000: String 'longer_than_80_4567890123456789012345678901234567890123456789012345...' is too long for user name (should be no longer than 32)
+ERROR HY000: String 'longer_than_80_4567890123456789012345678901234567890123456789012345...' is too long for user name (should be no longer than 128)
 CREATE DEFINER=some_user_name@1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY
 FUNCTION bug16899_f1() RETURNS INT
 BEGIN
@@ -5592,8 +5587,6 @@ end;
 select 1 from no_such_view limit 1 into x;
 return x;
 end|
-Warnings:
-Warning	1287	'<select expression> INTO <destination>;' is deprecated and will be removed in a future release. Please use 'SELECT <select list> INTO <destination> FROM...' instead
 create function func_8407_b() returns int
 begin
 declare x int default 0;
@@ -5821,7 +5814,7 @@ examplebug20777	CREATE TABLE `examplebug20777` (
   `2**64-2` bigint(20) unsigned DEFAULT NULL,
   `2**64-1` bigint(20) unsigned DEFAULT NULL,
   `2**64` bigint(20) unsigned DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 select * from examplebug20777 order by i;
 i	2**63-2	2**63-1	2**63	2**63+1	2**64-2	2**64-1	2**64
 0	9223372036854775806	9223372036854775807	9223372036854775808	9223372036854775809	18446744073709551614	18446744073709551615	18446744073709551615
@@ -5855,7 +5848,7 @@ create procedure proc_21513()`my_label`:BEGIN END|
 show create procedure proc_21513|
 Procedure	sql_mode	Create Procedure	character_set_client	collation_connection	Database Collation
 proc_21513		CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_21513`()
-`my_label`:BEGIN END	utf8mb3	utf8mb3_bin	latin1_bin
+`my_label`:BEGIN END	utf8mb3	utf8mb3_uca1400_ai_ci	latin1_bin
 drop procedure proc_21513|
 End of 5.0 tests.
 drop table t1,t2;
@@ -5890,7 +5883,7 @@ CREATE FUNCTION metered(a INT) RETURNS INT RETURN 12;
 CREATE VIEW v1 AS SELECT test.metered(a) as metered FROM t1;
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select `test`.`metered`(`t1`.`a`) AS `metered` from `t1`	utf8mb3	utf8mb3_bin
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select `test`.`metered`(`t1`.`a`) AS `metered` from `t1`	utf8mb3	utf8mb3_uca1400_ai_ci
 DROP VIEW v1;
 DROP FUNCTION metered;
 DROP TABLE t1;
@@ -6029,7 +6022,7 @@ select 1;
 select 3;
  select 4; 
 
-end	latin1	latin1_bin	latin1_bin
+end	latin1	latin1_swedish_ci	latin1_bin
 call proc_25411_a();
 1
 1
@@ -6049,7 +6042,7 @@ proc_25411_b		CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_25411_b`(
 )
 begin
 select p1, p2;
-end	latin1	latin1_bin	latin1_bin
+end	latin1	latin1_swedish_ci	latin1_bin
 select name, param_list, body from mysql.proc where name like "%25411%" order by name;
 name	param_list	body
 proc_25411_a		begin
@@ -6087,7 +6080,7 @@ select 1 ,2 ,3;
 select 1,2 ,3 ;
 select 1 ,2  ,3 ;
 select 1 ,2 ,3  ;
-end	latin1	latin1_bin	latin1_bin
+end	latin1	latin1_swedish_ci	latin1_bin
 call proc_25411_c();
 1	2	3
 1	2	3
@@ -6108,7 +6101,7 @@ select 1 /* testing */;
 show create procedure proc_26302;
 Procedure	sql_mode	Create Procedure	character_set_client	collation_connection	Database Collation
 proc_26302		CREATE DEFINER=`root`@`localhost` PROCEDURE `proc_26302`()
-select 1 /* testing */	latin1	latin1_bin	latin1_bin
+select 1 /* testing */	latin1	latin1_swedish_ci	latin1_bin
 select ROUTINE_NAME, ROUTINE_DEFINITION from information_schema.ROUTINES
 where ROUTINE_NAME = "proc_26302";
 ROUTINE_NAME	ROUTINE_DEFINITION
@@ -6160,7 +6153,7 @@ connect  bug29408, localhost, root,,*NO-ONE*;
 connection bug29408;
 show create view test.v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `test`.`v1` AS select 1 AS `one`,`f1`() AS `days`	latin1	latin1_bin
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `test`.`v1` AS select 1 AS `one`,`f1`() AS `days`	latin1	latin1_swedish_ci
 select column_name from information_schema.columns
 where table_name='v1' and table_schema='test';
 column_name
@@ -6185,18 +6178,18 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `v` datetime DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 
 DROP TABLE t1;
 
 CALL p1('text');
 Warnings:
-Warning	1265	Data truncated for column 'v' at row 1
+Warning	1265	Data truncated for column 'v' at row 0
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `v` datetime DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 
 DROP TABLE t1;
 
@@ -6205,18 +6198,18 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `v` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 
 DROP TABLE t1;
 
 CALL p2('text');
 Warnings:
-Warning	1366	Incorrect integer value: 'text' for column ``.``.`v` at row 1
+Warning	1366	Incorrect integer value: 'text' for column ``.``.`v` at row 0
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `v` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 
 DROP TABLE t1;
 
@@ -6621,7 +6614,7 @@ Another_very_long_enum_element_identifier
 
 SHOW CREATE FUNCTION f1;
 Function	sql_mode	Create Function	character_set_client	collation_connection	Database Collation
-f1		CREATE DEFINER=`root`@`localhost` FUNCTION `f1`(p INT) RETURNS enum('Very_long_enum_element_identifier','Another_very_long_enum_element_identifier') CHARSET latin1
+f1		CREATE DEFINER=`root`@`localhost` FUNCTION `f1`(p INT) RETURNS enum('Very_long_enum_element_identifier','Another_very_long_enum_element_identifier') CHARSET latin1 COLLATE latin1_bin
 BEGIN
 CASE p
 WHEN 1 THEN
@@ -6629,7 +6622,7 @@ RETURN 'Very_long_enum_element_identifier';
 ELSE
 RETURN 'Another_very_long_enum_element_identifier';
 END CASE;
-END	latin1	latin1_bin	latin1_bin
+END	latin1	latin1_swedish_ci	latin1_bin
 #
 # - Bug#24923: cleanup.
 #
@@ -6690,9 +6683,9 @@ BEGIN
 SELECT a FROM t1 A WHERE A.b IN (SELECT b FROM t2 AS B);
 END|
 CALL p1;
-ERROR 42S22: Unknown column 'A.b' in 'IN/ALL/ANY subquery'
+ERROR 42S22: Unknown column 'A.b' in 'IN/ALL/ANY'
 CALL p1;
-ERROR 42S22: Unknown column 'A.b' in 'IN/ALL/ANY subquery'
+ERROR 42S22: Unknown column 'A.b' in 'IN/ALL/ANY'
 DROP PROCEDURE p1;
 DROP TABLE t1, t2;
 #
@@ -6820,10 +6813,10 @@ CALL p1(4, 'a');
 1
 1
 Warnings:
-Warning	1265	Data truncated for column 'b' at row 1
-Warning	1265	Data truncated for column 'b' at row 1
-Warning	1265	Data truncated for column 'b' at row 1
-Warning	1265	Data truncated for column 'b' at row 1
+Warning	1265	Data truncated for column 'b' at row 0
+Warning	1265	Data truncated for column 'b' at row 0
+Warning	1265	Data truncated for column 'b' at row 0
+Warning	1265	Data truncated for column 'b' at row 0
 SET @@max_sp_recursion_depth= @save_max_sp_recursion;
 DROP PROCEDURE p1;
 DROP PROCEDURE IF EXISTS p1;
@@ -6841,7 +6834,7 @@ CAST('10 ' as UNSIGNED INTEGER)
 1
 1
 Warnings:
-Warning	1265	Data truncated for column 'a' at row 1
+Warning	1265	Data truncated for column 'a' at row 0
 Note	1292	Truncated incorrect INTEGER value: '10 '
 DROP PROCEDURE p1;
 DROP PROCEDURE IF EXISTS p1;
@@ -7617,11 +7610,11 @@ drop table t1,t2;
 CREATE TABLE t1 (a INT, b VARCHAR(32));
 CREATE PROCEDURE sp() SELECT * FROM t1 AS t1x JOIN t1 AS t1y USING (c);
 CALL sp;
-ERROR 42S22: Unknown column 'c' in 'from clause'
+ERROR 42S22: Unknown column 'c' in 'FROM'
 CALL sp;
-ERROR 42S22: Unknown column 'c' in 'from clause'
+ERROR 42S22: Unknown column 'c' in 'FROM'
 CALL sp;
-ERROR 42S22: Unknown column 'c' in 'from clause'
+ERROR 42S22: Unknown column 'c' in 'FROM'
 DROP PROCEDURE sp;
 DROP TABLE t1;
 #
@@ -8065,7 +8058,7 @@ DROP PROCEDURE p1;
 #
 CREATE OR REPLACE PROCEDURE p1 (a VARCHAR(10)) SELECT 1;
 CALL p1(a);
-ERROR 42S22: Unknown column 'a' in 'field list'
+ERROR 42S22: Unknown column 'a' in 'CALL'
 drop procedure p1;
 CREATE OR REPLACE PROCEDURE p1 (a VARCHAR(10)) SELECT a|
 CREATE OR REPLACE PROCEDURE p2 ()
@@ -8391,7 +8384,7 @@ t2	CREATE TABLE `t2` (
   `c1` varchar(11) DEFAULT NULL,
   `c2` varchar(11) DEFAULT NULL,
   `c3` varchar(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1,t2;
 DROP FUNCTION f1;
 CREATE FUNCTION f1() RETURNS TINYTEXT CHARACTER SET latin1 RETURN '';
@@ -8399,10 +8392,10 @@ CREATE TABLE t1 AS SELECT f1() AS c1, COALESCE(f1()) AS c2, CONCAT(f1()) AS c3;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` tinytext DEFAULT NULL,
-  `c2` tinytext DEFAULT NULL,
-  `c3` varchar(255) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` tinytext CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `c2` tinytext CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `c3` varchar(255) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1;
 DROP FUNCTION f1;
 CREATE FUNCTION f1() RETURNS TEXT CHARACTER SET latin1 RETURN '';
@@ -8410,10 +8403,10 @@ CREATE TABLE t1 AS SELECT f1() AS c1, COALESCE(f1()) AS c2, CONCAT(f1()) AS c3;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` text DEFAULT NULL,
-  `c2` text DEFAULT NULL,
-  `c3` text DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` text CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `c2` text CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `c3` text CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1;
 DROP FUNCTION f1;
 CREATE FUNCTION f1() RETURNS MEDIUMTEXT CHARACTER SET latin1 RETURN '';
@@ -8421,10 +8414,10 @@ CREATE TABLE t1 AS SELECT f1() AS c1, COALESCE(f1()) AS c2, CONCAT(f1()) AS c3;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` mediumtext DEFAULT NULL,
-  `c2` mediumtext DEFAULT NULL,
-  `c3` mediumtext DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` mediumtext CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `c2` mediumtext CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `c3` mediumtext CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1;
 DROP FUNCTION f1;
 CREATE FUNCTION f1() RETURNS LONGTEXT CHARACTER SET latin1 RETURN '';
@@ -8432,10 +8425,10 @@ CREATE TABLE t1 AS SELECT f1() AS c1, COALESCE(f1()) AS c2, CONCAT(f1()) AS c3;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` longtext DEFAULT NULL,
-  `c2` longtext DEFAULT NULL,
-  `c3` longtext DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` longtext CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `c2` longtext CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `c3` longtext CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1;
 DROP FUNCTION f1;
 CREATE FUNCTION f1() RETURNS TINYTEXT CHARACTER SET utf8 RETURN '';
@@ -8443,10 +8436,10 @@ CREATE TABLE t1 AS SELECT f1() AS c1, COALESCE(f1()) AS c2, CONCAT(f1()) AS c3;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` tinytext CHARACTER SET utf8mb3 DEFAULT NULL,
-  `c2` text CHARACTER SET utf8mb3 DEFAULT NULL,
-  `c3` varchar(255) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` tinytext CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
+  `c2` text CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
+  `c3` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1;
 DROP FUNCTION f1;
 CREATE FUNCTION f1() RETURNS TEXT CHARACTER SET utf8 RETURN '';
@@ -8454,10 +8447,10 @@ CREATE TABLE t1 AS SELECT f1() AS c1, COALESCE(f1()) AS c2, CONCAT(f1()) AS c3;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` text CHARACTER SET utf8mb3 DEFAULT NULL,
-  `c2` mediumtext CHARACTER SET utf8mb3 DEFAULT NULL,
-  `c3` mediumtext CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` text CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
+  `c2` mediumtext CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
+  `c3` mediumtext CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1;
 DROP FUNCTION f1;
 CREATE FUNCTION f1() RETURNS MEDIUMTEXT CHARACTER SET utf8 RETURN '';
@@ -8465,10 +8458,10 @@ CREATE TABLE t1 AS SELECT f1() AS c1, COALESCE(f1()) AS c2, CONCAT(f1()) AS c3;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` mediumtext CHARACTER SET utf8mb3 DEFAULT NULL,
-  `c2` longtext CHARACTER SET utf8mb3 DEFAULT NULL,
-  `c3` longtext CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` mediumtext CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
+  `c2` longtext CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
+  `c3` longtext CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1;
 DROP FUNCTION f1;
 CREATE FUNCTION f1() RETURNS LONGTEXT CHARACTER SET utf8 RETURN '';
@@ -8476,10 +8469,10 @@ CREATE TABLE t1 AS SELECT f1() AS c1, COALESCE(f1()) AS c2, CONCAT(f1()) AS c3;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` longtext CHARACTER SET utf8mb3 DEFAULT NULL,
-  `c2` longtext CHARACTER SET utf8mb3 DEFAULT NULL,
-  `c3` longtext CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` longtext CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
+  `c2` longtext CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
+  `c3` longtext CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1;
 DROP FUNCTION f1;
 #
@@ -8529,10 +8522,10 @@ END;
 $$
 SHOW CREATE FUNCTION f1;
 Function	sql_mode	Create Function	character_set_client	collation_connection	Database Collation
-f1	STRICT_ALL_TABLES	CREATE DEFINER=`root`@`localhost` FUNCTION `f1`() RETURNS text  COMPRESSED CHARSET latin1
+f1	STRICT_ALL_TABLES	CREATE DEFINER=`root`@`localhost` FUNCTION `f1`() RETURNS text  COMPRESSED CHARSET latin1 COLLATE latin1_bin
 BEGIN
 RETURN '';
-END	latin1	latin1_bin	latin1_bin
+END	latin1	latin1_swedish_ci	latin1_bin
 DROP FUNCTION f1;
 CREATE FUNCTION f1() RETURNS TEXT
 COMPRESSED:

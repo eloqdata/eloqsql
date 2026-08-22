@@ -65,12 +65,12 @@ SELECT 1 FROM (SELECT 1 as a) as b HAVING (SELECT a)=1;
 1
 1
 SELECT (SELECT 1), a;
-ERROR 42S22: Unknown column 'a' in 'field list'
+ERROR 42S22: Unknown column 'a' in 'SELECT'
 SELECT 1 as a FROM (SELECT 1) as b HAVING (SELECT a)=1;
 a
 1
 SELECT 1 FROM (SELECT (SELECT a) b) c;
-ERROR 42S22: Unknown column 'a' in 'field list'
+ERROR 42S22: Unknown column 'a' in 'SELECT'
 SELECT * FROM (SELECT 1 as id) b WHERE id IN (SELECT * FROM (SELECT 1 as id) c ORDER BY id);
 id
 1
@@ -87,9 +87,9 @@ ERROR 42000: You have an error in your SQL syntax; check the manual that corresp
 SELECT 1 FROM (SELECT 1) a PROCEDURE ANALYSE((SELECT 1));
 ERROR 42000: PROCEDURE does not support subqueries or stored functions
 SELECT (SELECT 1) as a FROM (SELECT 1) b WHERE (SELECT a) IS NULL;
-ERROR 42S22: Unknown column 'a' in 'field list'
+ERROR 42S22: Unknown column 'a' in 'SELECT'
 SELECT (SELECT 1) as a FROM (SELECT 1) b WHERE (SELECT a) IS NOT NULL;
-ERROR 42S22: Unknown column 'a' in 'field list'
+ERROR 42S22: Unknown column 'a' in 'SELECT'
 SELECT (SELECT 1,2,3) = ROW(1,2,3);
 (SELECT 1,2,3) = ROW(1,2,3)
 1
@@ -335,7 +335,7 @@ patient_uq	clinic_uq
 1	2
 2	2
 select * from t1 where a= (select a from t2,t4 where t2.b=t4.b);
-ERROR 23000: Column 'a' in field list is ambiguous
+ERROR 23000: Column 'a' in SELECT is ambiguous
 drop table t1,t2,t3;
 CREATE TABLE t3 (a varchar(20),b char(1) NOT NULL default '0');
 INSERT INTO t3 VALUES ('W','a'),('A','c'),('J','b');
@@ -438,9 +438,9 @@ numeropost	maxnumrep
 2	2
 1	1
 SELECT (SELECT 1) as a FROM (SELECT 1 FROM t1 HAVING a=1) b;
-ERROR 42S22: Unknown column 'a' in 'having clause'
+ERROR 42S22: Unknown column 'a' in 'HAVING'
 SELECT 1 IN (SELECT 1 FROM t2 HAVING a);
-ERROR 42S22: Unknown column 'a' in 'having clause'
+ERROR 42S22: Unknown column 'a' in 'HAVING'
 SELECT * from t2 where topic IN (SELECT topic FROM t2 GROUP BY topic);
 mot	topic	date	pseudo
 joce	1	2002-10-22	joce
@@ -530,7 +530,7 @@ KEY `pseudo` (`pseudo`,`numeropost`)
 SELECT (SELECT numeropost FROM t1 HAVING numreponse=a),numreponse FROM (SELECT * FROM t1) as a;
 ERROR 42S22: Reference 'numreponse' not supported (forward reference in item list)
 SELECT numreponse, (SELECT numeropost FROM t1 HAVING numreponse=a) FROM (SELECT * FROM t1) as a;
-ERROR 42S22: Unknown column 'a' in 'having clause'
+ERROR 42S22: Unknown column 'a' in 'HAVING'
 SELECT numreponse, (SELECT numeropost FROM t1 HAVING numreponse=1) FROM (SELECT * FROM t1) as a;
 numreponse	(SELECT numeropost FROM t1 HAVING numreponse=1)
 INSERT INTO t1 (numeropost,numreponse,pseudo) VALUES (1,1,'joce'),(1,2,'joce'),(1,3,'test');
@@ -614,7 +614,18 @@ a	b
 22	11
 33	10
 delete t11.*, t12.* from t11,t12 where t11.a = t12.a and t11.b = (select b from t12 where t11.a = t12.a);
-ERROR HY000: Table 't12' is specified twice, both as a target for 'DELETE' and as a separate source for data
+select * from t11;
+a	b
+0	10
+1	11
+select * from t12;
+a	b
+22	11
+33	10
+delete from t11;
+delete from t12;
+insert into t11 values (0, 10),(1, 11),(2, 12);
+insert into t12 values (33, 10),(22, 11),(2, 12);
 delete t11.*, t12.* from t11,t12 where t11.a = t12.a and t11.b = (select b from t2);
 ERROR 21000: Subquery returns more than 1 row
 delete t11.*, t12.* from t11,t12 where t11.a = t12.a and t11.b = (select b from t2 where t11.a = t2.a);
@@ -633,23 +644,25 @@ create table t3 (b int);
 insert into t2 values (1);
 insert into t3 values (1),(2);
 INSERT INTO t1 (x) VALUES ((SELECT x FROM t1));
-ERROR HY000: Table 't1' is specified twice, both as a target for 'INSERT' and as a separate source for data
 INSERT INTO t1 (x) VALUES ((SELECT b FROM t3));
 ERROR 21000: Subquery returns more than 1 row
 INSERT INTO t1 (x) VALUES ((SELECT a FROM t2));
 select * from t1;
 x
+NULL
 1
 insert into t2 values (1);
 INSERT #DELAYED 
 INTO t1 (x) VALUES ((SELECT SUM(a) FROM t2));
 select * from t1 order by x asc;
 x
+NULL
 1
 2
 INSERT INTO t1 (x) select (SELECT SUM(a)+1 FROM t2) FROM t2;
 select * from t1 order by x asc;
 x
+NULL
 1
 2
 3
@@ -657,6 +670,7 @@ x
 INSERT INTO t1 (x) select (SELECT SUM(x)+2 FROM t1) FROM t2;
 select * from t1 order by x asc;
 x
+NULL
 1
 2
 3
@@ -667,6 +681,7 @@ INSERT #DELAYED
 INTO t1 (x) VALUES ((SELECT SUM(a) FROM t2));
 select * from t1 order by x asc;
 x
+NULL
 1
 2
 2
@@ -683,7 +698,7 @@ insert into t3 values (1),(2);
 select * from t1;
 x	y
 replace into t1 (x, y) VALUES ((SELECT x FROM t1), (SELECT a+1 FROM t2));
-ERROR HY000: Table 't1' is specified twice, both as a target for 'INSERT' and as a separate source for data
+ERROR 23000: Column 'x' cannot be null
 replace into t1 (x, y) VALUES ((SELECT a FROM t3), (SELECT a+1 FROM t2));
 ERROR 21000: Subquery returns more than 1 row
 replace into t1 (x, y) VALUES ((SELECT a FROM t2), (SELECT a+1 FROM t2));
@@ -753,9 +768,9 @@ SELECT * FROM t2 WHERE id IN (SELECT 5 UNION SELECT 2);
 id
 2
 INSERT INTO t2 VALUES ((SELECT * FROM t2));
-ERROR HY000: Table 't2' is specified twice, both as a target for 'INSERT' and as a separate source for data
+ERROR 21000: Subquery returns more than 1 row
 INSERT INTO t2 VALUES ((SELECT id FROM t2));
-ERROR HY000: Table 't2' is specified twice, both as a target for 'INSERT' and as a separate source for data
+ERROR 21000: Subquery returns more than 1 row
 SELECT * FROM t2;
 id
 1
@@ -1198,7 +1213,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(1) NOT NULL DEFAULT 0,
   `(SELECT 1)` int(1) NOT NULL DEFAULT 0
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 CREATE TABLE t1 SELECT * FROM (SELECT 1 as a,(SELECT a)) a;
 SHOW CREATE TABLE t1;
@@ -1206,7 +1221,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(1) NOT NULL DEFAULT 0,
   `(SELECT a)` int(1) NOT NULL DEFAULT 0
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 CREATE TABLE t1 SELECT * FROM (SELECT 1 as a,(SELECT a+0)) a;
 SHOW CREATE TABLE t1;
@@ -1214,7 +1229,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(1) NOT NULL DEFAULT 0,
   `(SELECT a+0)` int(3) NOT NULL DEFAULT 0
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 CREATE TABLE t1 SELECT (SELECT 1 as a UNION SELECT 1+1 limit 1,1) as a;
 select * from t1;
@@ -1223,8 +1238,8 @@ a
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int(3) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `a` int(11) DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1 (a int);
 insert into t1 values (1), (2), (3);
@@ -1309,7 +1324,7 @@ INSERT INTO t1 VALUES (1);
 UPDATE t1 SET i=i+(SELECT MAX(i) FROM (SELECT 1) t) WHERE i=(SELECT MAX(i));
 UPDATE t1 SET i=i+1 WHERE i=(SELECT MAX(i));
 UPDATE t1 SET t.i=i+(SELECT MAX(i) FROM (SELECT 1) t);
-ERROR 42S22: Unknown column 't.i' in 'field list'
+ERROR 42S22: Unknown column 't.i' in 'SET'
 select * from t1;
 i
 3
@@ -1488,7 +1503,7 @@ create table t2 (s1 int);
 insert into t1 values (1);
 insert into t2 values (1);
 update t1 set  s1 = s1 + 1 where 1 = (select x.s1 as A from t2 WHERE t2.s1 > t1.s1 order by A);
-ERROR 42S22: Unknown column 'x.s1' in 'field list'
+ERROR 42S22: Unknown column 'x.s1' in 'SELECT'
 DROP TABLE t1, t2;
 CREATE TABLE t1 (s1 CHAR(5) COLLATE latin1_bin,
 s2 CHAR(5) COLLATE latin1_bin);
@@ -1565,9 +1580,9 @@ Note	1003	/* select#1 */ select `test`.`t1`.`s1` AS `s1`,!<expr_cache><`test`.`t
 explain extended select s1, s1 NOT IN (SELECT s1 FROM t2 WHERE s1 < 'a2') from t1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	index	NULL	s1	6	NULL	#	100.00	Using index
-2	MATERIALIZED	t2	range	s1	s1	6	NULL	#	100.00	Using where; Using index
+2	SUBQUERY	t2	index_subquery	s1	s1	6	func	#	50.00	Using index; Using where; Full scan on NULL key
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`s1` AS `s1`,!<expr_cache><`test`.`t1`.`s1`>(<in_optimizer>(`test`.`t1`.`s1`,`test`.`t1`.`s1` in ( <materialize> (/* select#2 */ select `test`.`t2`.`s1` from `test`.`t2` where `test`.`t2`.`s1` < 'a2' ), <primary_index_lookup>(`test`.`t1`.`s1` in <temporary table> on distinct_key where `test`.`t1`.`s1` = `<subquery2>`.`s1`)))) AS `s1 NOT IN (SELECT s1 FROM t2 WHERE s1 < 'a2')` from `test`.`t1`
+Note	1003	/* select#1 */ select `test`.`t1`.`s1` AS `s1`,!<expr_cache><`test`.`t1`.`s1`>(<in_optimizer>(`test`.`t1`.`s1`,<exists>(<index_lookup>(<cache>(`test`.`t1`.`s1`) in t2 on s1 checking NULL where `test`.`t2`.`s1` < 'a2' having trigcond(`test`.`t2`.`s1` is null))))) AS `s1 NOT IN (SELECT s1 FROM t2 WHERE s1 < 'a2')` from `test`.`t1`
 drop table t1,t2;
 create table t2 (a int, b int not null);
 create table t3 (a int);
@@ -1666,11 +1681,11 @@ drop table t1, t2;
 create table t1 (s1 int);
 create table t2 (s1 int);
 select * from t1 where (select count(*) from t2 where t1.s2) = 1;
-ERROR 42S22: Unknown column 't1.s2' in 'where clause'
+ERROR 42S22: Unknown column 't1.s2' in 'WHERE'
 select * from t1 where (select count(*) from t2 group by t1.s2) = 1;
-ERROR 42S22: Unknown column 't1.s2' in 'group statement'
+ERROR 42S22: Unknown column 't1.s2' in 'GROUP BY'
 select count(*) from t2 group by t1.s2;
-ERROR 42S22: Unknown column 't1.s2' in 'group statement'
+ERROR 42S22: Unknown column 't1.s2' in 'GROUP BY'
 drop table t1, t2;
 CREATE TABLE t1(COLA FLOAT NOT NULL,COLB FLOAT NOT NULL,COLC VARCHAR(20) DEFAULT NULL,PRIMARY KEY (COLA, COLB));
 CREATE TABLE t2(COLA FLOAT NOT NULL,COLB FLOAT NOT NULL,COLC CHAR(1) NOT NULL,PRIMARY KEY (COLA));
@@ -1758,9 +1773,9 @@ id	text
 explain extended select * from t1 where id not in (select id from t1 where id < 8);
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	ALL	NULL	NULL	NULL	NULL	#	100.00	Using where
-2	MATERIALIZED	t1	range	PRIMARY	PRIMARY	4	NULL	#	100.00	Using where; Using index
+2	DEPENDENT SUBQUERY	t1	unique_subquery	PRIMARY	PRIMARY	4	func	#	100.00	Using index; Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`text` AS `text` from `test`.`t1` where !<expr_cache><`test`.`t1`.`id`>(<in_optimizer>(`test`.`t1`.`id`,`test`.`t1`.`id` in ( <materialize> (/* select#2 */ select `test`.`t1`.`id` from `test`.`t1` where `test`.`t1`.`id` < 8 ), <primary_index_lookup>(`test`.`t1`.`id` in <temporary table> on distinct_key where `test`.`t1`.`id` = `<subquery2>`.`id`))))
+Note	1003	/* select#1 */ select `test`.`t1`.`id` AS `id`,`test`.`t1`.`text` AS `text` from `test`.`t1` where !<expr_cache><`test`.`t1`.`id`>(<in_optimizer>(`test`.`t1`.`id`,<exists>(<primary_index_lookup>(<cache>(`test`.`t1`.`id`) in t1 on PRIMARY where `test`.`t1`.`id` < 8 and <cache>(`test`.`t1`.`id`) = `test`.`t1`.`id`))))
 explain extended select * from t1 as tt where not exists (select id from t1 where id < 8 and (id = tt.id or id is null) having id is not null);
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	tt	ALL	NULL	NULL	NULL	NULL	#	100.00	Using where
@@ -2295,10 +2310,10 @@ a	b
 explain extended select * from t1 up where exists (select * from t1 where t1.a=up.a);
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	up	ALL	NULL	NULL	NULL	NULL	#	100.00	Using where
-2	MATERIALIZED	t1	ALL	NULL	NULL	NULL	NULL	#	100.00	
+2	DEPENDENT SUBQUERY	t1	ALL	NULL	NULL	NULL	NULL	#	100.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.up.a' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select `test`.`up`.`a` AS `a`,`test`.`up`.`b` AS `b` from `test`.`t1` `up` where <expr_cache><`test`.`up`.`a`>(<in_optimizer>(`test`.`up`.`a`,`test`.`up`.`a` in ( <materialize> (/* select#2 */ select `test`.`t1`.`a` from `test`.`t1` where 1 ), <primary_index_lookup>(`test`.`up`.`a` in <temporary table> on distinct_key where `test`.`up`.`a` = `<subquery2>`.`a`))))
+Note	1003	/* select#1 */ select `test`.`up`.`a` AS `a`,`test`.`up`.`b` AS `b` from `test`.`t1` `up` where <expr_cache><`test`.`up`.`a`>(<in_optimizer>(`test`.`up`.`a`,<exists>(/* select#2 */ select `test`.`t1`.`a` from `test`.`t1` where <cache>(`test`.`up`.`a`) = `test`.`t1`.`a`)))
 drop table t1;
 CREATE TABLE t1 (t1_a int);
 INSERT INTO t1 VALUES (1);
@@ -2444,7 +2459,7 @@ INSERT INTO `t1` VALUES (1,0,0,700),(1,1,1,400),(1,5,5,400),(1,12,12,400),(1,12,
 CREATE TABLE `t2` ( `id` int(10) unsigned NOT NULL default '0', `pid` int(10) unsigned NOT NULL default '0', `map` smallint(6) unsigned NOT NULL default '0', `level` tinyint(4) unsigned NOT NULL default '0', `title` varchar(255) default NULL, PRIMARY KEY  (`id`,`pid`,`map`), KEY `level` (`level`), KEY `id` (`id`,`map`)) ;
 INSERT INTO `t2` VALUES (6,5,12,7,'a'),(12,0,0,7,'a'),(12,1,0,7,'a'),(12,5,5,7,'a'),(12,5,12,7,'a');
 SELECT b.sc FROM (SELECT (SELECT a.access FROM t1 a WHERE a.map = op.map AND a.slave = op.pid AND a.master = 1) ac FROM t2 op WHERE op.id = 12 AND op.map = 0) b;
-ERROR 42S22: Unknown column 'b.sc' in 'field list'
+ERROR 42S22: Unknown column 'b.sc' in 'SELECT'
 SELECT b.ac FROM (SELECT (SELECT a.access FROM t1 a WHERE a.map = op.map AND a.slave = op.pid AND a.master = 1) ac FROM t2 op WHERE op.id = 12 AND op.map = 0) b;
 ac
 700
@@ -2485,7 +2500,7 @@ drop table t1, t2;
 create table t1 (id int);
 create table t2 (id int, body text, key idx_body (body));
 Warnings:
-Note	1071	Specified key was too long; max key length is 1024 bytes
+Note	1071	Specified key was too long; max key length is 3072 bytes
 insert into t1 values(1),(2),(3);
 insert into t2 values (1,'test'), (2,'mysql'), (3,'test'), (4,'test');
 drop table t2,t1;
@@ -2533,7 +2548,7 @@ drop table t1;
 create table t1 (a1 int);
 create table t2 (b1 int);
 select * from t1 where a2 > any(select b1 from t2);
-ERROR 42S22: Unknown column 'a2' in 'IN/ALL/ANY subquery'
+ERROR 42S22: Unknown column 'a2' in 'IN/ALL/ANY'
 select * from t1 where a1 > any(select b1 from t2);
 a1
 drop table t1,t2;
@@ -3029,13 +3044,13 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `sub_a` datetime DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 CREATE TABLE t3 AS (SELECT a FROM t1 WHERE a < '2000-01-01') UNION (SELECT a FROM t1 WHERE a > '2000-01-01');
 SHOW CREATE TABLE t3;
 Table	Create Table
 t3	CREATE TABLE `t3` (
   `a` datetime DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1,t2,t3;
 CREATE TABLE t1 (a int);
 INSERT INTO t1 VALUES (1), (2);
@@ -3430,11 +3445,11 @@ delete from t1 where c <= 1140006215 and (select b from t2 where a = 2) = 1;
 drop table t1, t2;
 CREATE TABLE t1 (a INT);
 CREATE VIEW v1 AS SELECT * FROM t1 WHERE no_such_column = ANY (SELECT 1);
-ERROR 42S22: Unknown column 'no_such_column' in 'IN/ALL/ANY subquery'
+ERROR 42S22: Unknown column 'no_such_column' in 'IN/ALL/ANY'
 CREATE VIEW v2 AS SELECT * FROM t1 WHERE no_such_column = (SELECT 1);
-ERROR 42S22: Unknown column 'no_such_column' in 'where clause'
+ERROR 42S22: Unknown column 'no_such_column' in 'WHERE'
 SELECT * FROM t1 WHERE no_such_column = ANY (SELECT 1);
-ERROR 42S22: Unknown column 'no_such_column' in 'IN/ALL/ANY subquery'
+ERROR 42S22: Unknown column 'no_such_column' in 'IN/ALL/ANY'
 DROP TABLE t1;
 create table t1 (i int, j bigint);
 insert into t1 values (1, 2), (2, 2), (3, 2);
@@ -4212,11 +4227,11 @@ EXPLAIN
 SELECT a AS out_a, MIN(b) FROM t1
 WHERE b > (SELECT MIN(b) FROM t1 WHERE a = out_a)
 GROUP BY a;
-ERROR 42S22: Unknown column 'out_a' in 'where clause'
+ERROR 42S22: Unknown column 'out_a' in 'WHERE'
 SELECT a AS out_a, MIN(b) FROM t1
 WHERE b > (SELECT MIN(b) FROM t1 WHERE a = out_a)
 GROUP BY a;
-ERROR 42S22: Unknown column 'out_a' in 'where clause'
+ERROR 42S22: Unknown column 'out_a' in 'WHERE'
 EXPLAIN
 SELECT a AS out_a, MIN(b) FROM t1 t1_outer
 WHERE b > (SELECT MIN(b) FROM t1 WHERE a = t1_outer.a)
@@ -4243,10 +4258,10 @@ EXPLAIN EXTENDED
 SELECT 2 FROM t1 WHERE EXISTS ((SELECT 1 FROM t2 WHERE t1.a=t2.a));
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	ALL	NULL	NULL	NULL	NULL	#	100.00	Using where
-2	MATERIALIZED	t2	ALL	NULL	NULL	NULL	NULL	#	100.00	
+2	DEPENDENT SUBQUERY	t2	ALL	NULL	NULL	NULL	NULL	#	100.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.a' of SELECT #2 was resolved in SELECT #1
-Note	1003	/* select#1 */ select 2 AS `2` from `test`.`t1` where <expr_cache><`test`.`t1`.`a`>(<in_optimizer>(`test`.`t1`.`a`,`test`.`t1`.`a` in ( <materialize> (/* select#2 */ select `test`.`t2`.`a` from `test`.`t2` where 1 ), <primary_index_lookup>(`test`.`t1`.`a` in <temporary table> on distinct_key where `test`.`t1`.`a` = `<subquery2>`.`a`))))
+Note	1003	/* select#1 */ select 2 AS `2` from `test`.`t1` where <expr_cache><`test`.`t1`.`a`>(<in_optimizer>(`test`.`t1`.`a`,<exists>(/* select#2 */ select `test`.`t2`.`a` from `test`.`t2` where <cache>(`test`.`t1`.`a`) = `test`.`t2`.`a`)))
 EXPLAIN EXTENDED
 SELECT 2 FROM t1 WHERE EXISTS ((SELECT 1 FROM t2 WHERE t1.a=t2.a) UNION
 (SELECT 1 FROM t2 WHERE t1.a = t2.a));
@@ -5189,7 +5204,7 @@ INSERT INTO t1 VALUES (repeat('b',@@global.max_allowed_packet));
 EXPLAIN EXTENDED SELECT DISTINCT 1 FROM t1,
 (SELECT DISTINCTROW a AS away FROM t1 GROUP BY a WITH ROLLUP) AS d1  
 WHERE t1.a = d1.a;
-ERROR 42S22: Unknown column 'd1.a' in 'where clause'
+ERROR 42S22: Unknown column 'd1.a' in 'WHERE'
 DROP TABLE t1;
 Set up test tables.
 CREATE TABLE t1 (
@@ -6587,8 +6602,8 @@ NULL
 NULL
 show status like "subquery_cache%";
 Variable_name	Value
-Subquery_cache_hit	6
-Subquery_cache_miss	2
+Subquery_cache_hit	NUM
+Subquery_cache_miss	NUM
 show status like '%Handler_read%';
 Variable_name	Value
 Handler_read_first	0

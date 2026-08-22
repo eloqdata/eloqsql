@@ -1,0 +1,273 @@
+--source include/no_valgrind_without_big.inc
+--source include/have_stat_tables.inc
+--source include/have_sequence.inc
+--source include/default_charset.inc
+--source include/not_embedded.inc
+
+--disable_warnings
+drop table if exists t0,t1,t2,t3;
+--enable_warnings
+
+select @@global.use_stat_tables;
+select @@session.use_stat_tables;
+
+set @save_use_stat_tables=@@use_stat_tables;
+set use_stat_tables='preferably';
+
+--source include/default_optimizer_switch.inc
+set @save_optimizer_use_condition_selectivity=@@optimizer_use_condition_selectivity;
+set @save_histogram_size=@@histogram_size;
+set @save_histogram_type=@@histogram_type;
+set join_cache_level=2;
+set @@global.histogram_size=0,@@local.histogram_size=0;
+set histogram_type='single_prec_hb';
+
+# check that statistics on nulls is used
+
+set optimizer_use_condition_selectivity=3;
+
+--echo #
+--echo # MDEV-31067: selectivity_from_histogram >1.0 for a DOUBLE_PREC_HB histogram
+--echo #
+create table t0(a int);  # This holds how many rows we hold in a bucket.
+insert into t0 select 1 from seq_1_to_78;
+
+create table t1(a int);  # one-third of a bucket
+insert into t1 select 1 from seq_1_to_26;
+
+create table t10 (a int);
+insert into t10 select 0 from t0, seq_1_to_4;
+
+insert into t10 select 8693 from t1;
+insert into t10 select 8694 from t1;
+insert into t10 select 8695 from t1;
+
+
+insert into t10 select 34783 from t1;
+insert into t10 select 34784 from t1;
+insert into t10 select 34785 from t1;
+
+
+insert into t10 select 34785 from t0, seq_1_to_8;
+
+insert into t10 select 65214 from t1;
+insert into t10 select 65215 from t1;
+insert into t10 select 65216 from t1;
+
+insert into t10 select 65216 from t0, seq_1_to_52;
+
+insert into t10 select 65217 from t1;
+insert into t10 select 65218 from t1;
+insert into t10 select 65219 from t1;
+
+insert into t10 select 65219 from t0;
+
+
+insert into t10 select 73913 from t1;
+insert into t10 select 73914 from t1;
+insert into t10 select 73915 from t1;
+
+insert into t10 select 73915 from t0, seq_1_to_40;
+
+
+insert into t10 select 78257 from t1;
+insert into t10 select 78258 from t1;
+insert into t10 select 78259 from t1;
+
+insert into t10 select 91300 from t1;
+insert into t10 select 91301 from t1;
+insert into t10 select 91302 from t1;
+
+insert into t10 select 91302 from t0, seq_1_to_6;
+
+insert into t10 select 91303 from t1; # Only 1/3rd of bucket matches the search tuple
+insert into t10 select 91304 from t1;
+insert into t10 select 91305 from t1;
+
+insert into t10 select 91305 from t0, seq_1_to_8;
+
+insert into t10 select  99998 from t1;
+insert into t10 select  99999 from t1;
+insert into t10 select 100000 from t1;
+
+set use_stat_tables=preferably;
+analyze table t10 persistent for all;
+flush tables;
+
+set @tmp=@@optimizer_trace;
+set optimizer_trace=1;
+explain select * from t10  where a in (91303);
+
+#Enable after fix MDEV-32034
+--disable_view_protocol
+--echo # Must have selectivity_from_histogram <= 1.0:
+select json_detailed(json_extract(trace, '$**.selectivity_for_columns')) as sel
+from information_schema.optimizer_trace;
+--enable_view_protocol
+
+set optimizer_trace=@tmp;
+drop table t0,t1,t10;
+
+set histogram_size=@save_histogram_size;
+
+--echo #
+--echo # End of 10.4 tests
+--echo #
+
+--echo #
+--echo # MDEV-33314: Crash inside calculate_cond_selectivity_for_table() with many columns
+--echo #
+set optimizer_use_condition_selectivity= 4;
+set use_stat_tables= preferably;
+
+let $N_CONDS=160;
+let $N_LAST_COND=159;
+--echo #
+--echo # create table t1 (col0 int, col1 int, col2 int, ...);
+--echo #
+let $create_tbl= create table t1 ( col0 int;
+let $i=1;
+
+while ($i < $N_CONDS) {
+  let $create_tbl= $create_tbl, col$i int;
+  let $i=`select $i + 1`;
+}
+
+let $create_tbl= $create_tbl );
+#echo $create_tbl;
+evalp $create_tbl;
+
+
+--echo #
+--echo # insert into t1 select seq, ... seq from seq_1_to_10;
+--echo #
+let $insert_cmd= insert into t1 select seq;
+let $i=1;
+
+while ($i < $N_CONDS) {
+  let $insert_cmd = $insert_cmd ,seq;
+  let $i=`select $i + 1`;
+}
+let $insert_cmd= $insert_cmd from seq_1_to_100;
+
+# echo $insert_cmd;
+evalp $insert_cmd;
+
+analyze table t1 persistent for all;
+set @trace_tmp=@@optimizer_trace;
+set optimizer_trace=1;
+
+--echo #
+--echo # Basic testcase: don't crash for many-column selectivity
+--echo # explain extended select * from t1 where col0>1 and col1>1 and col2>1 and ...
+--echo #
+let $query_tbl= explain format=json select * from t1 where col0>1;
+
+let $i=1;
+while ($i < $N_CONDS) {
+  let $query_tbl= $query_tbl and col$i>1;
+  let $i=`select $i + 1`;
+}
+
+#echo $query_tbl;
+evalp $query_tbl;
+
+#Enable after fix MDEV-32034
+--disable_view_protocol
+select 
+  json_detailed(json_extract(trace,'$**.selectivity_for_columns[0]')) as JS
+from 
+ information_schema.optimizer_trace;
+
+--enable_view_protocol
+
+evalp $query_tbl;
+#Enable after fix MDEV-32034
+--disable_view_protocol
+eval select
+  json_detailed(json_extract(trace,'\$**.selectivity_for_columns[$N_LAST_COND]')) as JS
+from 
+ information_schema.optimizer_trace;
+--enable_view_protocol
+
+--echo # 
+--echo # Check if not being able to infer anything for the first MAX_KEY
+--echo #   columns doesn't prevent further inferences.
+--echo # 
+--echo # explain extended select * from t1
+--echo # where (1>2 or col0>1 or col1>1 or ...) and col99>1
+--echo #
+let $query_tbl= explain format=json select * from t1 where (1>2 ;
+
+let $i=1;
+while ($i < $N_LAST_COND) {
+  let $query_tbl= $query_tbl or col$i>1;
+  let $i=`select $i + 1`;
+}
+let $query_tbl= $query_tbl) and col$N_LAST_COND>1;
+
+#echo $query_tbl;
+evalp $query_tbl;
+
+#Enable after fix MDEV-32034
+--disable_view_protocol
+select 
+  json_detailed(json_extract(trace,'$**.selectivity_for_columns')) as JS
+from 
+ information_schema.optimizer_trace;
+--enable_view_protocol
+
+set optimizer_trace=@trace_tmp;
+drop table t1;
+
+--echo #
+--echo # MDEV-34993: Incorrect cardinality estimation causes poor query plan
+--echo #
+
+create table t1 (
+  pk int,
+  key1 int,
+  filler char(100),
+  index (key1, pk),
+  primary key (pk)
+);
+
+insert into t1
+select
+  seq, FLOOR(seq/100), 'filler'
+from
+  seq_1_to_1000;
+analyze table t1;
+
+set optimizer_trace=1;
+explain select * from t1
+where
+  pk in (1,2,3,4,5) and
+  key1 <= 4;
+
+--disable_view_protocol
+create temporary table opt_trace as
+select * from information_schema.optimizer_trace;
+
+--echo # 11.0+ will not attempt to use selectivity(key1): 
+select
+  json_detailed(json_extract(trace,'$**.selectivity_for_indexes')) as JS
+from
+  opt_trace;
+
+--echo # Must not include 1.79...e308 as cost:
+select
+  json_detailed(json_extract(trace,'$**.best_access_path')) as JS
+from
+  opt_trace;
+--enable_view_protocol
+drop table opt_trace;
+
+drop table t1;
+--echo #
+--echo # Clean up
+--echo #
+--source include/restore_charset.inc
+set optimizer_use_condition_selectivity= @save_optimizer_use_condition_selectivity;
+set use_stat_tables= @save_use_stat_tables;
+set @@global.histogram_size=@save_histogram_size;

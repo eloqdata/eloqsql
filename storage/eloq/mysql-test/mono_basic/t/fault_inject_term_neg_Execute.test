@@ -1,5 +1,6 @@
 # This case is to test what will happen if remote a single node crash before it acquire and send message.
 --source include/have_eloq.inc
+--source include/eloq_errors.inc
 
 --disable_warnings
 DROP TABLE IF EXISTS t1;
@@ -22,7 +23,7 @@ insert into t1 values(1,1);
 select * from t1;
 
 SET SESSION debug_dbug="+d,eloq;term_TemplateCcMap_Execute_AcquireCc;node_id=-1";
---error 199
+--error $HA_ERR_ELOQ_COMMIT_FAILED
 insert into t1 values(2,2);
 select * from t1;
 
@@ -36,7 +37,7 @@ insert into t1 values(2,1);
 drop table t1;
 
 SET SESSION debug_dbug="+d,eloq;term_TemplateCcMap_Execute_AcquireAllCc;node_id=-1";
---error 200
+--error $HA_ERR_ELOQ_CREATE_TABLE_FAILED
 create table t1(i int primary key, j int) engine= eloq;
 
 SET SESSION debug_dbug="-d,eloq;term_TemplateCcMap_Execute_AcquireAllCc;node_id=-1";
@@ -57,7 +58,7 @@ insert into t1 values(2,2);
 select * from t1;
 
 SET SESSION debug_dbug="+d,eloq;term_TemplateCcMap_Execute_ReadCc;node_id=-1";
---error 216
+--error $HA_ERR_ELOQ_DEFAULT_ERROR
 select * from t1 where i=1;
 
 SET SESSION debug_dbug="-d,eloq;term_TemplateCcMap_Execute_ReadCc;node_id=-1";

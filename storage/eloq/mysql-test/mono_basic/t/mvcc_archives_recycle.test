@@ -1,4 +1,5 @@
 --source include/have_eloq.inc
+--source include/eloq_errors.inc
 
 set @@default_storage_engine= eloq;
 select @@default_storage_engine;
@@ -41,7 +42,7 @@ select * from t1 where i=2;        # 2,3
 commit;
 
 # test key not in table
---error 206
+--error $HA_ERR_ELOQ_TEST_FAILED
 SET SESSION debug_dbug="+d,eloq_test;archives_clean_test;./test/t1;5;";
 
 select * from t1;   # 1,12 | 2,3 | 3,3
@@ -66,7 +67,7 @@ select * from t1 where i=2;        # 2,3
 commit;
 
 # test key not in table
---error 206
+--error $HA_ERR_ELOQ_TEST_FAILED
 SET SESSION debug_dbug="+d,eloq_test;archives_clean_test;./test/t1;5;";
 
 select * from t1;   # 1,12 | 2,3 | 3,32

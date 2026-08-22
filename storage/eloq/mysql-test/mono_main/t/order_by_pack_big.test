@@ -111,6 +111,7 @@ let $query= select id DIV 100 as x,
 
 set sort_buffer_size=262144*10;
 --source include/analyze-format.inc
+--source include/analyze-format.inc
 eval analyze format=json $query;
 flush status;
 eval $query;
@@ -122,6 +123,7 @@ set sort_buffer_size=default;
 --echo #
 
 set sort_buffer_size=32768;
+--source include/analyze-format.inc
 --source include/analyze-format.inc
 eval analyze format=json $query;
 flush status;
@@ -139,6 +141,7 @@ let $file1 = `SELECT CONCAT(@@datadir, "t1.txt")`;
 let $file2 = `SELECT CONCAT(@@datadir, "t2.txt")`;
 
 set sort_buffer_size= 2097152;
+--source include/analyze-format.inc
 --source include/analyze-format.inc
 eval ANALYZE FORMAT=JSON  SELECT id, names, address FROM t3 ORDER BY names, address;
 flush status;
@@ -161,6 +164,7 @@ set @save_max_length_for_sort_data=@@max_length_for_sort_data;
 set max_length_for_sort_data= 300;
 
 set sort_buffer_size= 1097152;
+--source include/analyze-format.inc
 --source include/analyze-format.inc
 eval ANALYZE FORMAT=JSON  SELECT id, names, address FROM t3 ORDER BY names, address;
 flush status;

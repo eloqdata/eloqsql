@@ -13,12 +13,11 @@ Connection:		Localhost via UNIX socket
 # exec MYSQL --host=127.0.0.1 --port=MASTER_MYPORT -e "status" 2>&1 | grep "Connection:\|WARNING:"
 Connection:		127.0.0.1 via TCP/IP
 # exec MYSQL --host=localhost --socket=MASTER_MYSOCK --port=MASTER_MYPORT -e "status" 2>&1 | grep "Connection:\|WARNING:"
-Connection:		Localhost via UNIX socket
+Connection:		localhost via TCP/IP
 # exec MYSQL --host=localhost --socket=MASTER_MYSOCK -e "status" 2>&1 | grep "Connection:\|WARNING:"
 Connection:		Localhost via UNIX socket
 #
 # The remaining tests should produce warnings
 #
 # exec MYSQL --host=localhost --port=MASTER_MYPORT -e "status" 2>&1 | grep "Connection:\|WARNING:"
-WARNING: Forcing protocol to  TCP  due to option specification. Please explicitly state intended protocol.
 Connection:		localhost via TCP/IP

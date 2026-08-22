@@ -337,7 +337,6 @@ Warning	1264	Out of range value for column 'a' at row 3
 insert ignore into t1 values (1e+100),(1e-100),(-1e+100);
 Warnings:
 Warning	1264	Out of range value for column 'a' at row 1
-Note	1265	Data truncated for column 'a' at row 2
 Warning	1264	Out of range value for column 'a' at row 3
 insert into t1 values (123.4e0),(123.4e+2),(123.4e-2),(123e1),(123e+0);
 Warnings:
@@ -575,17 +574,17 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `d` decimal(5,0) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1 (d decimal);
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `d` decimal(10,0) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1 (d decimal(66,0));
-ERROR 42000: Too big precision 66 specified for 'd'. Maximum is 65
+ERROR 42000: Too big precision specified for 'd'. Maximum is 65
 CREATE TABLE t1 (i INT, d1 DECIMAL(9,2), d2 DECIMAL(9,2));
 INSERT INTO t1 VALUES (1, 101.40, 21.40), (1, -80.00, 0.00),
 (2, 0.00, 0.00), (2, -13.20, 0.00), (2, 59.60, 46.40),
@@ -748,7 +747,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` decimal(10,0) DEFAULT NULL,
   `b` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 select round(a,b) as c from t1 order by c;
 c
 1000
@@ -914,7 +913,7 @@ a
 Warnings:
 Warning	1916	Got overflow when converting '' to DECIMAL. Value truncated
 Warning	1292	Truncated incorrect DECIMAL value: '.00000000000000000000000000000000000001e111111111111111111111'
-Warning	1264	Out of range value for column 'a' at row 1
+Warning	1264	Out of range value for column 'a' at row 0
 CREATE TABLE t1 (str VARCHAR(128), comment VARCHAR(128));
 INSERT INTO t1 VALUES
 ('0e111111111111111111111', 'Zero mantissa and a huge positive exponent'),
@@ -975,13 +974,13 @@ CAST(str AS DECIMAL(38,0))
 Level	Code	Message
 Warning	1916	Got overflow when converting '' to DECIMAL. Value truncated
 Warning	1292	Truncated incorrect DECIMAL value: '1e111111111111111111111'
-Warning	1264	Out of range value for column 'CAST(str AS DECIMAL(38,0))' at row 1
+Warning	1264	Out of range value for column 'CAST(str AS DECIMAL(38,0))' at row 2
 CAST(CONCAT(str,'garbage') AS DECIMAL(38,0))
 99999999999999999999999999999999999999
 Level	Code	Message
 Warning	1916	Got overflow when converting '' to DECIMAL. Value truncated
 Warning	1292	Truncated incorrect DECIMAL value: '1e111111111111111111111garbage'
-Warning	1264	Out of range value for column 'CAST(CONCAT(str,'garbage') AS DECIMAL(38,0))' at row 1
+Warning	1264	Out of range value for column 'CAST(CONCAT(str,'garbage') AS DECIMAL(38,0))' at row 2
 DROP TABLE t1;
 #
 # End of 10.2 tests

@@ -91,11 +91,11 @@ prepare stmt1 from @arg01;
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'NULL' at line 1
 prepare stmt1 from ' select * from t1 where a <= 2 ' ;
 prepare stmt1 from ' select * from t1 where x <= 2 ' ;
-ERROR 42S22: Unknown column 'x' in 'where clause'
+ERROR 42S22: Unknown column 'x' in 'WHERE'
 prepare stmt1 from ' insert into t1(a,x) values(?,?) ' ;
-ERROR 42S22: Unknown column 'x' in 'field list'
+ERROR 42S22: Unknown column 'x' in 'INSERT INTO'
 prepare stmt1 from ' insert into t1(x,a) values(?,?) ' ;
-ERROR 42S22: Unknown column 'x' in 'field list'
+ERROR 42S22: Unknown column 'x' in 'INSERT INTO'
 drop table if exists not_exist ;
 prepare stmt1 from ' select * from not_exist where a <= 2 ' ;
 ERROR 42S02: Table 'test.not_exist' doesn't exist
@@ -298,11 +298,11 @@ t2	1	t2_idx	1	b	A	NULL	NULL	NULL	YES	BTREE			NO
 prepare stmt4 from ' show table status from test like ''t2%'' ';
 execute stmt4;
 Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment	Max_index_length	Temporary
-t2	ELOQ	10	Fixed	0	0	16384	#	0	0	NULL	#	#	#	latin1_bin	NULL			#	N
+t2	ELOQ	10	Fixed	0	15	0	#	0	0	NULL	#	#	#	latin1_bin	NULL			#	N
 prepare stmt4 from ' show table status from test like ''t9%'' ';
 execute stmt4;
 Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment	Max_index_length	Temporary
-t9	ELOQ	10	Dynamic	2	0	16384	#	0	0	NULL	#	#	#	latin1_bin	NULL			#	N
+t9	ELOQ	10	Dynamic	2	208	416	#	0	0	NULL	#	#	#	latin1_bin	NULL			#	N
 prepare stmt4 from ' show status like ''Threads_running'' ';
 execute stmt4;
 Variable_name	Value

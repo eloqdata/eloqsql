@@ -131,6 +131,10 @@ c	int(11)	YES		NULL
 drop table t1;
 1
 1
+--------------
+ use
+--------------
+
 ERROR 1064 (42000) at line 3: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '' at line 1
 ERROR at line 1: USE must be followed by a database name
 1  +1
@@ -160,6 +164,10 @@ count(*)
 drop table t17583;
 Test connect without db- or host-name => reconnect
 Test connect with dbname only => new dbname, old hostname
+--------------
+connecttest
+--------------
+
 ERROR 1064 (42000) at line 1: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'connecttest' at line 1
 Test connect with _invalid_ dbname only => new invalid dbname, old hostname
 ERROR 1049 (42000) at line 1: Unknown database 'invalid'
@@ -545,20 +553,26 @@ show create table `a1\``b1`;
 Table	Create Table
 a1\`b1	CREATE TABLE `a1\``b1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+/*M!999999\- enable the sandbox mode */ 
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `a1\``b1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1;
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;
-INSERT INTO `a1\``b1` VALUES (1),(2);
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+INSERT INTO `a1\``b1` VALUES
+(1),
+(2);
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
 insert `a1\``b1` values (4),(5);
 show create table `a1\``b1`;
 Table	Create Table
 a1\`b1	CREATE TABLE `a1\``b1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 select * from `a1\``b1`;
 a
 1
@@ -574,20 +588,26 @@ show create table "a1\""b1";
 Table	Create Table
 a1\"b1	CREATE TABLE "a1\""b1" (
   "a" int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+/*M!999999\- enable the sandbox mode */ 
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE "a1\""b1" (
   "a" int(11) DEFAULT NULL
 );
 /*!40101 SET character_set_client = @saved_cs_client */;
-INSERT INTO "a1\""b1" VALUES (1),(2);
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+INSERT INTO "a1\""b1" VALUES
+(1),
+(2);
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
 insert "a1\""b1" values (4),(5);
 show create table "a1\""b1";
 Table	Create Table
 a1\"b1	CREATE TABLE "a1\""b1" (
   "a" int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 select * from "a1\""b1";
 a
 1

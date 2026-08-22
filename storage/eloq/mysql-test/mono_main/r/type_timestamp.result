@@ -147,7 +147,7 @@ t1	CREATE TABLE `t1` (
   `t1` timestamp NOT NULL DEFAULT '2003-01-01 00:00:00',
   `t2` datetime DEFAULT NULL,
   `t3` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00'
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 show columns from t1;
 Field	Type	Null	Key	Default	Extra
 t1	timestamp	NO		2003-01-01 00:00:00	
@@ -171,7 +171,7 @@ t1	CREATE TABLE `t1` (
   `t1` timestamp NOT NULL DEFAULT current_timestamp(),
   `t2` datetime DEFAULT NULL,
   `t3` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00'
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 show columns from t1;
 Field	Type	Null	Key	Default	Extra
 t1	timestamp	NO		current_timestamp()	
@@ -197,7 +197,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `t1` timestamp NOT NULL DEFAULT '2003-01-01 00:00:00' ON UPDATE current_timestamp(),
   `t2` datetime DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 show columns from t1;
 Field	Type	Null	Key	Default	Extra
 t1	timestamp	NO		2003-01-01 00:00:00	on update current_timestamp()
@@ -222,7 +222,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `t1` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `t2` datetime DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 show columns from t1;
 Field	Type	Null	Key	Default	Extra
 t1	timestamp	NO		current_timestamp()	on update current_timestamp()
@@ -248,7 +248,7 @@ t1	CREATE TABLE `t1` (
   `t1` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `t2` datetime DEFAULT NULL,
   `t3` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00'
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 show columns from t1;
 Field	Type	Null	Key	Default	Extra
 t1	timestamp	NO		current_timestamp()	on update current_timestamp()
@@ -274,7 +274,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `t1` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `t2` datetime DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 show columns from t1;
 Field	Type	Null	Key	Default	Extra
 t1	timestamp	NO		current_timestamp()	on update current_timestamp()
@@ -329,7 +329,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` timestamp NULL DEFAULT NULL,
   `b` timestamp NULL DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 insert into t1 values (NULL, NULL);
 SET TIMESTAMP=1000000017;
 insert into t1 values ();
@@ -344,7 +344,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `b` timestamp NULL DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 insert into t1 values (NULL, NULL);
 SET TIMESTAMP=1000000018;
 insert into t1 values ();
@@ -359,7 +359,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` timestamp NULL DEFAULT NULL,
   `b` timestamp NULL DEFAULT '2003-01-01 00:00:00'
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 insert into t1 values (NULL, NULL);
 insert into t1 values (DEFAULT, DEFAULT);
 select * from t1;
@@ -572,10 +572,9 @@ id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 x	x	x	range	x	x	x	x	x	x
 SELECT * FROM t2 WHERE a < '2010-02-01 09:31:02.0';
 a
-2010-02-01 09:31:01
 SHOW STATUS LIKE 'Handler_read_next';
 Variable_name	Value
-Handler_read_next	1
+Handler_read_next	0
 DROP TABLE t1, t2;
 End of 5.1 tests
 #
@@ -702,12 +701,12 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `ts` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `ts` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1,t2;
 SET sql_mode=DEFAULT;
 #
@@ -723,13 +722,13 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `vc` varchar(10) NOT NULL DEFAULT 'test',
   `ts` timestamp NULL DEFAULT NULL ON UPDATE current_timestamp()
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `vc` varchar(10) NOT NULL DEFAULT 'test',
   `ts` timestamp NULL DEFAULT NULL ON UPDATE current_timestamp()
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1,t2;
 End of 10.0 tests
 #
@@ -845,13 +844,13 @@ SELECT * FROM t1 WHERE LENGTH(a)=19 AND a=' 2001-01-01 00:00:00';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	#	100.00	Using where
 Warnings:
-Note	1003	select `test`.`t1`.`a` AS `a` from `test`.`t1` where `test`.`t1`.`a` = TIMESTAMP'2001-01-01 00:00:00'
+Note	1003	select `test`.`t1`.`a` AS `a` from `test`.`t1` where `test`.`t1`.`a` = TIMESTAMP/*WITH LOCAL TIME ZONE*/'2001-01-01 00:00:00'
 EXPLAIN EXTENDED
 SELECT * FROM t1 WHERE LENGTH(a)=19+RAND() AND a=' 2001-01-01 00:00:00';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	#	100.00	Using where
 Warnings:
-Note	1003	select `test`.`t1`.`a` AS `a` from `test`.`t1` where `test`.`t1`.`a` = TIMESTAMP'2001-01-01 00:00:00' and <cache>(octet_length(TIMESTAMP'2001-01-01 00:00:00')) = 19 + rand()
+Note	1003	select `test`.`t1`.`a` AS `a` from `test`.`t1` where `test`.`t1`.`a` = TIMESTAMP/*WITH LOCAL TIME ZONE*/'2001-01-01 00:00:00' and <cache>(octet_length(TIMESTAMP/*WITH LOCAL TIME ZONE*/'2001-01-01 00:00:00')) = 19 + rand()
 EXPLAIN EXTENDED
 SELECT * FROM t1 WHERE LENGTH(a)=30+RAND() AND a=' garbage ';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -878,13 +877,13 @@ SELECT * FROM t1 WHERE LENGTH(a)=19 AND a=TIMESTAMP'2001-01-01 00:00:00.000000';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	#	100.00	Using where
 Warnings:
-Note	1003	select `test`.`t1`.`a` AS `a` from `test`.`t1` where `test`.`t1`.`a` = TIMESTAMP'2001-01-01 00:00:00.000000'
+Note	1003	select `test`.`t1`.`a` AS `a` from `test`.`t1` where `test`.`t1`.`a` = TIMESTAMP/*WITH LOCAL TIME ZONE*/'2001-01-01 00:00:00.000000'
 EXPLAIN EXTENDED
 SELECT * FROM t1 WHERE LENGTH(a)=30+RAND() AND a=TIMESTAMP'2001-01-01 00:00:00.000000';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	#	100.00	Using where
 Warnings:
-Note	1003	select `test`.`t1`.`a` AS `a` from `test`.`t1` where `test`.`t1`.`a` = TIMESTAMP'2001-01-01 00:00:00.000000' and <cache>(octet_length(TIMESTAMP'2001-01-01 00:00:00')) = 30 + rand()
+Note	1003	select `test`.`t1`.`a` AS `a` from `test`.`t1` where `test`.`t1`.`a` = TIMESTAMP/*WITH LOCAL TIME ZONE*/'2001-01-01 00:00:00.000000' and <cache>(octet_length(TIMESTAMP'2001-01-01 00:00:00')) = 30 + rand()
 DROP TABLE t1;
 CREATE TABLE t1 (a TIMESTAMP(6));;
 INSERT INTO t1 VALUES ('2001-01-01 00:00:00.000000'),('2001-01-01 00:00:01.000000');
@@ -903,13 +902,13 @@ SELECT * FROM t1 WHERE LENGTH(a)=26 AND a=TIMESTAMP'2001-01-01 00:00:00.000000';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	#	100.00	Using where
 Warnings:
-Note	1003	select `test`.`t1`.`a` AS `a` from `test`.`t1` where `test`.`t1`.`a` = TIMESTAMP'2001-01-01 00:00:00.000000'
+Note	1003	select `test`.`t1`.`a` AS `a` from `test`.`t1` where `test`.`t1`.`a` = TIMESTAMP/*WITH LOCAL TIME ZONE*/'2001-01-01 00:00:00.000000'
 EXPLAIN EXTENDED
 SELECT * FROM t1 WHERE LENGTH(a)=40+RAND() AND a=TIMESTAMP'2001-01-01 00:00:00.000000';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	#	100.00	Using where
 Warnings:
-Note	1003	select `test`.`t1`.`a` AS `a` from `test`.`t1` where `test`.`t1`.`a` = TIMESTAMP'2001-01-01 00:00:00.000000' and <cache>(octet_length(TIMESTAMP'2001-01-01 00:00:00.000000')) = 40 + rand()
+Note	1003	select `test`.`t1`.`a` AS `a` from `test`.`t1` where `test`.`t1`.`a` = TIMESTAMP/*WITH LOCAL TIME ZONE*/'2001-01-01 00:00:00.000000' and <cache>(octet_length(TIMESTAMP/*WITH LOCAL TIME ZONE*/'2001-01-01 00:00:00.000000')) = 40 + rand()
 DROP TABLE t1;
 SET timestamp=UNIX_TIMESTAMP('2001-01-01 10:20:30');
 CREATE TABLE t1 (a TIMESTAMP);;
@@ -929,13 +928,13 @@ SELECT * FROM t1 WHERE LENGTH(a)=19 AND a=TIME'00:00:00';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	#	100.00	Using where
 Warnings:
-Note	1003	select `test`.`t1`.`a` AS `a` from `test`.`t1` where `test`.`t1`.`a` = TIMESTAMP'2001-01-01 00:00:00'
+Note	1003	select `test`.`t1`.`a` AS `a` from `test`.`t1` where `test`.`t1`.`a` = TIMESTAMP/*WITH LOCAL TIME ZONE*/'2001-01-01 00:00:00'
 EXPLAIN EXTENDED
 SELECT * FROM t1 WHERE LENGTH(a)=40+RAND() AND a=TIME'00:00:00';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	#	100.00	Using where
 Warnings:
-Note	1003	select `test`.`t1`.`a` AS `a` from `test`.`t1` where `test`.`t1`.`a` = TIMESTAMP'2001-01-01 00:00:00' and <cache>(octet_length(TIMESTAMP'2001-01-01 00:00:00')) = 40 + rand()
+Note	1003	select `test`.`t1`.`a` AS `a` from `test`.`t1` where `test`.`t1`.`a` = TIMESTAMP/*WITH LOCAL TIME ZONE*/'2001-01-01 00:00:00' and <cache>(octet_length(TIMESTAMP/*WITH LOCAL TIME ZONE*/'2001-01-01 00:00:00')) = 40 + rand()
 DROP TABLE t1;
 #
 # End of 10.1 tests
@@ -998,7 +997,7 @@ t2	CREATE TABLE `t2` (
   `COALESCE(a)` timestamp NULL DEFAULT NULL,
   `COALESCE(MAX(a))` timestamp NULL DEFAULT NULL,
   `MAX(COALESCE(a))` timestamp NULL DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t2;
 DROP TABLE t1;
 #
@@ -1245,9 +1244,8 @@ CREATE TABLE t1 (a TIMESTAMP(4), b TIMESTAMP DEFAULT 0) ENGINE=eloq;
 INSERT IGNORE INTO t1 VALUES ('2001-01-01','2002-01-01'),('2003-01-01','2004-01-01');
 SELECT * FROM t1 WHERE DEFAULT(b) - a;
 a	b
-Warnings:
-Warning	1916	Got overflow when converting '-20010101000000' to UNSIGNED INT. Value truncated
-Warning	1916	Got overflow when converting '-20030101000000' to UNSIGNED INT. Value truncated
+2001-01-01 00:00:00.0000	2002-01-01 00:00:00
+2003-01-01 00:00:00.0000	2004-01-01 00:00:00
 SELECT LEFT('', DEFAULT(b)-a) FROM t1;
 LEFT('', DEFAULT(b)-a)
 
@@ -1260,9 +1258,8 @@ CREATE  TABLE t1 (a TIMESTAMP(4), b TIMESTAMP DEFAULT 0) ENGINE=eloq;
 INSERT IGNORE INTO t1 (a) VALUES ('2001-01-01'),('2003-01-01');
 SELECT * FROM t1 WHERE (SELECT MIN(b) FROM t1) - a;
 a	b
-Warnings:
-Warning	1916	Got overflow when converting '-20010101000000' to UNSIGNED INT. Value truncated
-Warning	1916	Got overflow when converting '-20030101000000' to UNSIGNED INT. Value truncated
+2001-01-01 00:00:00.0000	0000-00-00 00:00:00
+2003-01-01 00:00:00.0000	0000-00-00 00:00:00
 SELECT (SELECT MIN(b) FROM t1) - a FROM t1;
 (SELECT MIN(b) FROM t1) - a
 -20010101000000.0000

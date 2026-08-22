@@ -367,7 +367,7 @@ EXPLAIN
 SELECT a FROM t1 WHERE (a,b) IN (SELECT * FROM v2);
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	PRIMARY	t1	ALL	NULL	NULL	NULL	NULL	#	Using where
-2	DEPENDENT SUBQUERY	<derived3>	index_subquery	key0	key0	10	func,func	#	Using where
+2	DEPENDENT SUBQUERY	<derived3>	unique_subquery	distinct_key	distinct_key	10	func,func	#	Using where
 3	DERIVED	t2	ALL	NULL	NULL	NULL	NULL	#	
 4	UNION	t3	ALL	NULL	NULL	NULL	NULL	#	
 NULL	UNION RESULT	<union3,4>	ALL	NULL	NULL	NULL	NULL	#	
@@ -405,8 +405,8 @@ WHERE t3.b IN (SELECT v1.b FROM  v1, t2
 WHERE t2.c = v1.c AND t2.c = v1.b AND v1.b = t3.c);
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	PRIMARY	t3	ALL	NULL	NULL	NULL	NULL	#	Using where
-2	DEPENDENT SUBQUERY	t2	ALL	NULL	NULL	NULL	NULL	#	Using where
 2	DEPENDENT SUBQUERY	<derived3>	ref	key0	key0	8	test.t3.c,test.t3.c	#	Using where
+2	DEPENDENT SUBQUERY	t2	ALL	NULL	NULL	NULL	NULL	#	Using where; Using join buffer (flat, BNL join)
 3	DERIVED	t1	ALL	NULL	NULL	NULL	NULL	#	Using where
 SELECT * FROM t3 
 WHERE t3.b IN (SELECT v1.b FROM  v1, t2 

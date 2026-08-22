@@ -1,4 +1,5 @@
 --source include/have_eloq.inc
+--source include/eloq_errors.inc
 
 set @@default_storage_engine= eloq;
 select @@default_storage_engine;
@@ -41,7 +42,6 @@ insert into t2 values(8,8);
 --connection conn-tx1
 SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
 START TRANSACTION READ ONLY;
-begin;
 select count(*) from t1;
 
 --connection conn-tx2
@@ -55,7 +55,7 @@ sleep 1;
 send select count(*) from t2;  # detecting and processing deadlock, got committed.
 
 --connection conn-tx2
---error 199
+--error $HA_ERR_ELOQ_COMMIT_FAILED
 reap;
 
 --connection conn-tx1
@@ -63,4 +63,3 @@ reap;
 commit;
 
 drop table t1,t2;
-

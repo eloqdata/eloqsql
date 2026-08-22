@@ -281,8 +281,8 @@ update t2,v3 set v3.a=v3.a+v3.c where t2.x=v3.c;
 --error ER_TABLEACCESS_DENIED_ERROR
 update v3 set a=a+c;
 
-use test;
 connection root;
+use test;
 REVOKE ALL PRIVILEGES, GRANT OPTION FROM mysqltest_1@localhost;
 drop user mysqltest_1@localhost;
 drop database mysqltest;
@@ -319,8 +319,8 @@ delete v2 from t2,v2 where t2.x=v2.c;
 --error ER_TABLEACCESS_DENIED_ERROR
 delete from v2 where c < 4;
 
-use test;
 connection root;
+use test;
 REVOKE ALL PRIVILEGES, GRANT OPTION FROM mysqltest_1@localhost;
 drop user mysqltest_1@localhost;
 drop database mysqltest;
@@ -357,8 +357,8 @@ insert into v2 values (5,6);
 --error ER_TABLEACCESS_DENIED_ERROR
 insert into v2 select x,y from t2;
 
-use test;
 connection root;
+use test;
 REVOKE ALL PRIVILEGES, GRANT OPTION FROM mysqltest_1@localhost;
 drop user mysqltest_1@localhost;
 drop database mysqltest;
@@ -380,6 +380,7 @@ grant update(b) on mysqltest.t2 to mysqltest_1@localhost;
 grant create view,update on test.* to mysqltest_1@localhost;
 
 connection user1;
+use test;
 
 create view v1 as select * from mysqltest.t1;
 create view v2 as select b from mysqltest.t2;
@@ -441,9 +442,9 @@ grant all privileges on mysqltest.* to mysqltest_1@localhost;
 connection user1;
 use mysqltest;
 create view v1 as select * from t1;
-use test;
 
 connection root;
+use test;
 revoke all privileges on mysqltest.* from mysqltest_1@localhost;
 drop user mysqltest_1@localhost;
 drop database mysqltest;
@@ -463,6 +464,7 @@ grant select on mysqltest.t1 to mysqltest_1@localhost;
 grant create view,select on test.* to mysqltest_1@localhost;
 
 connection user1;
+use test;
 
 create view v1 as select * from mysqltest.t1;
 
@@ -522,7 +524,6 @@ select * from v3;
 select * from v4;
 --error ER_VIEW_INVALID
 select * from v5;
-use test;
 
 connection root;
 drop view v1, v2, v3, v4, v5;
@@ -567,7 +568,6 @@ create algorithm=TEMPTABLE view v1 as select f2() from t1;
 create algorithm=MERGE view v2 as select f2() from t1;
 create algorithm=TEMPTABLE SQL SECURITY INVOKER view v3 as select f2() from t1;
 create algorithm=MERGE SQL SECURITY INVOKER view v4 as select f2() from t1;
-use test;
 
 connection root;
 create view v5 as select * from v1;
@@ -614,7 +614,6 @@ create algorithm=MERGE view v2 as select *, a as b from t1;
 create algorithm=TEMPTABLE SQL SECURITY INVOKER view v3 as select *, a as b from t1;
 create algorithm=MERGE SQL SECURITY INVOKER view v4 as select *, a as b from t1;
 create view v5 as select * from v1;
-use test;
 
 connection root;
 revoke select on t1 from mysqltest_1@localhost;
@@ -665,7 +664,6 @@ select * from v3;
 select * from v4;
 --error ER_VIEW_INVALID
 select * from v5;
-use test;
 
 connection root;
 drop view v1, v2, v3, v4, v5;
@@ -730,7 +728,6 @@ use mysqltest;
 #--error ER_TABLEACCESS_DENIED_ERROR
 #SHOW CREATE TABLE v1;
 #UNLOCK TABLES;
-use test;
 
 connection root;
 use test;
@@ -810,6 +807,7 @@ INSERT INTO mysqltest1.v_ti VALUES (100);
 UPDATE mysqltest1.v_ts SET x= 200 WHERE x = 100;
 --error ER_TABLEACCESS_DENIED_ERROR
 UPDATE mysqltest1.v_ts SET x= 200;
+--error ER_COLUMNACCESS_DENIED_ERROR
 UPDATE mysqltest1.v_tu SET x= 200 WHERE x = 100;
 UPDATE mysqltest1.v_tus SET x= 200 WHERE x = 100;
 UPDATE mysqltest1.v_tu SET x= 200;
@@ -844,7 +842,7 @@ INSERT INTO t1 VALUES (1), (2), (3);
 CREATE DEFINER = 'no-such-user'@localhost VIEW v AS SELECT a from t1;
 #--warning ER_VIEW_OTHER_USER
 SHOW CREATE VIEW v;
---error ER_NO_SUCH_USER
+--error ER_MALFORMED_DEFINER
 SELECT * FROM v;
 DROP VIEW v;
 DROP TABLE t1;
@@ -858,7 +856,7 @@ eval GRANT ALL ON mysqltest_db1.* TO mysqltest_db1@localhost WITH GRANT OPTION;
 
 # The session with the non root user is needed.
 --replace_result $MONO1_PORT MONO1_PORT $MONO1_SOCK MONO1_SOCK
-connect (session1,localhost,mysqltest_db1,PWD,test);
+connect (session1,localhost,mysqltest_db1,PWD,"*NO-ONE*");
 
 CREATE SCHEMA mysqltest_db1 ;
 USE mysqltest_db1 ;
@@ -1009,13 +1007,13 @@ connection inv2;
 SHOW GRANTS;
 SELECT CURRENT_USER, SYSTEM_USER(), USER();
 --echo for a user with SET USER
---error ER_NO_SUCH_USER
+--error ER_MALFORMED_DEFINER
 SELECT * FROM v1;
 disconnect inv2;
 
 connection root;
 --echo for a superuser
---error ER_NO_SUCH_USER
+--error ER_MALFORMED_DEFINER
 SELECT * FROM v1;
 DROP USER inv_17254@localhost;
 DROP DATABASE db17254;
@@ -1714,7 +1712,7 @@ CREATE VIEW v1 AS SELECT a, b FROM t1;
 GRANT SELECT( a ) ON v1 TO mysqluser1@localhost;
 GRANT UPDATE( b ) ON t2 TO mysqluser1@localhost;
 
---connect (connection1, localhost, mysqluser1, , test)
+--connect (connection1, localhost, mysqluser1, ,mysqltest1)
 
 --error ER_TABLEACCESS_DENIED_ERROR
 SELECT * FROM mysqltest1.v1;
@@ -1935,7 +1933,7 @@ DROP VIEW IF EXISTS v1;
 --enable_warnings
 
 CREATE DEFINER=`unknown`@`unknown` SQL SECURITY DEFINER VIEW v1 AS SELECT 1;
-#--error ER_NO_SUCH_USER
+#--error ER_MALFORMED_DEFINER
 #FIXME:LOCK TABLES v1 READ;
 DROP VIEW v1;
 
@@ -2106,7 +2104,7 @@ create sql security invoker view v42 as
     where t2.id = v2.id;
 
 
-connect (conn_11766767, localhost, user_11766767,,);
+connect (conn_11766767, localhost, user_11766767,,mysqltest2);
 
 --echo #
 --echo # A) Check how we handle privilege checking in multi-update for 
@@ -2215,6 +2213,7 @@ CREATE SCHEMA foo;
 CREATE VIEW foo.v AS SELECT * FROM JSON_TABLE('[1,2,3]', '$[*]' COLUMNS (num INT PATH '$[0]')) AS jt;
 
 CREATE USER foo@localhost;
+GRANT SELECT on test.* to foo@localhost;
 connect (con1,localhost,foo,,);
 --error ER_TABLEACCESS_DENIED_ERROR
 SELECT * FROM foo.v;
@@ -2229,4 +2228,3 @@ drop schema foo;
 
 # Wait till we reached the initial number of concurrent sessions
 --source include/wait_until_count_sessions.inc
-

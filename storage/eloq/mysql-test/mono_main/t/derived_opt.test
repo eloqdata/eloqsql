@@ -252,7 +252,7 @@ ANALYZE TABLE t1,t2,t3,t4;
 -- enable_result_log
 -- enable_query_log
 
-set @@tmp_table_size=8192;
+set @@tmp_table_size=16384;
 
 --replace_column 9 #
 EXPLAIN

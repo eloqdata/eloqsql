@@ -272,8 +272,8 @@ create table t1 as select json_object('id', 87, 'name', 'carrot') collate latin1
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `f` varchar(32) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `f` varchar(46) DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 select * from t1;
 f
 {"id": 87, "name": "carrot"}
@@ -297,8 +297,8 @@ json_quote('foo') collate utf8mb4_bin
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `json_quote('foo') collate utf8mb4_bin` varchar(38) CHARACTER SET utf8mb4 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `json_quote('foo') collate utf8mb4_bin` varchar(38) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select json_merge('string');
 ERROR 42000: Incorrect parameter count in the call to native function 'json_merge'
@@ -466,7 +466,7 @@ show create table json;
 Table	Create Table
 json	CREATE TABLE `json` (
   `j` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table json;
 select json_length( '[ 1, [ 2, 3, 4 ], 5 ]', '$[2]' );
 json_length( '[ 1, [ 2, 3, 4 ], 5 ]', '$[2]' )
@@ -661,7 +661,9 @@ JSON_SEARCH('{"foo":"bar"}', 'all' , @str, '%', @path)
 "$.foo"
 SELECT JSON_VALUE('[{"foo": 1},"bar"]', '$[*][0]');
 JSON_VALUE('[{"foo": 1},"bar"]', '$[*][0]')
-bar
+NULL
+Warnings:
+Warning	4044	Wildcards or range in JSON path not allowed in argument 2 to function 'json_value'
 CREATE TABLE t1 (f INT NOT NULL);
 INSERT INTO t1 VALUES (0);
 SELECT JSON_KEYS(f) FROM t1 ORDER BY 1;
@@ -758,9 +760,9 @@ JSON_QUOTE(_utf8'foo') AS c2;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(38) CHARACTER SET utf8mb4 DEFAULT NULL,
-  `c2` varchar(38) CHARACTER SET utf8mb4 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(38) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `c2` varchar(38) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1;
 #
 # MDEV-16054 simple json functions flatline cpu on garbage input.
@@ -823,7 +825,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `JSON_ARRAY_INSERT(fld, '$.[0]', '0')` varchar(21) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1, t2;
 SET sql_mode=default;
 #
@@ -1341,7 +1343,7 @@ select json_arrayagg(a) from t1;
 json_arrayagg(a)
 ["x64-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
 Warnings:
-Warning	1260	Row 1 was cut by JSON_ARRAYAGG()
+Warning	1260	Row 1 was cut by json_arrayagg()
 drop table t1;
 SET group_concat_max_len= default;
 create table t1 (col1 json);

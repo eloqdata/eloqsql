@@ -79,9 +79,9 @@ id	select_type	tABle	type	possiBle_keys	key	key_len	ref	rows	filtered	ExtrA
 1	PRIMARY	t1	ALL	NULL	NULL	NULL	NULL	#	100.00	
 1	PRIMARY	A	ALL	NULL	NULL	NULL	NULL	#	100.00	Using where
 1	PRIMARY	B	ALL	NULL	NULL	NULL	NULL	#	100.00	Using where
-2	MATERIALIZED	t10	index	PRIMARY	PRIMARY	4	NULL	#	100.00	Using index
+2	DEPENDENT SUBQUERY	t10	unique_suBquery	PRIMARY	PRIMARY	4	func	#	100.00	Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`A` AS `A`,`test`.`t1`.`B` AS `B`,`test`.`A`.`A` AS `A`,`test`.`A`.`B` AS `B`,`test`.`B`.`A` AS `A`,`test`.`B`.`B` AS `B` from `test`.`t1` left join (`test`.`t2` `A` join `test`.`t2` `B`) on(`test`.`A`.`A` = `test`.`t1`.`A` And <in_optimizer>(`test`.`B`.`A`,`test`.`B`.`A` in ( <mAteriAlize> (/* select#2 */ select `test`.`t10`.`pk` from `test`.`t10` ), <primAry_index_lookup>(`test`.`B`.`A` in <temporAry tABle> on distinct_key where `test`.`B`.`A` = `<suBquery2>`.`pk`)))) where 1
+Note	1003	/* select#1 */ select `test`.`t1`.`A` AS `A`,`test`.`t1`.`B` AS `B`,`test`.`A`.`A` AS `A`,`test`.`A`.`B` AS `B`,`test`.`B`.`A` AS `A`,`test`.`B`.`B` AS `B` from `test`.`t1` left join (`test`.`t2` `A` join `test`.`t2` `B`) on(`test`.`A`.`A` = `test`.`t1`.`A` And <in_optimizer>(`test`.`B`.`A`,<exists>(<primAry_index_lookup>(<cAche>(`test`.`B`.`A`) in t10 on PRIMARY)))) where 1
 t2 should be wrapped into OJ-nest, so we have "t1 LJ (t2 J t10)"
 explAin extended
 select * from t1 left join t2 on (t2.A= t1.A And t2.A in (select pk from t10));
@@ -157,26 +157,26 @@ id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	PRIMARY	s47	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
 1	PRIMARY	s48	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
 1	PRIMARY	s49	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
-2	DEPENDENT SUBQUERY	m00	ALL	NULL	NULL	NULL	NULL	#	Using where
-2	DEPENDENT SUBQUERY	m01	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
-2	DEPENDENT SUBQUERY	m02	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
-2	DEPENDENT SUBQUERY	m03	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
-2	DEPENDENT SUBQUERY	m04	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
-2	DEPENDENT SUBQUERY	m05	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
-2	DEPENDENT SUBQUERY	m06	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
-2	DEPENDENT SUBQUERY	m07	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
-2	DEPENDENT SUBQUERY	m08	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
-2	DEPENDENT SUBQUERY	m09	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
-2	DEPENDENT SUBQUERY	m10	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
-2	DEPENDENT SUBQUERY	m11	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
-2	DEPENDENT SUBQUERY	m12	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
-2	DEPENDENT SUBQUERY	m13	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
-2	DEPENDENT SUBQUERY	m14	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
-2	DEPENDENT SUBQUERY	m15	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
-2	DEPENDENT SUBQUERY	m16	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
-2	DEPENDENT SUBQUERY	m17	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
-2	DEPENDENT SUBQUERY	m18	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
-2	DEPENDENT SUBQUERY	m19	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
+2	MATERIALIZED	m00	ALL	NULL	NULL	NULL	NULL	#	
+2	MATERIALIZED	m01	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
+2	MATERIALIZED	m02	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
+2	MATERIALIZED	m03	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
+2	MATERIALIZED	m04	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
+2	MATERIALIZED	m05	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
+2	MATERIALIZED	m06	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
+2	MATERIALIZED	m07	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
+2	MATERIALIZED	m08	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
+2	MATERIALIZED	m09	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
+2	MATERIALIZED	m10	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
+2	MATERIALIZED	m11	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
+2	MATERIALIZED	m12	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
+2	MATERIALIZED	m13	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
+2	MATERIALIZED	m14	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
+2	MATERIALIZED	m15	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
+2	MATERIALIZED	m16	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
+2	MATERIALIZED	m17	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
+2	MATERIALIZED	m18	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
+2	MATERIALIZED	m19	ALL	NULL	NULL	NULL	NULL	#	Using join buffer (flat, BNL join)
 select * from
 t1 left join t2 on (t2.a= t1.a and t2.a in (select pk from t10)) 
 where t1.a < 5;
@@ -728,7 +728,7 @@ select a from t1
 where a in (select c from t2 where d >= some(select e from t3 where b=e));
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t2	ALL	NULL	NULL	NULL	NULL	#	100.00	Start temporary
-1	PRIMARY	t1	ALL	NULL	NULL	NULL	NULL	#	100.00	Using where; End temporary; Using join buffer (flat, BNL join)
+1	PRIMARY	t1	ALL	NULL	NULL	NULL	NULL	#	16.67	Using where; End temporary; Using join buffer (flat, BNL join)
 3	DEPENDENT SUBQUERY	t3	ALL	NULL	NULL	NULL	NULL	#	100.00	Using where
 Warnings:
 Note	1276	Field or reference 'test.t1.b' of SELECT #3 was resolved in SELECT #1
@@ -954,10 +954,10 @@ AND t1.val IN (SELECT t3.val FROM t3
 WHERE  t3.val LIKE 'a%' OR t3.val LIKE 'e%');
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	PRIMARY	t1	ALL	NULL	NULL	NULL	NULL	#	
-1	PRIMARY	<subquery3>	eq_ref	distinct_key	distinct_key	13	func	#	
 1	PRIMARY	<subquery2>	eq_ref	distinct_key	distinct_key	13	func	#	
-3	MATERIALIZED	t3	ALL	NULL	NULL	NULL	NULL	#	Using where
+1	PRIMARY	<subquery3>	eq_ref	distinct_key	distinct_key	13	func	#	
 2	MATERIALIZED	t2	ALL	NULL	NULL	NULL	NULL	#	Using where
+3	MATERIALIZED	t3	ALL	NULL	NULL	NULL	NULL	#	Using where
 SELECT *
 FROM t1
 WHERE t1.val IN (SELECT t2.val FROM t2
@@ -1502,10 +1502,9 @@ select * from t1 A, t1 B
 where A.a = B.a and A.a in (select a from t2 C) and B.a in (select a from t2 D);
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	PRIMARY	A	ALL	NULL	NULL	NULL	NULL	#	
-1	PRIMARY	<subquery2>	eq_ref	distinct_key	distinct_key	4	func	#	
+1	PRIMARY	C	ALL	NULL	NULL	NULL	NULL	#	Using where; FirstMatch(A)
 1	PRIMARY	B	ALL	NULL	NULL	NULL	NULL	#	Using where; Using join buffer (flat, BNL join)
 1	PRIMARY	<subquery3>	eq_ref	distinct_key	distinct_key	4	func	#	
-2	MATERIALIZED	C	ALL	NULL	NULL	NULL	NULL	#	
 3	MATERIALIZED	D	ALL	NULL	NULL	NULL	NULL	#	
 drop table t1, t2;
 # 
@@ -2162,8 +2161,8 @@ SELECT * FROM t1 WHERE (a) IN (SELECT a FROM t2 JOIN t3 ON b = a);
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	PRIMARY	t1	ALL	NULL	NULL	NULL	NULL	#	
 1	PRIMARY	<subquery2>	eq_ref	distinct_key	distinct_key	4	func	#	
+2	MATERIALIZED	t2	index	b	b	8	NULL	#	Using index
 2	MATERIALIZED	t3	ALL	NULL	NULL	NULL	NULL	#	Using where
-2	MATERIALIZED	t2	ref	b	b	4	test.t3.a	#	Using index
 SELECT * FROM t1 WHERE (a) IN (SELECT a FROM t2 JOIN t3 ON b = a);
 a
 19
@@ -2365,10 +2364,10 @@ SELECT a, b, d FROM t1, t2
 WHERE ( b, d ) IN
 ( SELECT b, d FROM t1, t2 WHERE b = c );
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	PRIMARY	t2	ALL	NULL	NULL	NULL	NULL	#	
-1	PRIMARY	t2	range	c	c	5	NULL	#	Using index condition; Using where; Rowid-ordered scan; Start temporary
-1	PRIMARY	t1	ref	b	b	5	test.t2.c	#	Using index
-1	PRIMARY	t1	ref	b	b	5	test.t2.c	#	Using index; End temporary
+1	PRIMARY	t1	index	b	b	5	NULL	#	Using where; Using index; Start temporary
+1	PRIMARY	t2	range	c	c	5	NULL	#	Using index condition; Rowid-ordered scan
+1	PRIMARY	t1	ref	b	b	5	test.t1.b	#	Using index
+1	PRIMARY	t2	ALL	NULL	NULL	NULL	NULL	#	Using where; End temporary; Using join buffer (flat, BNL join)
 SELECT a, b, d FROM t1, t2
 WHERE ( b, d ) IN
 ( SELECT b, d FROM t1, t2 WHERE b = c );

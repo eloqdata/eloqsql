@@ -10,13 +10,13 @@ disconnect foo;
 connection default;
 select user, bytes_received from information_schema.user_statistics where user = 'foo';
 user	bytes_received
-foo	18
+foo	27
 connect(localhost,foo,bar,test,MONO1_PORT,MONO1_SOCKET);
 connect foo, localhost, foo, bar;
 ERROR 28000: Access denied for user 'foo'@'localhost' (using password: YES)
 connection default;
 select user, bytes_received from information_schema.user_statistics where user = 'foo';
 user	bytes_received
-foo	18
+foo	27
 drop user foo@localhost;
 set global userstat=@save_userstat;

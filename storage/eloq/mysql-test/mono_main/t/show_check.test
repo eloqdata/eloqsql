@@ -361,7 +361,7 @@ drop database mysqltest;
 disconnect con1;
 --source include/wait_until_disconnected.inc
 
-connect (con2,localhost,mysqltest_2,,test);
+connect (con2,localhost,mysqltest_2,,"*NO-ONE*");
 connection con2;
 --error ER_TABLEACCESS_DENIED_ERROR
 select * from mysqltest.t1;
@@ -374,7 +374,7 @@ drop database mysqltest;
 disconnect con2;
 --source include/wait_until_disconnected.inc
 
-connect (con3,localhost,mysqltest_3,,test);
+connect (con3,localhost,mysqltest_3,,"*NO-ONE*");
 connection con3;
 --error ER_TABLEACCESS_DENIED_ERROR
 select * from mysqltest.t1;

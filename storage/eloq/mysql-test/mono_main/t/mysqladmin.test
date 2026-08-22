@@ -11,13 +11,13 @@
 # Bug#10608 mysqladmin breaks on "database" variable in my.cnf
 #
 
---replace_regex /.*mysqladmin.*: unknown/mysqladmin: unknown/
+--replace_regex /.*mariadb-admin.*: unknown/mariadb-admin: unknown/
 --error 7
 --exec $MYSQLADMIN --database=db1 --default-character-set=latin1 -S $MASTER_MYSOCK -P $MASTER_MYPORT  -u root --password= ping 2>&1
 
 # When mysqladmin finds "loose-database" it shall print
 # a warning and continue
---replace_regex /Warning: .*mysqladmin.*: unknown/Warning: mysqladmin: unknown/
+--replace_regex /Warning: .*mariadb-admin.*: unknown/Warning: mariadb-admin: unknown/
 #FIXME:--exec $MYSQLADMIN --loose-database=db2 --default-character-set=latin1 -S $MASTER_MYSOCK -P $MASTER_MYPORT  -u root --password= ping 2>&1
 --exec $MYSQLADMIN --loose-database=db2 --default-character-set=latin1 -S  $MONO1_SOCK -P $MONO1_PORT  -u root --password= ping 2>&1
 
@@ -75,8 +75,7 @@ copy_file $MYSQL_TEST_DIR/std_data/server-key.pem $ssl_key;
 copy_file $MYSQL_TEST_DIR/std_data/server-cert.pem $ssl_cert;
 
 let $restart_parameters=--ssl-key=$ssl_key --ssl-cert=$ssl_cert;
---source include/kill_mysqld.inc
---source include/start_mysqld.inc
+--source include/restart_mysqld.inc
 
 connect  ssl_con,localhost,root,,,,,SSL;
 SELECT VARIABLE_VALUE INTO @ssl_not_after FROM INFORMATION_SCHEMA.SESSION_STATUS WHERE VARIABLE_NAME='Ssl_server_not_after';
@@ -100,5 +99,4 @@ remove_file $ssl_cert;
 remove_file $ssl_key;
 # restart with usuall SSL
 let $restart_parameters=;
---source include/kill_mysqld.inc
---source include/start_mysqld.inc
+--source include/restart_mysqld.inc

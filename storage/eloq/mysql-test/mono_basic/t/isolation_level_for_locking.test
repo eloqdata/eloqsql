@@ -1,4 +1,5 @@
 --source include/have_eloq.inc
+--source include/eloq_errors.inc
 
 set @@default_storage_engine= eloq;
 select @@default_storage_engine;
@@ -190,7 +191,7 @@ echo "### RU test ###";
 set session transaction isolation level read uncommitted;
 select @@tx_isolation;
 
---error 203
+--error $HA_ERR_ELOQ_ISO_LEVEL_UNSUPPORT_ERROR
 select * from t1;
 
 set session transaction isolation level read committed;

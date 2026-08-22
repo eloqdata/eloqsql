@@ -11,6 +11,7 @@ TABLESPACES
 TABLE_CONSTRAINTS
 TABLE_PRIVILEGES
 TABLE_STATISTICS
+TRIGGERED_UPDATE_COLUMNS
 TRIGGERS
 create database `inf%`;
 create database mbase;
@@ -26,8 +27,6 @@ declare ret_val int;
 select max(f1) from t1 into ret_val;
 return ret_val;
 end|
-Warnings:
-Warning	1287	'<select expression> INTO <destination>;' is deprecated and will be removed in a future release. Please use 'SELECT <select list> INTO <destination> FROM...' instead
 create view v1 as select f1 from t1 where f1 = func1(f1);
 create function func2() returns int return 1;
 use mbase;
@@ -49,6 +48,8 @@ call mbase.p1();
 connection default;
 use `inf%`;
 drop user mysqltest_1@localhost;
+Warnings:
+Note	4227	Dropped users 'mysqltest_1'@'localhost' have active connections. Use KILL CONNECTION if they should not be used anymore.
 drop table t1;
 select table_name, table_type, table_comment from information_schema.tables
 where table_schema='inf%' and func2();
@@ -93,15 +94,14 @@ create user testdb_1@localhost;
 grant all on testdb_1.* to testdb_1@localhost with grant option;
 create user testdb_2@localhost;
 grant all on test.* to testdb_2@localhost with grant option;
-connect  testdb_1,localhost,testdb_1,,test;
-use testdb_1;
+connect  testdb_1,localhost,testdb_1,,testdb_1;
 create table t1 (f1 char(4));
 create view v1 as select f1 from t1;
 grant insert on v1 to testdb_2@localhost;
 create view v5 as select f1 from t1;
 grant select, show view on v5 to testdb_2@localhost;
 create definer=`no_such_user`@`no_such_host` view v6 as select f1 from t1;
-ERROR 42000: Access denied; you need (at least one of) the SUPER, SET USER privilege(s) for this operation
+ERROR 42000: Access denied; you need (at least one of) the SET USER privilege(s) for this operation
 connection default;
 use testdb_1;
 create view v6 as select f1 from t1;
@@ -109,7 +109,7 @@ grant select, show view on v6 to testdb_2@localhost;
 create table t2 (f1 char(4));
 create definer=`no_such_user`@`no_such_host` view v7 as select * from t2;
 Warnings:
-Note	1449	The user specified as a definer ('no_such_user'@'no_such_host') does not exist
+Note	1446	The user specified as a definer ('no_such_user'@'no_such_host') does not exist
 show fields from testdb_1.v6;
 Field	Type	Null	Key	Default	Extra
 f1	char(4)	YES		NULL	
@@ -120,12 +120,12 @@ show create view testdb_1.v7;
 View	Create View	character_set_client	collation_connection
 v7	CREATE ALGORITHM=UNDEFINED DEFINER=`no_such_user`@`no_such_host` SQL SECURITY DEFINER VIEW `v7` AS select `testdb_1`.`t2`.`f1` AS `f1` from `t2`	latin1	latin1_swedish_ci
 Warnings:
-Note	1449	The user specified as a definer ('no_such_user'@'no_such_host') does not exist
+Note	1446	The user specified as a definer ('no_such_user'@'no_such_host') does not exist
 show fields from testdb_1.v7;
 Field	Type	Null	Key	Default	Extra
 f1	char(4)	YES		NULL	
 Warnings:
-Note	1449	The user specified as a definer ('no_such_user'@'no_such_host') does not exist
+Note	1446	The user specified as a definer ('no_such_user'@'no_such_host') does not exist
 connection testdb_1;
 create table t3 (f1 char(4), f2 char(4));
 create view v3 as select f1,f2 from t3;
@@ -150,12 +150,12 @@ show fields from testdb_1.v7;
 Field	Type	Null	Key	Default	Extra
 f1	char(4)	YES		NULL	
 Warnings:
-Note	1449	The user specified as a definer ('no_such_user'@'no_such_host') does not exist
+Note	1446	The user specified as a definer ('no_such_user'@'no_such_host') does not exist
 show create view testdb_1.v7;
 View	Create View	character_set_client	collation_connection
 v7	CREATE ALGORITHM=UNDEFINED DEFINER=`no_such_user`@`no_such_host` SQL SECURITY DEFINER VIEW `v7` AS select `testdb_1`.`t2`.`f1` AS `f1` from `t2`	latin1	latin1_swedish_ci
 Warnings:
-Note	1449	The user specified as a definer ('no_such_user'@'no_such_host') does not exist
+Note	1446	The user specified as a definer ('no_such_user'@'no_such_host') does not exist
 revoke insert(f1) on v3 from testdb_2@localhost;
 revoke select,show view on v5 from testdb_2@localhost;
 connection default;
@@ -163,17 +163,17 @@ use testdb_1;
 revoke select,show view on v6 from testdb_2@localhost;
 connection testdb_2;
 show fields from testdb_1.v5;
-ERROR 42000: SELECT command denied to user 'testdb_2'@'localhost' for table 'v5'
+ERROR 42000: SELECT command denied to user 'testdb_2'@'localhost' for table `testdb_1`.`v5`
 show create view testdb_1.v5;
-ERROR 42000: SELECT command denied to user 'testdb_2'@'localhost' for table 'v5'
+ERROR 42000: SELECT command denied to user 'testdb_2'@'localhost' for table `testdb_1`.`v5`
 show fields from testdb_1.v6;
-ERROR 42000: SELECT command denied to user 'testdb_2'@'localhost' for table 'v6'
+ERROR 42000: SELECT command denied to user 'testdb_2'@'localhost' for table `testdb_1`.`v6`
 show create view testdb_1.v6;
-ERROR 42000: SELECT command denied to user 'testdb_2'@'localhost' for table 'v6'
+ERROR 42000: SELECT command denied to user 'testdb_2'@'localhost' for table `testdb_1`.`v6`
 show fields from testdb_1.v7;
-ERROR 42000: SELECT command denied to user 'testdb_2'@'localhost' for table 'v7'
+ERROR 42000: SELECT command denied to user 'testdb_2'@'localhost' for table `testdb_1`.`v7`
 show create view testdb_1.v7;
-ERROR 42000: SELECT command denied to user 'testdb_2'@'localhost' for table 'v7'
+ERROR 42000: SELECT command denied to user 'testdb_2'@'localhost' for table `testdb_1`.`v7`
 show create view v4;
 View	Create View	character_set_client	collation_connection
 v4	CREATE ALGORITHM=UNDEFINED DEFINER=`testdb_2`@`localhost` SQL SECURITY DEFINER VIEW `v4` AS select `v3`.`f1` AS `f1`,`v3`.`f2` AS `f2` from `testdb_1`.`v3`	latin1	latin1_swedish_ci
@@ -191,7 +191,7 @@ show create view v2;
 View	Create View	character_set_client	collation_connection
 v2	CREATE ALGORITHM=UNDEFINED DEFINER=`testdb_2`@`localhost` SQL SECURITY DEFINER VIEW `v2` AS select `v1`.`f1` AS `f1` from `testdb_1`.`v1`	latin1	latin1_swedish_ci
 show create view testdb_1.v1;
-ERROR 42000: SELECT command denied to user 'testdb_2'@'localhost' for table 'v1'
+ERROR 42000: SELECT command denied to user 'testdb_2'@'localhost' for table `testdb_1`.`v1`
 select table_name from information_schema.columns a
 where a.table_name = 'v2';
 table_name
@@ -221,7 +221,7 @@ create table testdb_1.t1 (a int);
 create view testdb_1.v1 as select * from testdb_1.t1;
 grant show view on testdb_1.* to mysqltest_1@localhost;
 grant select on testdb_1.v1 to mysqltest_1@localhost;
-connect  user1,localhost,mysqltest_1,,test;
+connect  user1,localhost,mysqltest_1,,"*NO-ONE*";
 connection user1;
 select table_schema, table_name, view_definition from information_schema.views
 where table_name='v1';
@@ -238,9 +238,11 @@ where table_name='v1';
 table_schema	table_name	view_definition
 testdb_1	v1	
 show create view testdb_1.v1;
-ERROR 42000: SELECT command denied to user 'mysqltest_1'@'localhost' for table 'v1'
+ERROR 42000: SELECT command denied to user 'mysqltest_1'@'localhost' for table `testdb_1`.`v1`
 connection default;
 drop user mysqltest_1@localhost;
+Warnings:
+Note	4227	Dropped users 'mysqltest_1'@'localhost' have active connections. Use KILL CONNECTION if they should not be used anymore.
 drop database testdb_1;
 connection user1;
 disconnect user1;

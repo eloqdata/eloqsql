@@ -607,6 +607,7 @@ select user, QUOTE(host) from mysql.user where user="mysqltest_8";
 
 --echo Schema privileges
 grant select on mysqltest.* to mysqltest_8@'';
+grant select on test.* to mysqltest_8@'';
 show grants for mysqltest_8@'';
 grant select on mysqltest.* to mysqltest_8@;
 show grants for mysqltest_8@;
@@ -2344,12 +2345,14 @@ DROP USER bar3@localhost;
 --echo #
 --echo # MDEV-17946 : Unsorted acl_dbs after RENAME USER
 --echo #
+CREATE USER a;
 CREATE USER foo;
 GRANT SELECT ON test.* TO foo;
-RENAME USER '' TO 'name';
+RENAME USER 'a' TO 'name';
 GRANT UPDATE ON test.* TO foo;
-RENAME USER 'name' to '';
+RENAME USER 'name' to 'a';
 DROP USER foo;
+DROP USER a;
 
 --echo #
 --echo # End of 10.4 tests

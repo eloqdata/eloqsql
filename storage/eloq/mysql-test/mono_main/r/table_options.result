@@ -11,7 +11,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL `fkey`=vvv,
   KEY `akey` (`a`) `dff`=vvv
-) ENGINE=ELOQ DEFAULT CHARSET=latin1 `tkey1`='1v1'
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin `tkey1`='1v1'
 drop table t1;
 #reassiginig options in the same line
 create table t1 (a int fkey=vvv, key akey (a) dff=vvv) tkey1=1v1 TKEY1=DEFAULT tkey1=1v2 tkey2=2v1;
@@ -25,7 +25,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL `fkey`=vvv,
   KEY `akey` (`a`) `dff`=vvv
-) ENGINE=ELOQ DEFAULT CHARSET=latin1 `tkey1`=1v2 `tkey2`=2v1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin `tkey1`=1v2 `tkey2`=2v1
 drop table t1;
 create table t1 (a int fkey1=v1, key akey (a) kkey1=v1) tkey1=1v1 tkey1=1v2 TKEY1=DEFAULT tkey2=2v1 tkey3=3v1;
 Warnings:
@@ -39,7 +39,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL `fkey1`=v1,
   KEY `akey` (`a`) `kkey1`=v1
-) ENGINE=ELOQ DEFAULT CHARSET=latin1 `tkey2`=2v1 `tkey3`=3v1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin `tkey2`=2v1 `tkey3`=3v1
 drop table t1;
 create table t1 (a int) tkey1=100;
 Warnings:
@@ -48,7 +48,7 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1 `tkey1`=100
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin `tkey1`=100
 drop table t1;
 #error on unknown option
 SET SQL_MODE='';

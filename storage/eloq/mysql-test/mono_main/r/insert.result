@@ -714,6 +714,8 @@ create table t1 (f1 int, f2 int, key(f1), key(f2));
 insert into t1 values (1,12);
 insert into t1 values (2,13);
 set @@old_mode="NO_DUP_KEY_WARNINGS_WITH_IGNORE";
+Warnings:
+Warning	1287	'NO_DUP_KEY_WARNINGS_WITH_IGNORE' is deprecated and will be removed in a future release
 insert ignore into t1 values (1,12);
 insert ignore into t1 values (1,12) on duplicate key update f2=13;
 set @@old_mode="";

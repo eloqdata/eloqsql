@@ -12,7 +12,7 @@ PLUGIN_STATUS	ACTIVE
 PLUGIN_TYPE	STORAGE ENGINE
 PLUGIN_TYPE_VERSION	#
 PLUGIN_LIBRARY	ha_example.so
-PLUGIN_LIBRARY_VERSION	1.14
+PLUGIN_LIBRARY_VERSION	1.15
 PLUGIN_AUTHOR	Brian Aker, MySQL AB
 PLUGIN_DESCRIPTION	Example storage engine
 PLUGIN_LICENSE	GPL
@@ -25,7 +25,7 @@ PLUGIN_STATUS	ACTIVE
 PLUGIN_TYPE	DAEMON
 PLUGIN_TYPE_VERSION	#
 PLUGIN_LIBRARY	ha_example.so
-PLUGIN_LIBRARY_VERSION	1.14
+PLUGIN_LIBRARY_VERSION	1.15
 PLUGIN_AUTHOR	Sergei Golubchik
 PLUGIN_DESCRIPTION	Unusable Daemon
 PLUGIN_LICENSE	GPL
@@ -65,7 +65,7 @@ PLUGIN_STATUS	DELETED
 PLUGIN_TYPE	STORAGE ENGINE
 PLUGIN_TYPE_VERSION	#
 PLUGIN_LIBRARY	ha_example.so
-PLUGIN_LIBRARY_VERSION	1.14
+PLUGIN_LIBRARY_VERSION	1.15
 PLUGIN_AUTHOR	Brian Aker, MySQL AB
 PLUGIN_DESCRIPTION	Example storage engine
 PLUGIN_LICENSE	GPL
@@ -125,7 +125,7 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL `complex`='c,f,f,f'
-) ENGINE=EXAMPLE DEFAULT CHARSET=latin1 `ULL`=10000 `STR`='dskj' `one_or_two`='one' `YESNO`=0
+) ENGINE=EXAMPLE DEFAULT CHARSET=latin1 COLLATE=latin1_bin `ULL`=10000 `STR`='dskj' `one_or_two`='one' `YESNO`=0
 drop table t1;
 SET @OLD_SQL_MODE=@@SQL_MODE;
 SET SQL_MODE='IGNORE_BAD_TABLE_OPTIONS';
@@ -140,7 +140,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL,
   `b` int(11) DEFAULT NULL
-) ENGINE=EXAMPLE DEFAULT CHARSET=latin1 `ULL`=10000000000000000000 `one_or_two`='ttt' `YESNO`=SSS
+) ENGINE=EXAMPLE DEFAULT CHARSET=latin1 COLLATE=latin1_bin `ULL`=10000000000000000000 `one_or_two`='ttt' `YESNO`=SSS
 #alter table
 drop table t1;
 #illegal value error
@@ -156,7 +156,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=EXAMPLE DEFAULT CHARSET=latin1 `ULL`=4660
+) ENGINE=EXAMPLE DEFAULT CHARSET=latin1 COLLATE=latin1_bin `ULL`=4660
 SET example_varopt_default=33;
 select create_options from information_schema.tables where table_schema='test' and table_name='t1';
 create_options
@@ -167,14 +167,14 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=EXAMPLE DEFAULT CHARSET=latin1 `VAROPT`=33
+) ENGINE=EXAMPLE DEFAULT CHARSET=latin1 COLLATE=latin1_bin `VAROPT`=33
 drop table t1;
 create table t1 (a int) engine=example varopt=15;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=EXAMPLE DEFAULT CHARSET=latin1 `varopt`=15
+) ENGINE=EXAMPLE DEFAULT CHARSET=latin1 COLLATE=latin1_bin `varopt`=15
 drop table t1;
 SET @@SQL_MODE=@OLD_SQL_MODE;
 select 1;

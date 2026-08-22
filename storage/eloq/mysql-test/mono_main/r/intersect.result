@@ -43,6 +43,9 @@ Note	1003	/* select#1 */ select `a`.`a` AS `a`,`a`.`b` AS `b` from ((/* select#2
 ANALYZE format=json (select a,b from t1) intersect (select c,d from t2) intersect (select e,f from t3);
 ANALYZE
 {
+  "query_optimization": {
+    "r_total_time_ms": "REPLACED"
+  },
   "query_block": {
     "union_result": {
       "table_name": "<intersect1,2,3>",
@@ -53,57 +56,84 @@ ANALYZE
         {
           "query_block": {
             "select_id": 1,
+            "cost": "REPLACED",
             "r_loops": 1,
             "r_total_time_ms": "REPLACED",
-            "table": {
-              "table_name": "t1",
-              "access_type": "ALL",
-              "r_loops": 1,
-              "rows": 3,
-              "r_rows": 3,
-              "r_table_time_ms": "REPLACED",
-              "r_other_time_ms": "REPLACED",
-              "filtered": 100,
-              "r_filtered": 100
-            }
+            "nested_loop": [
+              {
+                "table": {
+                  "table_name": "t1",
+                  "access_type": "ALL",
+                  "loops": 1,
+                  "r_loops": 1,
+                  "rows": 3,
+                  "r_rows": 3,
+                  "cost": "REPLACED",
+                  "r_table_time_ms": "REPLACED",
+                  "r_other_time_ms": "REPLACED",
+                  "r_engine_stats": REPLACED,
+                  "filtered": 100,
+                  "r_total_filtered": 100,
+                  "r_filtered": 100
+                }
+              }
+            ]
           }
         },
         {
           "query_block": {
             "select_id": 2,
             "operation": "INTERSECT",
+            "cost": "REPLACED",
             "r_loops": 1,
             "r_total_time_ms": "REPLACED",
-            "table": {
-              "table_name": "t2",
-              "access_type": "ALL",
-              "r_loops": 1,
-              "rows": 3,
-              "r_rows": 3,
-              "r_table_time_ms": "REPLACED",
-              "r_other_time_ms": "REPLACED",
-              "filtered": 100,
-              "r_filtered": 100
-            }
+            "nested_loop": [
+              {
+                "table": {
+                  "table_name": "t2",
+                  "access_type": "ALL",
+                  "loops": 1,
+                  "r_loops": 1,
+                  "rows": 3,
+                  "r_rows": 3,
+                  "cost": "REPLACED",
+                  "r_table_time_ms": "REPLACED",
+                  "r_other_time_ms": "REPLACED",
+                  "r_engine_stats": REPLACED,
+                  "filtered": 100,
+                  "r_total_filtered": 100,
+                  "r_filtered": 100
+                }
+              }
+            ]
           }
         },
         {
           "query_block": {
             "select_id": 3,
             "operation": "INTERSECT",
+            "cost": "REPLACED",
             "r_loops": 1,
             "r_total_time_ms": "REPLACED",
-            "table": {
-              "table_name": "t3",
-              "access_type": "ALL",
-              "r_loops": 1,
-              "rows": 3,
-              "r_rows": 3,
-              "r_table_time_ms": "REPLACED",
-              "r_other_time_ms": "REPLACED",
-              "filtered": 100,
-              "r_filtered": 100
-            }
+            "nested_loop": [
+              {
+                "table": {
+                  "table_name": "t3",
+                  "access_type": "ALL",
+                  "loops": 1,
+                  "r_loops": 1,
+                  "rows": 3,
+                  "r_rows": 3,
+                  "cost": "REPLACED",
+                  "r_table_time_ms": "REPLACED",
+                  "r_other_time_ms": "REPLACED",
+                  "r_engine_stats": REPLACED,
+                  "filtered": 100,
+                  "r_total_filtered": 100,
+                  "r_filtered": 100
+                }
+              }
+            ]
           }
         }
       ]
@@ -113,89 +143,127 @@ ANALYZE
 ANALYZE format=json select * from ((select a,b from t1) intersect (select c,d from t2) intersect (select e,f from t3)) a;
 ANALYZE
 {
+  "query_optimization": {
+    "r_total_time_ms": "REPLACED"
+  },
   "query_block": {
     "select_id": 1,
+    "cost": "REPLACED",
     "r_loops": 1,
     "r_total_time_ms": "REPLACED",
-    "table": {
-      "table_name": "<derived2>",
-      "access_type": "ALL",
-      "r_loops": 1,
-      "rows": 3,
-      "r_rows": 1,
-      "r_table_time_ms": "REPLACED",
-      "r_other_time_ms": "REPLACED",
-      "filtered": 100,
-      "r_filtered": 100,
-      "materialized": {
-        "query_block": {
-          "union_result": {
-            "table_name": "<intersect2,3,4>",
-            "access_type": "ALL",
-            "r_loops": 1,
-            "r_rows": 1,
-            "query_specifications": [
-              {
-                "query_block": {
-                  "select_id": 2,
-                  "r_loops": 1,
-                  "r_total_time_ms": "REPLACED",
-                  "table": {
-                    "table_name": "t1",
-                    "access_type": "ALL",
-                    "r_loops": 1,
-                    "rows": 3,
-                    "r_rows": 3,
-                    "r_table_time_ms": "REPLACED",
-                    "r_other_time_ms": "REPLACED",
-                    "filtered": 100,
-                    "r_filtered": 100
+    "nested_loop": [
+      {
+        "table": {
+          "table_name": "<derived2>",
+          "access_type": "ALL",
+          "loops": 1,
+          "r_loops": 1,
+          "rows": 3,
+          "r_rows": 1,
+          "cost": "REPLACED",
+          "r_table_time_ms": "REPLACED",
+          "r_other_time_ms": "REPLACED",
+          "filtered": 100,
+          "r_total_filtered": 100,
+          "r_filtered": 100,
+          "materialized": {
+            "query_block": {
+              "union_result": {
+                "table_name": "<intersect2,3,4>",
+                "access_type": "ALL",
+                "r_loops": 1,
+                "r_rows": 1,
+                "query_specifications": [
+                  {
+                    "query_block": {
+                      "select_id": 2,
+                      "cost": "REPLACED",
+                      "r_loops": 1,
+                      "r_total_time_ms": "REPLACED",
+                      "nested_loop": [
+                        {
+                          "table": {
+                            "table_name": "t1",
+                            "access_type": "ALL",
+                            "loops": 1,
+                            "r_loops": 1,
+                            "rows": 3,
+                            "r_rows": 3,
+                            "cost": "REPLACED",
+                            "r_table_time_ms": "REPLACED",
+                            "r_other_time_ms": "REPLACED",
+                            "r_engine_stats": REPLACED,
+                            "filtered": 100,
+                            "r_total_filtered": 100,
+                            "r_filtered": 100
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "query_block": {
+                      "select_id": 3,
+                      "operation": "INTERSECT",
+                      "cost": "REPLACED",
+                      "r_loops": 1,
+                      "r_total_time_ms": "REPLACED",
+                      "nested_loop": [
+                        {
+                          "table": {
+                            "table_name": "t2",
+                            "access_type": "ALL",
+                            "loops": 1,
+                            "r_loops": 1,
+                            "rows": 3,
+                            "r_rows": 3,
+                            "cost": "REPLACED",
+                            "r_table_time_ms": "REPLACED",
+                            "r_other_time_ms": "REPLACED",
+                            "r_engine_stats": REPLACED,
+                            "filtered": 100,
+                            "r_total_filtered": 100,
+                            "r_filtered": 100
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "query_block": {
+                      "select_id": 4,
+                      "operation": "INTERSECT",
+                      "cost": "REPLACED",
+                      "r_loops": 1,
+                      "r_total_time_ms": "REPLACED",
+                      "nested_loop": [
+                        {
+                          "table": {
+                            "table_name": "t3",
+                            "access_type": "ALL",
+                            "loops": 1,
+                            "r_loops": 1,
+                            "rows": 3,
+                            "r_rows": 3,
+                            "cost": "REPLACED",
+                            "r_table_time_ms": "REPLACED",
+                            "r_other_time_ms": "REPLACED",
+                            "r_engine_stats": REPLACED,
+                            "filtered": 100,
+                            "r_total_filtered": 100,
+                            "r_filtered": 100
+                          }
+                        }
+                      ]
+                    }
                   }
-                }
-              },
-              {
-                "query_block": {
-                  "select_id": 3,
-                  "operation": "INTERSECT",
-                  "r_loops": 1,
-                  "r_total_time_ms": "REPLACED",
-                  "table": {
-                    "table_name": "t2",
-                    "access_type": "ALL",
-                    "r_loops": 1,
-                    "rows": 3,
-                    "r_rows": 3,
-                    "r_table_time_ms": "REPLACED",
-                    "r_other_time_ms": "REPLACED",
-                    "filtered": 100,
-                    "r_filtered": 100
-                  }
-                }
-              },
-              {
-                "query_block": {
-                  "select_id": 4,
-                  "operation": "INTERSECT",
-                  "r_loops": 1,
-                  "r_total_time_ms": "REPLACED",
-                  "table": {
-                    "table_name": "t3",
-                    "access_type": "ALL",
-                    "r_loops": 1,
-                    "rows": 3,
-                    "r_rows": 3,
-                    "r_table_time_ms": "REPLACED",
-                    "r_other_time_ms": "REPLACED",
-                    "filtered": 100,
-                    "r_filtered": 100
-                  }
-                }
+                ]
               }
-            ]
+            }
           }
         }
       }
-    }
+    ]
   }
 }
 select * from ((select a,b from t1) intersect (select c,d from t2) intersect (select e,f from t3)) a;
@@ -253,35 +321,53 @@ EXPLAIN
         {
           "query_block": {
             "select_id": 1,
-            "table": {
-              "table_name": "t1",
-              "access_type": "ALL",
-              "rows": 3,
-              "filtered": 100
-            }
+            "cost": "COST_REPLACED",
+            "nested_loop": [
+              {
+                "table": {
+                  "table_name": "t1",
+                  "access_type": "ALL",
+                  "loops": 1,
+                  "rows": 3,
+                  "cost": "COST_REPLACED",
+                  "filtered": 100
+                }
+              }
+            ]
           }
         },
         {
           "query_block": {
             "select_id": 2,
             "operation": "INTERSECT",
-            "table": {
-              "table_name": "t2",
-              "access_type": "ALL",
-              "rows": 3,
-              "filtered": 100
-            },
-            "block-nl-join": {
-              "table": {
-                "table_name": "t3",
-                "access_type": "ALL",
-                "rows": 3,
-                "filtered": 100
+            "cost": "COST_REPLACED",
+            "nested_loop": [
+              {
+                "table": {
+                  "table_name": "t2",
+                  "access_type": "ALL",
+                  "loops": 1,
+                  "rows": 3,
+                  "cost": "COST_REPLACED",
+                  "filtered": 100
+                }
               },
-              "buffer_type": "flat",
-              "buffer_size": "256Kb",
-              "join_type": "BNL"
-            }
+              {
+                "block-nl-join": {
+                  "table": {
+                    "table_name": "t3",
+                    "access_type": "ALL",
+                    "loops": 3,
+                    "rows": 3,
+                    "cost": "COST_REPLACED",
+                    "filtered": 100
+                  },
+                  "buffer_type": "flat",
+                  "buffer_size": "256KiB",
+                  "join_type": "BNL"
+                }
+              }
+            ]
           }
         }
       ]
@@ -291,6 +377,9 @@ EXPLAIN
 ANALYZE format=json (select a,b from t1) intersect (select c,e from t2,t3);
 ANALYZE
 {
+  "query_optimization": {
+    "r_total_time_ms": "REPLACED"
+  },
   "query_block": {
     "union_result": {
       "table_name": "<intersect1,2>",
@@ -301,55 +390,83 @@ ANALYZE
         {
           "query_block": {
             "select_id": 1,
+            "cost": "REPLACED",
             "r_loops": 1,
             "r_total_time_ms": "REPLACED",
-            "table": {
-              "table_name": "t1",
-              "access_type": "ALL",
-              "r_loops": 1,
-              "rows": 3,
-              "r_rows": 3,
-              "r_table_time_ms": "REPLACED",
-              "r_other_time_ms": "REPLACED",
-              "filtered": 100,
-              "r_filtered": 100
-            }
+            "nested_loop": [
+              {
+                "table": {
+                  "table_name": "t1",
+                  "access_type": "ALL",
+                  "loops": 1,
+                  "r_loops": 1,
+                  "rows": 3,
+                  "r_rows": 3,
+                  "cost": "REPLACED",
+                  "r_table_time_ms": "REPLACED",
+                  "r_other_time_ms": "REPLACED",
+                  "r_engine_stats": REPLACED,
+                  "filtered": 100,
+                  "r_total_filtered": 100,
+                  "r_filtered": 100
+                }
+              }
+            ]
           }
         },
         {
           "query_block": {
             "select_id": 2,
             "operation": "INTERSECT",
+            "cost": "REPLACED",
             "r_loops": 1,
             "r_total_time_ms": "REPLACED",
-            "table": {
-              "table_name": "t2",
-              "access_type": "ALL",
-              "r_loops": 1,
-              "rows": 3,
-              "r_rows": 3,
-              "r_table_time_ms": "REPLACED",
-              "r_other_time_ms": "REPLACED",
-              "filtered": 100,
-              "r_filtered": 100
-            },
-            "block-nl-join": {
-              "table": {
-                "table_name": "t3",
-                "access_type": "ALL",
-                "r_loops": 1,
-                "rows": 3,
-                "r_rows": 3,
-                "r_table_time_ms": "REPLACED",
-                "r_other_time_ms": "REPLACED",
-                "filtered": 100,
-                "r_filtered": 100
+            "nested_loop": [
+              {
+                "table": {
+                  "table_name": "t2",
+                  "access_type": "ALL",
+                  "loops": 1,
+                  "r_loops": 1,
+                  "rows": 3,
+                  "r_rows": 3,
+                  "cost": "REPLACED",
+                  "r_table_time_ms": "REPLACED",
+                  "r_other_time_ms": "REPLACED",
+                  "r_engine_stats": REPLACED,
+                  "filtered": 100,
+                  "r_total_filtered": 100,
+                  "r_filtered": 100
+                }
               },
-              "buffer_type": "flat",
-              "buffer_size": "256Kb",
-              "join_type": "BNL",
-              "r_filtered": 100
-            }
+              {
+                "block-nl-join": {
+                  "table": {
+                    "table_name": "t3",
+                    "access_type": "ALL",
+                    "loops": 3,
+                    "r_loops": 1,
+                    "rows": 3,
+                    "r_rows": 3,
+                    "cost": "REPLACED",
+                    "r_table_time_ms": "REPLACED",
+                    "r_other_time_ms": "REPLACED",
+                    "r_engine_stats": REPLACED,
+                    "filtered": 100,
+                    "r_total_filtered": 100,
+                    "r_filtered": 100
+                  },
+                  "buffer_type": "flat",
+                  "buffer_size": "256KiB",
+                  "join_type": "BNL",
+                  "r_loops": 3,
+                  "r_filtered": 100,
+                  "r_unpack_time_ms": "REPLACED",
+                  "r_other_time_ms": "REPLACED",
+                  "r_effective_rows": 3
+                }
+              }
+            ]
           }
         }
       ]
@@ -359,87 +476,126 @@ ANALYZE
 ANALYZE format=json select * from ((select a,b from t1) intersect (select c,e from t2,t3)) a;
 ANALYZE
 {
+  "query_optimization": {
+    "r_total_time_ms": "REPLACED"
+  },
   "query_block": {
     "select_id": 1,
+    "cost": "REPLACED",
     "r_loops": 1,
     "r_total_time_ms": "REPLACED",
-    "table": {
-      "table_name": "<derived2>",
-      "access_type": "ALL",
-      "r_loops": 1,
-      "rows": 3,
-      "r_rows": 1,
-      "r_table_time_ms": "REPLACED",
-      "r_other_time_ms": "REPLACED",
-      "filtered": 100,
-      "r_filtered": 100,
-      "materialized": {
-        "query_block": {
-          "union_result": {
-            "table_name": "<intersect2,3>",
-            "access_type": "ALL",
-            "r_loops": 1,
-            "r_rows": 1,
-            "query_specifications": [
-              {
-                "query_block": {
-                  "select_id": 2,
-                  "r_loops": 1,
-                  "r_total_time_ms": "REPLACED",
-                  "table": {
-                    "table_name": "t1",
-                    "access_type": "ALL",
-                    "r_loops": 1,
-                    "rows": 3,
-                    "r_rows": 3,
-                    "r_table_time_ms": "REPLACED",
-                    "r_other_time_ms": "REPLACED",
-                    "filtered": 100,
-                    "r_filtered": 100
-                  }
-                }
-              },
-              {
-                "query_block": {
-                  "select_id": 3,
-                  "operation": "INTERSECT",
-                  "r_loops": 1,
-                  "r_total_time_ms": "REPLACED",
-                  "table": {
-                    "table_name": "t2",
-                    "access_type": "ALL",
-                    "r_loops": 1,
-                    "rows": 3,
-                    "r_rows": 3,
-                    "r_table_time_ms": "REPLACED",
-                    "r_other_time_ms": "REPLACED",
-                    "filtered": 100,
-                    "r_filtered": 100
-                  },
-                  "block-nl-join": {
-                    "table": {
-                      "table_name": "t3",
-                      "access_type": "ALL",
+    "nested_loop": [
+      {
+        "table": {
+          "table_name": "<derived2>",
+          "access_type": "ALL",
+          "loops": 1,
+          "r_loops": 1,
+          "rows": 3,
+          "r_rows": 1,
+          "cost": "REPLACED",
+          "r_table_time_ms": "REPLACED",
+          "r_other_time_ms": "REPLACED",
+          "filtered": 100,
+          "r_total_filtered": 100,
+          "r_filtered": 100,
+          "materialized": {
+            "query_block": {
+              "union_result": {
+                "table_name": "<intersect2,3>",
+                "access_type": "ALL",
+                "r_loops": 1,
+                "r_rows": 1,
+                "query_specifications": [
+                  {
+                    "query_block": {
+                      "select_id": 2,
+                      "cost": "REPLACED",
                       "r_loops": 1,
-                      "rows": 3,
-                      "r_rows": 3,
-                      "r_table_time_ms": "REPLACED",
-                      "r_other_time_ms": "REPLACED",
-                      "filtered": 100,
-                      "r_filtered": 100
-                    },
-                    "buffer_type": "flat",
-                    "buffer_size": "256Kb",
-                    "join_type": "BNL",
-                    "r_filtered": 100
+                      "r_total_time_ms": "REPLACED",
+                      "nested_loop": [
+                        {
+                          "table": {
+                            "table_name": "t1",
+                            "access_type": "ALL",
+                            "loops": 1,
+                            "r_loops": 1,
+                            "rows": 3,
+                            "r_rows": 3,
+                            "cost": "REPLACED",
+                            "r_table_time_ms": "REPLACED",
+                            "r_other_time_ms": "REPLACED",
+                            "r_engine_stats": REPLACED,
+                            "filtered": 100,
+                            "r_total_filtered": 100,
+                            "r_filtered": 100
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "query_block": {
+                      "select_id": 3,
+                      "operation": "INTERSECT",
+                      "cost": "REPLACED",
+                      "r_loops": 1,
+                      "r_total_time_ms": "REPLACED",
+                      "nested_loop": [
+                        {
+                          "table": {
+                            "table_name": "t2",
+                            "access_type": "ALL",
+                            "loops": 1,
+                            "r_loops": 1,
+                            "rows": 3,
+                            "r_rows": 3,
+                            "cost": "REPLACED",
+                            "r_table_time_ms": "REPLACED",
+                            "r_other_time_ms": "REPLACED",
+                            "r_engine_stats": REPLACED,
+                            "filtered": 100,
+                            "r_total_filtered": 100,
+                            "r_filtered": 100
+                          }
+                        },
+                        {
+                          "block-nl-join": {
+                            "table": {
+                              "table_name": "t3",
+                              "access_type": "ALL",
+                              "loops": 3,
+                              "r_loops": 1,
+                              "rows": 3,
+                              "r_rows": 3,
+                              "cost": "REPLACED",
+                              "r_table_time_ms": "REPLACED",
+                              "r_other_time_ms": "REPLACED",
+                              "r_engine_stats": REPLACED,
+                              "filtered": 100,
+                              "r_total_filtered": 100,
+                              "r_filtered": 100
+                            },
+                            "buffer_type": "flat",
+                            "buffer_size": "256KiB",
+                            "join_type": "BNL",
+                            "r_loops": 3,
+                            "r_filtered": 100,
+                            "r_unpack_time_ms": "REPLACED",
+                            "r_other_time_ms": "REPLACED",
+                            "r_effective_rows": 3
+                          }
+                        }
+                      ]
+                    }
                   }
-                }
+                ]
               }
-            ]
+            }
           }
         }
       }
-    }
+    ]
   }
 }
 set @@optimizer_switch=@save_optimizer_switch;
@@ -515,7 +671,7 @@ Table	Create Table
 t4	CREATE TABLE `t4` (
   `a` int(11) DEFAULT NULL,
   `b` blob DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop tables t1,t2,t3,t4;
 create table t1 (a int, b blob) engine=eloq;
 create table t2 (c int, d blob) engine=eloq;

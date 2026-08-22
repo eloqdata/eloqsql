@@ -868,33 +868,21 @@ create table t3 (col1 datetime not null);
 create view v1 as select * from t1;
 create view v2 as select * from v1;
 create view v3 as select v2.col1 from v2,t2 where v2.col1 = t2.col1;
--- error ER_VIEW_PREVENT_UPDATE
 insert into v2 values ((select max(col1) from v1));
--- error ER_VIEW_PREVENT_UPDATE
 insert into t1 values ((select max(col1) from v1));
--- error ER_VIEW_PREVENT_UPDATE
 insert into v2 values ((select max(col1) from v1));
--- error ER_VIEW_PREVENT_UPDATE
 insert into v2 values ((select max(col1) from t1));
--- error ER_UPDATE_TABLE_USED
 insert into t1 values ((select max(col1) from t1));
--- error ER_VIEW_PREVENT_UPDATE
 insert into v2 values ((select max(col1) from t1));
--- error ER_UPDATE_TABLE_USED
 insert into v2 values ((select max(col1) from v2));
--- error ER_VIEW_PREVENT_UPDATE
 insert into t1 values ((select max(col1) from v2));
--- error ER_UPDATE_TABLE_USED
 insert into v2 values ((select max(col1) from v2));
--- error ER_VIEW_PREVENT_UPDATE
 insert into v3 (col1) values ((select max(col1) from v1));
--- error ER_VIEW_PREVENT_UPDATE
 insert into v3 (col1) values ((select max(col1) from t1));
--- error ER_VIEW_PREVENT_UPDATE
 insert into v3 (col1) values ((select max(col1) from v2));
 # check with TZ tables in list
--- error ER_VIEW_PREVENT_UPDATE
-insert into v3 (col1) values ((select CONVERT_TZ('20050101000000','UTC','MET') from v2));
+--error ER_WARN_DATA_OUT_OF_RANGE
+insert into v3 (col1) values ((select CONVERT_TZ('20050101000000','UTC','MET') from v2 LIMIT 1));
 insert into v3 (col1) values ((select CONVERT_TZ('20050101000000','UTC','MET') from t2));
 -- error ER_BAD_NULL_ERROR
 insert into t3 values ((select CONVERT_TZ('20050101000000','UTC','MET') from t2));
@@ -1128,15 +1116,16 @@ drop view v2, v1;
 drop table t1;
 
 #
-# inserting single value with check option failed always get error
+# inserting single value with check option warns like 2 values
 #
 create table t1 (s1 int);
 create view v1 as select * from t1 where s1 < 5 with check option;
 #single value
--- error ER_VIEW_CHECK_FAILED
 insert ignore into v1 values (6);
+SHOW WARNINGS;
 #several values
 insert ignore into v1 values (6),(3);
+SHOW WARNINGS;
 select * from t1;
 drop view v1;
 drop table t1;
@@ -1213,9 +1202,19 @@ create view v3 as select * from t1 where 20 < (select (s1) from v2);
 -- error ER_NON_INSERTABLE_TABLE
 insert into v3 values (30);
 create view v4 as select * from v2 where 20 < (select (s1) from t1);
--- error ER_NON_INSERTABLE_TABLE
+select * from t1;
 insert into v4 values (30);
-drop view v4, v3, v2, v1;
+select * from t1;
+create view v5 as select * from v2 where s1 < (select min(s1) from t1) WITH CHECK OPTION;
+--echo # can't insert only less then minimum
+--error ER_VIEW_CHECK_FAILED
+insert into v5 values (40);
+--echo # allow insert the new minimum
+insert into v5 values (10);
+--echo # always emply view (can't be something less than minimum)
+select * from v5;
+select * from t1;
+drop view v5, v4, v3, v2, v1;
 drop table t1;
 
 #
@@ -5753,7 +5752,7 @@ CREATE TABLE `t1` (
   KEY `idxSong2` (`lastplayed`),
   KEY `idxSong3` (`idAlbum`),
   KEY `idxSong6` (`idPath`,`strFileName`(255))
-)  DEFAULT CHARSET=utf8;
+)  DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 INSERT INTO `t1` VALUES (1,1,1,'strArtists1','strGenres1','strTitle1',1,100,2000,NULL,'strFileName1','strMusicBrainzTrackID1',0,0,0,NULL,NULL,'0','',''),(2,2,2,'strArtists2','strGenres2','strTitle2',2,200,2001,NULL,'strFileName2','strMusicBrainzTrackID2',0,0,0,NULL,NULL,'0','','');
 #FIXME: unique key
@@ -5781,7 +5780,7 @@ CREATE TABLE `t2` (
   KEY `idxAlbum_2` (`strMusicBrainzAlbumID`(36)),
   KEY `idxAlbum` (`strAlbum`(255)),
   KEY `idxAlbum_1` (`bCompilation`)
-) DEFAULT CHARSET=utf8;
+) DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 INSERT INTO `t2` VALUES (1,'strAlbum1','strMusicBrainzAlbumID1','strArtists1','strGenres1',2000,NULL,0,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'album');
 #FIXME: unique key
@@ -5820,7 +5819,7 @@ CREATE TABLE `t4` (
   PRIMARY KEY (`idArtist`),
   KEY `idxArtist1` (`strMusicBrainzArtistID`(36)),
   KEY `idxArtist` (`strArtist`(255))
-) DEFAULT CHARSET=utf8;
+) DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 INSERT INTO `t4` VALUES (1,'strArtist1','strMusicBrainzArtistID',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
 

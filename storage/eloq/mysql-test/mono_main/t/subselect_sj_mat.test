@@ -1893,7 +1893,7 @@ DROP VIEW v2;
 #FIXME: unique no support #205
 CREATE TABLE t1 (
   id int(11) unsigned NOT NULL AUTO_INCREMENT,
-  db varchar(254) NOT NULL DEFAULT '',
+  db varchar(254) COLLATE utf8_bin NOT NULL DEFAULT '',
   PRIMARY KEY (id),
   KEY db (db)
 ) DEFAULT CHARSET=utf8;
@@ -2480,4 +2480,3 @@ WHERE alias1.i1 IN (
     SELECT i1 FROM t1 WHERE alias1.i2 IN ( SELECT i2 FROM t1 HAVING i2 <> 7 )
 );
 DROP TABLE t1;
-

@@ -1,4 +1,5 @@
 --source include/have_eloq.inc
+--source include/eloq_errors.inc
 
 set @@default_storage_engine= eloq;
 select @@default_storage_engine;
@@ -69,7 +70,7 @@ update t1 set j=12 where i=1;
 select * from t1 where i=1;    # 1,12
 
 --connection conn-tx1
---error 214
+--error $HA_ERR_ELOQ_RECORD_WAS_UPDATED
 update t1 set j=13 where i=1;
 commit;
 
@@ -90,7 +91,7 @@ select * from t1 where i=1;    # 1,14
 
 --connection conn-tx1
 select * from t1 where i=1;    # 1,13
---error 214
+--error $HA_ERR_ELOQ_RECORD_WAS_UPDATED
 update t1 set j=15 where i=1;
 commit;
 
@@ -134,7 +135,7 @@ select * from t1;     # 1,16 | 2,16
 --connection conn-tx1
 select * from t1 where i=1;    # 1,14
 select * from t1 where i=2;    # 2,15
---error 214
+--error $HA_ERR_ELOQ_RECORD_WAS_UPDATED
 update t1 set j=17 where i=2;
 commit;
 
@@ -154,7 +155,7 @@ update t1 set j=18 where i=1;
 # Hence the query `update t1 set j=19 where i=1;` of conn-tx2 conflicts with above query,
 # case OCC protocol, con-tx2 fails for WI lock conflict;
 # case OccRead protocol, con-tx2 can acquire WI lock after tx1 commit and fails for record(i=1) has been updated.
---error 213
+--error $HA_ERR_ELOQ_WW_CONFLICT
 update t1 set j=19 where i=1;
 
 select * from t1 where i=1;    # 1,16
@@ -249,7 +250,7 @@ select * from t1;     # 1,18 | 2,17 | 11,4 | 12,4
 set session transaction isolation level read uncommitted;
 select @@tx_isolation;
 
---error 203
+--error $HA_ERR_ELOQ_ISO_LEVEL_UNSUPPORT_ERROR
 select * from t1;
 
 set session transaction isolation level repeatable read;

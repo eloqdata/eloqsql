@@ -2,7 +2,7 @@
 # MDEV-4610 SQL query crashes MariaDB with derived_with_keys
 #
 --source include/have_eloq.inc
-create table t1 (f1 char(4) primary key) engine=eloq charset=utf8 ;
+create table t1 (f1 char(4) collate utf8_bin primary key) engine=eloq charset=utf8 ;
 insert into t1 values ('aaaa');
 create table t2 (f2 text, f3 char(4) not null) engine=eloq charset=utf8 ;
 create table t3 (id int not null) engine=eloq charset=utf8 ;

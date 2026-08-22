@@ -28,7 +28,7 @@ SELECT * FROM t1;
 
 --connection conn-tx2
 begin;
--- error 213
+-- error 217
 INSERT INTO t1 (c1) VALUES ('D');
 SELECT * FROM t1;
 
@@ -381,7 +381,6 @@ insert into t1(f1) values(1) on duplicate key update f1=1;
 select @stamp2:=f2 from t1;
 select if( @stamp1 = @stamp2, "correct", "wrong");
 drop table t1;
-
 
 
 

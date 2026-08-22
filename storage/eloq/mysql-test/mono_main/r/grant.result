@@ -227,7 +227,7 @@ revoke LOCK TABLES, ALTER on mysqltest.* from mysqltest_1@localhost;
 show grants for mysqltest_1@localhost;
 Grants for mysqltest_1@localhost
 GRANT USAGE ON *.* TO `mysqltest_1`@`localhost`
-GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, REFERENCES, INDEX, CREATE TEMPORARY TABLES, EXECUTE, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, EVENT, TRIGGER, DELETE HISTORY ON `mysqltest`.* TO `mysqltest_1`@`localhost` WITH GRANT OPTION
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, REFERENCES, INDEX, CREATE TEMPORARY TABLES, EXECUTE, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, EVENT, TRIGGER, DELETE HISTORY, SHOW CREATE ROUTINE ON `mysqltest`.* TO `mysqltest_1`@`localhost` WITH GRANT OPTION
 revoke all privileges on mysqltest.* from mysqltest_1@localhost;
 delete from mysql.user where user='mysqltest_1';
 flush privileges;
@@ -250,7 +250,7 @@ GRANT select (a), update (a),insert(a), references(a) on t1 to mysqltest_1@local
 show grants for mysqltest_1@localhost;
 Grants for mysqltest_1@localhost
 GRANT USAGE ON *.* TO `mysqltest_1`@`localhost`
-GRANT SELECT, SELECT (a), INSERT, INSERT (a), UPDATE, UPDATE (a), REFERENCES (a) ON `test`.`t1` TO `mysqltest_1`@`localhost`
+GRANT SELECT, SELECT (`a`), INSERT, INSERT (`a`), UPDATE, UPDATE (`a`), REFERENCES (`a`) ON `test`.`t1` TO `mysqltest_1`@`localhost`
 select table_priv,column_priv from mysql.tables_priv where user="mysqltest_1";
 table_priv	column_priv
 Select,Insert,Update	Select,Insert,Update,References
@@ -258,12 +258,12 @@ REVOKE select (a), update on t1 from mysqltest_1@localhost;
 show grants for mysqltest_1@localhost;
 Grants for mysqltest_1@localhost
 GRANT USAGE ON *.* TO `mysqltest_1`@`localhost`
-GRANT SELECT, INSERT, INSERT (a), REFERENCES (a) ON `test`.`t1` TO `mysqltest_1`@`localhost`
+GRANT SELECT, INSERT, INSERT (`a`), REFERENCES (`a`) ON `test`.`t1` TO `mysqltest_1`@`localhost`
 REVOKE select,update,insert,insert (a) on t1 from mysqltest_1@localhost;
 show grants for mysqltest_1@localhost;
 Grants for mysqltest_1@localhost
 GRANT USAGE ON *.* TO `mysqltest_1`@`localhost`
-GRANT REFERENCES (a) ON `test`.`t1` TO `mysqltest_1`@`localhost`
+GRANT REFERENCES (`a`) ON `test`.`t1` TO `mysqltest_1`@`localhost`
 GRANT select,references on t1 to mysqltest_1@localhost;
 select table_priv,column_priv from mysql.tables_priv where user="mysqltest_1";
 table_priv	column_priv
@@ -317,13 +317,13 @@ show grants for drop_user@localhost;
 Grants for drop_user@localhost
 GRANT ALL PRIVILEGES ON *.* TO `drop_user`@`localhost` WITH GRANT OPTION
 GRANT ALL PRIVILEGES ON `test`.* TO `drop_user`@`localhost` WITH GRANT OPTION
-GRANT SELECT (a) ON `test`.`t1` TO `drop_user`@`localhost`
+GRANT SELECT (`a`) ON `test`.`t1` TO `drop_user`@`localhost`
 set sql_mode=ansi_quotes;
 show grants for drop_user@localhost;
 Grants for drop_user@localhost
 GRANT ALL PRIVILEGES ON *.* TO "drop_user"@"localhost" WITH GRANT OPTION
 GRANT ALL PRIVILEGES ON "test".* TO "drop_user"@"localhost" WITH GRANT OPTION
-GRANT SELECT (a) ON "test"."t1" TO "drop_user"@"localhost"
+GRANT SELECT ("a") ON "test"."t1" TO "drop_user"@"localhost"
 set sql_mode=default;
 set sql_quote_show_create=0;
 show grants for drop_user@localhost;
@@ -342,13 +342,13 @@ show grants for drop_user@localhost;
 Grants for drop_user@localhost
 GRANT ALL PRIVILEGES ON *.* TO "drop_user"@"localhost" WITH GRANT OPTION
 GRANT ALL PRIVILEGES ON "test".* TO "drop_user"@"localhost" WITH GRANT OPTION
-GRANT SELECT (a) ON "test"."t1" TO "drop_user"@"localhost"
+GRANT SELECT ("a") ON "test"."t1" TO "drop_user"@"localhost"
 set sql_mode="";
 show grants for drop_user@localhost;
 Grants for drop_user@localhost
 GRANT ALL PRIVILEGES ON *.* TO `drop_user`@`localhost` WITH GRANT OPTION
 GRANT ALL PRIVILEGES ON `test`.* TO `drop_user`@`localhost` WITH GRANT OPTION
-GRANT SELECT (a) ON `test`.`t1` TO `drop_user`@`localhost`
+GRANT SELECT (`a`) ON `test`.`t1` TO `drop_user`@`localhost`
 revoke all privileges, grant option from drop_user@localhost;
 show grants for drop_user@localhost;
 Grants for drop_user@localhost
@@ -448,7 +448,7 @@ grant insert(b), insert(c), insert(d), insert(a) on t1 to grant_user@localhost;
 show grants for grant_user@localhost;
 Grants for grant_user@localhost
 GRANT USAGE ON *.* TO `grant_user`@`localhost`
-GRANT INSERT (a, d, c, b) ON `test`.`t1` TO `grant_user`@`localhost`
+GRANT INSERT (`a`, `d`, `c`, `b`) ON `test`.`t1` TO `grant_user`@`localhost`
 select Host,Db,User,Table_name,Column_name,Column_priv from mysql.columns_priv order by Column_name;
 Host	Db	User	Table_name	Column_name	Column_priv
 localhost	test	grant_user	t1	a	Insert
@@ -501,9 +501,9 @@ ERROR 42000: UPDATE command denied to user 'mysqltest_3'@'localhost' for column 
 update mysqltest_1.t2, mysqltest_2.t2 set d=20 where d=1;
 ERROR 42000: SELECT command denied to user 'mysqltest_3'@'localhost' for column 'd' in table 't2'
 update mysqltest_1.t1, mysqltest_2.t2 set d=20 where d=1;
-ERROR 42000: SELECT command denied to user 'mysqltest_3'@'localhost' for table 't1'
+ERROR 42000: SELECT command denied to user 'mysqltest_3'@'localhost' for table `mysqltest_1`.`t1`
 update mysqltest_2.t1, mysqltest_1.t2 set c=20 where b=1;
-ERROR 42000: UPDATE command denied to user 'mysqltest_3'@'localhost' for table 't1'
+ERROR 42000: UPDATE command denied to user 'mysqltest_3'@'localhost' for table `mysqltest_2`.`t1`
 update mysqltest_2.t1, mysqltest_2.t2 set d=10 where s=2;
 ERROR 42000: SELECT command denied to user 'mysqltest_3'@'localhost' for column 's' in table 't1'
 update mysqltest_1.t1, mysqltest_2.t2 set a=10,d=10;
@@ -529,14 +529,14 @@ connection conn2;
 use mysqltest_1;
 update mysqltest_2.t1, mysqltest_2.t2 set c=500,d=600;
 update mysqltest_1.t1, mysqltest_1.t2 set a=100,b=200;
-ERROR 42000: UPDATE command denied to user 'mysqltest_3'@'localhost' for table 't1'
+ERROR 42000: UPDATE command denied to user 'mysqltest_3'@'localhost' for table `mysqltest_1`.`t1`
 use mysqltest_2;
 update mysqltest_1.t1, mysqltest_1.t2 set a=100,b=200;
-ERROR 42000: UPDATE command denied to user 'mysqltest_3'@'localhost' for table 't1'
+ERROR 42000: UPDATE command denied to user 'mysqltest_3'@'localhost' for table `mysqltest_1`.`t1`
 update mysqltest_2.t1, mysqltest_1.t2 set c=100,b=200;
-ERROR 42000: UPDATE command denied to user 'mysqltest_3'@'localhost' for table 't2'
+ERROR 42000: UPDATE command denied to user 'mysqltest_3'@'localhost' for table `mysqltest_1`.`t2`
 update mysqltest_1.t1, mysqltest_2.t2 set a=100,d=200;
-ERROR 42000: UPDATE command denied to user 'mysqltest_3'@'localhost' for table 't1'
+ERROR 42000: UPDATE command denied to user 'mysqltest_3'@'localhost' for table `mysqltest_1`.`t1`
 connection master;
 select t1.*,t2.* from mysqltest_1.t1,mysqltest_1.t2;
 a	q	b	r
@@ -586,15 +586,16 @@ Select	Tables	To retrieve rows from table
 Show databases	Server Admin	To see all databases with SHOW DATABASES
 Show view	Tables	To see views with SHOW CREATE VIEW
 Shutdown	Server Admin	To shut down the server
-Super	Server Admin	To use KILL thread, SET GLOBAL, CHANGE MASTER, etc.
+Super	Server Admin	To set few server variables
 Trigger	Tables	To use triggers
 Create tablespace	Server Admin	To create/alter/drop tablespaces
 Update	Tables	To update existing rows
 Set user	Server	To create views and stored routines with a different definer
 Federated admin	Server	To execute the CREATE SERVER, ALTER SERVER, DROP SERVER statements
 Connection admin	Server	To bypass connection limits and kill other users' connections
-Read_only admin	Server	To perform write operations even if @@read_only=ON
+Read_only admin	Server	To perform write operations even if @@read_only=READ_ONLY or READ_ONLY_NO_LOCK
 Usage	Server Admin	No privileges - allow connect only
+Show Create Routine	Databases,Functions,Procedures	To allow SHOW CREATE PROCEDURE/FUNCTION/PACKAGE
 connect  root,localhost,root,,test,$MONO1_PORT,$MONO1_SOCK;
 connection root;
 create database mysqltest;
@@ -641,11 +642,11 @@ mysqltest	dummytable	ALTER, CREATE, CREATE VIEW, DELETE, DELETE HISTORY, DROP, I
 mysqltest	dummyview	ALTER, CREATE, CREATE VIEW, DELETE, DELETE HISTORY, DROP, INDEX, INSERT, REFERENCES, SELECT, SHOW VIEW, TRIGGER, UPDATE
 SHOW FIELDS FROM mysql.tables_priv;
 Field	Type	Null	Key	Default	Extra
-Host	char(128)	NO	PRI		
-Db	char(32)	NO	PRI		
-User	char(32)	NO	PRI		
+Host	char(255)	NO	PRI		
+Db	char(64)	NO	PRI		
+User	char(128)	NO	PRI		
 Table_name	char(64)	NO	PRI		
-Grantor	varchar(200)	NO	MUL		
+Grantor	varchar(384)	NO	MUL		
 Timestamp	timestamp	NO		current_timestamp()	on update current_timestamp()
 Table_priv	set('Select','Insert','Update','Delete','Create','Drop','Grant','References','Index','Alter','Create View','Show view','Trigger','Delete versioning rows')	NO			
 Column_priv	set('Select','Insert','Update','References')	NO			
@@ -730,7 +731,7 @@ flush privileges;
 use test;
 set @user123="non-existent";
 select * from mysql.db where user=@user123;
-Host	Db	User	Select_priv	Insert_priv	Update_priv	Delete_priv	Create_priv	Drop_priv	Grant_priv	References_priv	Index_priv	Alter_priv	Create_tmp_table_priv	Lock_tables_priv	Create_view_priv	Show_view_priv	Create_routine_priv	Alter_routine_priv	Execute_priv	Event_priv	Trigger_priv	Delete_history_priv
+Host	Db	User	Select_priv	Insert_priv	Update_priv	Delete_priv	Create_priv	Drop_priv	Grant_priv	References_priv	Index_priv	Alter_priv	Create_tmp_table_priv	Lock_tables_priv	Create_view_priv	Show_view_priv	Create_routine_priv	Alter_routine_priv	Execute_priv	Event_priv	Trigger_priv	Delete_history_priv	Show_create_routine_priv
 create user mysqltest_7@;
 set password for mysqltest_7@ = password('systpass');
 show grants for mysqltest_7@;
@@ -766,7 +767,7 @@ grant insert, create on db27515.t2 to user27515@localhost;
 connect  conn27515, localhost, user27515, , db27515;
 connection conn27515;
 rename table t1 to t2;
-ERROR 42000: DROP command denied to user 'user27515'@'localhost' for table 't1'
+ERROR 42000: DROP command denied to user 'user27515'@'localhost' for table `db27515`.`t1`
 disconnect conn27515;
 connection master;
 revoke all privileges, grant option from user27515@localhost;
@@ -789,24 +790,29 @@ mysqltest_8	'%'
 mysqltest_8	'host8'
 Schema privileges
 grant select on mysqltest.* to mysqltest_8@'';
+grant select on test.* to mysqltest_8@'';
 show grants for mysqltest_8@'';
 Grants for mysqltest_8@%
 GRANT USAGE ON *.* TO `mysqltest_8`@`%`
 GRANT SELECT ON `mysqltest`.* TO `mysqltest_8`@`%`
+GRANT SELECT ON `test`.* TO `mysqltest_8`@`%`
 grant select on mysqltest.* to mysqltest_8@;
 show grants for mysqltest_8@;
 Grants for mysqltest_8@%
 GRANT USAGE ON *.* TO `mysqltest_8`@`%`
 GRANT SELECT ON `mysqltest`.* TO `mysqltest_8`@`%`
+GRANT SELECT ON `test`.* TO `mysqltest_8`@`%`
 grant select on mysqltest.* to mysqltest_8;
 show grants for mysqltest_8;
 Grants for mysqltest_8@%
 GRANT USAGE ON *.* TO `mysqltest_8`@`%`
 GRANT SELECT ON `mysqltest`.* TO `mysqltest_8`@`%`
+GRANT SELECT ON `test`.* TO `mysqltest_8`@`%`
 select * from  information_schema.schema_privileges
 where grantee like "'mysqltest_8'%";
 GRANTEE	TABLE_CATALOG	TABLE_SCHEMA	PRIVILEGE_TYPE	IS_GRANTABLE
 'mysqltest_8'@'%'	def	mysqltest	SELECT	NO
+'mysqltest_8'@'%'	def	test	SELECT	NO
 connect  conn3,localhost,mysqltest_8,,;
 select * from t1;
 a
@@ -816,25 +822,31 @@ revoke select on mysqltest.* from mysqltest_8@'';
 show grants for mysqltest_8@'';
 Grants for mysqltest_8@%
 GRANT USAGE ON *.* TO `mysqltest_8`@`%`
+GRANT SELECT ON `test`.* TO `mysqltest_8`@`%`
 show grants for mysqltest_8;
 Grants for mysqltest_8@%
 GRANT USAGE ON *.* TO `mysqltest_8`@`%`
+GRANT SELECT ON `test`.* TO `mysqltest_8`@`%`
 select * from  information_schema.schema_privileges
 where grantee like "'mysqltest_8'%";
 GRANTEE	TABLE_CATALOG	TABLE_SCHEMA	PRIVILEGE_TYPE	IS_GRANTABLE
+'mysqltest_8'@'%'	def	test	SELECT	NO
 flush privileges;
 show grants for mysqltest_8@'';
 Grants for mysqltest_8@%
 GRANT USAGE ON *.* TO `mysqltest_8`@`%`
+GRANT SELECT ON `test`.* TO `mysqltest_8`@`%`
 show grants for mysqltest_8@;
 Grants for mysqltest_8@%
 GRANT USAGE ON *.* TO `mysqltest_8`@`%`
+GRANT SELECT ON `test`.* TO `mysqltest_8`@`%`
 grant select on mysqltest.* to mysqltest_8@'';
 flush privileges;
 show grants for mysqltest_8@;
 Grants for mysqltest_8@%
 GRANT USAGE ON *.* TO `mysqltest_8`@`%`
 GRANT SELECT ON `mysqltest`.* TO `mysqltest_8`@`%`
+GRANT SELECT ON `test`.* TO `mysqltest_8`@`%`
 revoke select on mysqltest.* from mysqltest_8@'';
 flush privileges;
 Column privileges
@@ -843,20 +855,24 @@ grant update (a) on t1 to mysqltest_8;
 show grants for mysqltest_8@'';
 Grants for mysqltest_8@%
 GRANT USAGE ON *.* TO `mysqltest_8`@`%`
-GRANT UPDATE (a) ON `test`.`t1` TO `mysqltest_8`@`%`
+GRANT SELECT ON `test`.* TO `mysqltest_8`@`%`
+GRANT UPDATE (`a`) ON `test`.`t1` TO `mysqltest_8`@`%`
 show grants for mysqltest_8;
 Grants for mysqltest_8@%
 GRANT USAGE ON *.* TO `mysqltest_8`@`%`
-GRANT UPDATE (a) ON `test`.`t1` TO `mysqltest_8`@`%`
+GRANT SELECT ON `test`.* TO `mysqltest_8`@`%`
+GRANT UPDATE (`a`) ON `test`.`t1` TO `mysqltest_8`@`%`
 flush privileges;
 show grants for mysqltest_8@'';
 Grants for mysqltest_8@%
 GRANT USAGE ON *.* TO `mysqltest_8`@`%`
-GRANT UPDATE (a) ON `test`.`t1` TO `mysqltest_8`@`%`
+GRANT SELECT ON `test`.* TO `mysqltest_8`@`%`
+GRANT UPDATE (`a`) ON `test`.`t1` TO `mysqltest_8`@`%`
 show grants for mysqltest_8;
 Grants for mysqltest_8@%
 GRANT USAGE ON *.* TO `mysqltest_8`@`%`
-GRANT UPDATE (a) ON `test`.`t1` TO `mysqltest_8`@`%`
+GRANT SELECT ON `test`.* TO `mysqltest_8`@`%`
+GRANT UPDATE (`a`) ON `test`.`t1` TO `mysqltest_8`@`%`
 select * from  information_schema.column_privileges;
 GRANTEE	TABLE_CATALOG	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	PRIVILEGE_TYPE	IS_GRANTABLE
 'mysqltest_8'@'%'	def	test	t1	a	UPDATE	NO
@@ -869,37 +885,45 @@ revoke update (a) on t1 from mysqltest_8@'';
 show grants for mysqltest_8@'';
 Grants for mysqltest_8@%
 GRANT USAGE ON *.* TO `mysqltest_8`@`%`
+GRANT SELECT ON `test`.* TO `mysqltest_8`@`%`
 show grants for mysqltest_8;
 Grants for mysqltest_8@%
 GRANT USAGE ON *.* TO `mysqltest_8`@`%`
+GRANT SELECT ON `test`.* TO `mysqltest_8`@`%`
 select * from  information_schema.column_privileges;
 GRANTEE	TABLE_CATALOG	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	PRIVILEGE_TYPE	IS_GRANTABLE
 flush privileges;
 show grants for mysqltest_8@'';
 Grants for mysqltest_8@%
 GRANT USAGE ON *.* TO `mysqltest_8`@`%`
+GRANT SELECT ON `test`.* TO `mysqltest_8`@`%`
 show grants for mysqltest_8;
 Grants for mysqltest_8@%
 GRANT USAGE ON *.* TO `mysqltest_8`@`%`
+GRANT SELECT ON `test`.* TO `mysqltest_8`@`%`
 Table privileges
 grant update on t1 to mysqltest_8@'';
 grant update on t1 to mysqltest_8;
 show grants for mysqltest_8@'';
 Grants for mysqltest_8@%
 GRANT USAGE ON *.* TO `mysqltest_8`@`%`
+GRANT SELECT ON `test`.* TO `mysqltest_8`@`%`
 GRANT UPDATE ON `test`.`t1` TO `mysqltest_8`@`%`
 show grants for mysqltest_8;
 Grants for mysqltest_8@%
 GRANT USAGE ON *.* TO `mysqltest_8`@`%`
+GRANT SELECT ON `test`.* TO `mysqltest_8`@`%`
 GRANT UPDATE ON `test`.`t1` TO `mysqltest_8`@`%`
 flush privileges;
 show grants for mysqltest_8@'';
 Grants for mysqltest_8@%
 GRANT USAGE ON *.* TO `mysqltest_8`@`%`
+GRANT SELECT ON `test`.* TO `mysqltest_8`@`%`
 GRANT UPDATE ON `test`.`t1` TO `mysqltest_8`@`%`
 show grants for mysqltest_8;
 Grants for mysqltest_8@%
 GRANT USAGE ON *.* TO `mysqltest_8`@`%`
+GRANT SELECT ON `test`.* TO `mysqltest_8`@`%`
 GRANT UPDATE ON `test`.`t1` TO `mysqltest_8`@`%`
 select * from  information_schema.table_privileges;
 GRANTEE	TABLE_CATALOG	TABLE_SCHEMA	TABLE_NAME	PRIVILEGE_TYPE	IS_GRANTABLE
@@ -915,9 +939,11 @@ revoke update on t1 from mysqltest_8@'';
 show grants for mysqltest_8@'';
 Grants for mysqltest_8@%
 GRANT USAGE ON *.* TO `mysqltest_8`@`%`
+GRANT SELECT ON `test`.* TO `mysqltest_8`@`%`
 show grants for mysqltest_8;
 Grants for mysqltest_8@%
 GRANT USAGE ON *.* TO `mysqltest_8`@`%`
+GRANT SELECT ON `test`.* TO `mysqltest_8`@`%`
 select * from  information_schema.table_privileges;
 GRANTEE	TABLE_CATALOG	TABLE_SCHEMA	TABLE_NAME	PRIVILEGE_TYPE	IS_GRANTABLE
 'mariadb.sys'@'localhost'	def	mysql	global_priv	SELECT	NO
@@ -926,9 +952,11 @@ flush privileges;
 show grants for mysqltest_8@'';
 Grants for mysqltest_8@%
 GRANT USAGE ON *.* TO `mysqltest_8`@`%`
+GRANT SELECT ON `test`.* TO `mysqltest_8`@`%`
 show grants for mysqltest_8;
 Grants for mysqltest_8@%
 GRANT USAGE ON *.* TO `mysqltest_8`@`%`
+GRANT SELECT ON `test`.* TO `mysqltest_8`@`%`
 "DROP USER" should clear privileges
 grant all privileges on mysqltest.* to mysqltest_8@'';
 grant select on mysqltest.* to mysqltest_8@'';
@@ -938,13 +966,15 @@ grant all privileges on mysqltest.* to mysqltest_8;
 show grants for mysqltest_8@'';
 Grants for mysqltest_8@%
 GRANT USAGE ON *.* TO `mysqltest_8`@`%`
+GRANT SELECT ON `test`.* TO `mysqltest_8`@`%`
 GRANT ALL PRIVILEGES ON `mysqltest`.* TO `mysqltest_8`@`%`
-GRANT UPDATE, UPDATE (a) ON `test`.`t1` TO `mysqltest_8`@`%`
+GRANT UPDATE, UPDATE (`a`) ON `test`.`t1` TO `mysqltest_8`@`%`
 show grants for mysqltest_8;
 Grants for mysqltest_8@%
 GRANT USAGE ON *.* TO `mysqltest_8`@`%`
+GRANT SELECT ON `test`.* TO `mysqltest_8`@`%`
 GRANT ALL PRIVILEGES ON `mysqltest`.* TO `mysqltest_8`@`%`
-GRANT UPDATE, UPDATE (a) ON `test`.`t1` TO `mysqltest_8`@`%`
+GRANT UPDATE, UPDATE (`a`) ON `test`.`t1` TO `mysqltest_8`@`%`
 select * from  information_schema.user_privileges
 where grantee like "'mysqltest_8'%";
 GRANTEE	TABLE_CATALOG	PRIVILEGE_TYPE	IS_GRANTABLE
@@ -960,12 +990,14 @@ show grants for mysqltest_8@'';
 Grants for mysqltest_8@%
 GRANT USAGE ON *.* TO `mysqltest_8`@`%`
 GRANT ALL PRIVILEGES ON `mysqltest`.* TO `mysqltest_8`@`%`
-GRANT UPDATE, UPDATE (a) ON `test`.`t1` TO `mysqltest_8`@`%`
+GRANT SELECT ON `test`.* TO `mysqltest_8`@`%`
+GRANT UPDATE, UPDATE (`a`) ON `test`.`t1` TO `mysqltest_8`@`%`
 show grants for mysqltest_8;
 Grants for mysqltest_8@%
 GRANT USAGE ON *.* TO `mysqltest_8`@`%`
 GRANT ALL PRIVILEGES ON `mysqltest`.* TO `mysqltest_8`@`%`
-GRANT UPDATE, UPDATE (a) ON `test`.`t1` TO `mysqltest_8`@`%`
+GRANT SELECT ON `test`.* TO `mysqltest_8`@`%`
+GRANT UPDATE, UPDATE (`a`) ON `test`.`t1` TO `mysqltest_8`@`%`
 drop user mysqltest_8@'';
 show grants for mysqltest_8@'';
 ERROR 42000: There is no such grant defined for user 'mysqltest_8' on host '%'
@@ -998,13 +1030,13 @@ GRANT SELECT           ON mysqltest2.*    TO 'mysqltest_1'@'localhost' IDENTIFIE
 GRANT SHOW VIEW,SELECT ON mysqltest2.v_yy TO 'mysqltest_1'@'localhost' IDENTIFIED BY 'mysqltest_1';
 connect  mysqltest_1, localhost, mysqltest_1, mysqltest_1,;
 SHOW CREATE VIEW  mysqltest2.v_nn;
-ERROR 42000: SHOW VIEW command denied to user 'mysqltest_1'@'localhost' for table 'v_nn'
+ERROR 42000: SHOW VIEW command denied to user 'mysqltest_1'@'localhost' for table `mysqltest2`.`v_nn`
 SHOW CREATE TABLE mysqltest2.v_nn;
-ERROR 42000: SHOW VIEW command denied to user 'mysqltest_1'@'localhost' for table 'v_nn'
+ERROR 42000: SHOW VIEW command denied to user 'mysqltest_1'@'localhost' for table `mysqltest2`.`v_nn`
 SHOW CREATE VIEW  mysqltest2.v_yn;
-ERROR 42000: SHOW VIEW command denied to user 'mysqltest_1'@'localhost' for table 'v_yn'
+ERROR 42000: SHOW VIEW command denied to user 'mysqltest_1'@'localhost' for table `mysqltest2`.`v_yn`
 SHOW CREATE TABLE mysqltest2.v_yn;
-ERROR 42000: SHOW VIEW command denied to user 'mysqltest_1'@'localhost' for table 'v_yn'
+ERROR 42000: SHOW VIEW command denied to user 'mysqltest_1'@'localhost' for table `mysqltest2`.`v_yn`
 SHOW CREATE TABLE mysqltest2.v_ny;
 View	Create View	character_set_client	collation_connection
 v_ny	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `mysqltest2`.`v_ny` AS select `mysqltest2`.`t_nn`.`c1` AS `c1` from `mysqltest2`.`t_nn`	binary	binary
@@ -1012,18 +1044,18 @@ SHOW CREATE VIEW  mysqltest2.v_ny;
 View	Create View	character_set_client	collation_connection
 v_ny	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `mysqltest2`.`v_ny` AS select `mysqltest2`.`t_nn`.`c1` AS `c1` from `mysqltest2`.`t_nn`	binary	binary
 SHOW CREATE TABLE mysqltest3.t_nn;
-ERROR 42000: SHOW command denied to user 'mysqltest_1'@'localhost' for table 't_nn'
+ERROR 42000: SHOW command denied to user 'mysqltest_1'@'localhost' for table `mysqltest3`.`t_nn`
 SHOW CREATE VIEW  mysqltest3.t_nn;
-ERROR 42000: SELECT command denied to user 'mysqltest_1'@'localhost' for table 't_nn'
+ERROR 42000: SELECT command denied to user 'mysqltest_1'@'localhost' for table `mysqltest3`.`t_nn`
 SHOW CREATE VIEW  mysqltest3.v_nn;
-ERROR 42000: SELECT command denied to user 'mysqltest_1'@'localhost' for table 'v_nn'
+ERROR 42000: SELECT command denied to user 'mysqltest_1'@'localhost' for table `mysqltest3`.`v_nn`
 SHOW CREATE TABLE mysqltest3.v_nn;
-ERROR 42000: SHOW command denied to user 'mysqltest_1'@'localhost' for table 'v_nn'
+ERROR 42000: SHOW command denied to user 'mysqltest_1'@'localhost' for table `mysqltest3`.`v_nn`
 SHOW CREATE TABLE mysqltest2.t_nn;
 Table	Create Table
 t_nn	CREATE TABLE `t_nn` (
   `c1` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SHOW CREATE VIEW  mysqltest2.t_nn;
 ERROR HY000: 'mysqltest2.t_nn' is not of type 'VIEW'
 SHOW CREATE VIEW mysqltest2.v_yy;
@@ -1043,7 +1075,7 @@ SHOW CREATE TABLE mysqltest2.t_nn;
 Table	Create Table
 t_nn	CREATE TABLE `t_nn` (
   `c1` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SHOW CREATE VIEW mysqltest2.t_nn;
 ERROR HY000: 'mysqltest2.t_nn' is not of type 'VIEW'
 DROP VIEW  mysqltest2.v_nn;
@@ -1062,7 +1094,7 @@ USE test;
 connection default;
 disconnect master;
 create user longer_than_80_456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789;
-ERROR HY000: String 'longer_than_80_4567890123456789012345678901234567890123456789012345...' is too long for user name (should be no longer than 32)
+ERROR HY000: String 'longer_than_80_4567890123456789012345678901234567890123456789012345...' is too long for user name (should be no longer than 128)
 CREATE DATABASE mysqltest1;
 CREATE TABLE mysqltest1.t1 (
 int_field INTEGER UNSIGNED NOT NULL,
@@ -1083,13 +1115,13 @@ Grants for mysqltest_1@localhost
 GRANT USAGE ON *.* TO `mysqltest_1`@`localhost`
 GRANT SELECT ON `mysqltest1`.`t1` TO `mysqltest_1`@`localhost`
 RENAME TABLE t1 TO t2;
-ERROR 42000: DROP, ALTER command denied to user 'mysqltest_1'@'localhost' for table 't1'
+ERROR 42000: DROP, ALTER command denied to user 'mysqltest_1'@'localhost' for table `mysqltest1`.`t1`
 disconnect conn42;
 connection default;
 GRANT DROP ON mysqltest1.t1 TO mysqltest_1@localhost;
 connect  conn42,localhost,mysqltest_1,,mysqltest1;
 RENAME TABLE t1 TO t2;
-ERROR 42000: ALTER command denied to user 'mysqltest_1'@'localhost' for table 't1'
+ERROR 42000: ALTER command denied to user 'mysqltest_1'@'localhost' for table `mysqltest1`.`t1`
 disconnect conn42;
 connection default;
 GRANT ALTER ON mysqltest1.t1 TO mysqltest_1@localhost;
@@ -1099,7 +1131,7 @@ Grants for mysqltest_1@localhost
 GRANT USAGE ON *.* TO `mysqltest_1`@`localhost`
 GRANT SELECT, DROP, ALTER ON `mysqltest1`.`t1` TO `mysqltest_1`@`localhost`
 RENAME TABLE t1 TO t2;
-ERROR 42000: INSERT, CREATE command denied to user 'mysqltest_1'@'localhost' for table 't2'
+ERROR 42000: INSERT, CREATE command denied to user 'mysqltest_1'@'localhost' for table `mysqltest1`.`t2`
 disconnect conn42;
 connection default;
 GRANT INSERT, CREATE ON mysqltest1.t1 TO mysqltest_1@localhost;
@@ -1134,27 +1166,27 @@ DROP USER mysqltest_1@localhost;
 DROP DATABASE mysqltest1;
 USE test;
 GRANT CREATE ON mysqltest.* TO longer_than_80_456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789@localhost;
-ERROR HY000: String 'longer_than_80_4567890123456789012345678901234567890123456789012345...' is too long for user name (should be no longer than 32)
+ERROR HY000: String 'longer_than_80_4567890123456789012345678901234567890123456789012345...' is too long for user name (should be no longer than 128)
 GRANT CREATE ON mysqltest.* TO some_user_name@1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTYabcdefghij1234567890abcdefghij1234567890abcdefghijQWERTYabcdefghij1234567890abcdefghij1234567890abcdefghijQWERTYabcdefghij1234567890abcdefghij1234567890abcdefghijQWERTYabcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTYabcdefghij1234567890abcdefghij1234567890abcdefghijQWERTYabcdefghij1234567890abcdefghij1234567890abcdefghijQWERTYabcdefghij1234567890abcdefghij1234567890abcdefghijQWERTYabcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY;
 ERROR HY000: String '1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTYa...' is too long for host name (should be no longer than 255)
 REVOKE CREATE ON mysqltest.* FROM longer_than_80_456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789@localhost;
-ERROR HY000: String 'longer_than_80_4567890123456789012345678901234567890123456789012345...' is too long for user name (should be no longer than 32)
+ERROR HY000: String 'longer_than_80_4567890123456789012345678901234567890123456789012345...' is too long for user name (should be no longer than 128)
 REVOKE CREATE ON mysqltest.* FROM some_user_name@1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTYabcdefghij1234567890abcdefghij1234567890abcdefghijQWERTYabcdefghij1234567890abcdefghij1234567890abcdefghijQWERTYabcdefghij1234567890abcdefghij1234567890abcdefghijQWERTYabcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTYabcdefghij1234567890abcdefghij1234567890abcdefghijQWERTYabcdefghij1234567890abcdefghij1234567890abcdefghijQWERTYabcdefghij1234567890abcdefghij1234567890abcdefghijQWERTYabcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY;
 ERROR HY000: String '1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTYa...' is too long for host name (should be no longer than 255)
 GRANT CREATE ON t1 TO longer_than_80_456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789@localhost;
-ERROR HY000: String 'longer_than_80_4567890123456789012345678901234567890123456789012345...' is too long for user name (should be no longer than 32)
+ERROR HY000: String 'longer_than_80_4567890123456789012345678901234567890123456789012345...' is too long for user name (should be no longer than 128)
 GRANT CREATE ON t1 TO some_user_name@1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY;
 ERROR HY000: String '1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1...' is too long for host name (should be no longer than 255)
 REVOKE CREATE ON t1 FROM longer_than_80_456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789@localhost;
-ERROR HY000: String 'longer_than_80_4567890123456789012345678901234567890123456789012345...' is too long for user name (should be no longer than 32)
+ERROR HY000: String 'longer_than_80_4567890123456789012345678901234567890123456789012345...' is too long for user name (should be no longer than 128)
 REVOKE CREATE ON t1 FROM some_user_name@1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY;
 ERROR HY000: String '1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1...' is too long for host name (should be no longer than 255)
 GRANT EXECUTE ON PROCEDURE p1 TO longer_than_80_456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789@localhost;
-ERROR HY000: String 'longer_than_80_4567890123456789012345678901234567890123456789012345...' is too long for user name (should be no longer than 32)
+ERROR HY000: String 'longer_than_80_4567890123456789012345678901234567890123456789012345...' is too long for user name (should be no longer than 128)
 GRANT EXECUTE ON PROCEDURE p1 TO some_user_name@1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY;
 ERROR HY000: String '1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1...' is too long for host name (should be no longer than 255)
 REVOKE EXECUTE ON PROCEDURE p1 FROM longer_than_80_456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789@localhost;
-ERROR HY000: String 'longer_than_80_4567890123456789012345678901234567890123456789012345...' is too long for user name (should be no longer than 32)
+ERROR HY000: String 'longer_than_80_4567890123456789012345678901234567890123456789012345...' is too long for user name (should be no longer than 128)
 REVOKE EXECUTE ON PROCEDURE t1 FROM some_user_name@1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY;
 ERROR HY000: String '1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY1...' is too long for host name (should be no longer than 255)
 connect  con1, localhost, root,,*NO-ONE*;
@@ -1219,16 +1251,16 @@ CREATE PROCEDURE mysqltest1.p1() SQL SECURITY INVOKER
 SELECT 1;
 connect  bug27337_con1,localhost,mysqltest_1,,mysqltest2;
 CREATE TABLE t1(c INT);
-ERROR 42000: CREATE command denied to user 'mysqltest_1'@'localhost' for table 't1'
+ERROR 42000: CREATE command denied to user 'mysqltest_1'@'localhost' for table `mysqltest2`.`t1`
 CALL mysqltest1.p1();
 1
 1
 CREATE TABLE t1(c INT);
-ERROR 42000: CREATE command denied to user 'mysqltest_1'@'localhost' for table 't1'
+ERROR 42000: CREATE command denied to user 'mysqltest_1'@'localhost' for table `mysqltest2`.`t1`
 disconnect bug27337_con1;
 connect  bug27337_con2,localhost,mysqltest_1,,mysqltest2;
 CREATE TABLE t1(c INT);
-ERROR 42000: CREATE command denied to user 'mysqltest_1'@'localhost' for table 't1'
+ERROR 42000: CREATE command denied to user 'mysqltest_1'@'localhost' for table `mysqltest2`.`t1`
 SHOW TABLES;
 Tables_in_mysqltest2
 connection default;
@@ -1270,9 +1302,9 @@ EXECUTE stmt1;
 ERROR 42000: Access denied for user 'mysqltest_1'@'localhost' to database 'mysqltest1'
 connection bug27337_con2;
 SHOW COLUMNS FROM mysqltest2.t2;
-ERROR 42000: SELECT command denied to user 'mysqltest_2'@'localhost' for table 't2'
+ERROR 42000: SELECT command denied to user 'mysqltest_2'@'localhost' for table `mysqltest2`.`t2`
 EXECUTE stmt2;
-ERROR 42000: SELECT command denied to user 'mysqltest_2'@'localhost' for table 't2'
+ERROR 42000: SELECT command denied to user 'mysqltest_2'@'localhost' for table `mysqltest2`.`t2`
 connection default;
 disconnect bug27337_con1;
 disconnect bug27337_con2;
@@ -1329,8 +1361,6 @@ declare tmp varchar(30);
 select col1 from test limit 1 into tmp;
 return '1';
 end|
-Warnings:
-Warning	1287	'<select expression> INTO <destination>;' is deprecated and will be removed in a future release. Please use 'SELECT <select list> INTO <destination> FROM...' instead
 create view v1 as select test.* from test where test.col1=test_function();
 grant update (col1) on v1 to 'greg'@'localhost';
 drop user 'greg'@'localhost';
@@ -1394,11 +1424,11 @@ CALL p1;
 ERROR 42000: SELECT command denied to user 'testuser'@'localhost' for column 'b' in table 't1'
 #   - Check table-level privileges...
 SELECT a FROM t2;
-ERROR 42000: SELECT command denied to user 'testuser'@'localhost' for table 't2'
+ERROR 42000: SELECT command denied to user 'testuser'@'localhost' for table `mysqltest1`.`t2`
 EXECUTE s2;
-ERROR 42000: SELECT command denied to user 'testuser'@'localhost' for table 't2'
+ERROR 42000: SELECT command denied to user 'testuser'@'localhost' for table `mysqltest1`.`t2`
 CALL p2;
-ERROR 42000: SELECT command denied to user 'testuser'@'localhost' for table 't2'
+ERROR 42000: SELECT command denied to user 'testuser'@'localhost' for table `mysqltest1`.`t2`
 #   - Check database-level privileges...
 SHOW TABLES FROM mysqltest2;
 ERROR 42000: Access denied for user 'testuser'@'localhost' to database 'mysqltest2'
@@ -1445,6 +1475,8 @@ mysqltest1.f1()
 0
 connection default;
 drop user mysqluser1@localhost;
+Warnings:
+Note	4227	Dropped users 'mysqluser1'@'localhost' have active connections. Use KILL CONNECTION if they should not be used anymore.
 #
 # Test that dropping of user is properly reflected in
 # both privilege tables and in in-memory structures.
@@ -1533,9 +1565,9 @@ ERROR 42000: execute command denied to user 'mysqluser1'@'localhost' for routine
 select mysqltest1.f1();
 ERROR 42000: execute command denied to user 'mysqluser1'@'localhost' for routine 'mysqltest1.f1'
 select * from mysqltest1.t11;
-ERROR 42000: SELECT command denied to user 'mysqluser1'@'localhost' for table 't11'
+ERROR 42000: SELECT command denied to user 'mysqluser1'@'localhost' for table `mysqltest1`.`t11`
 select * from mysqltest1.t22;
-ERROR 42000: SELECT command denied to user 'mysqluser1'@'localhost' for table 't22'
+ERROR 42000: SELECT command denied to user 'mysqluser1'@'localhost' for table `mysqltest1`.`t22`
 disconnect bug36544_con2;
 connection default;
 #
@@ -1557,9 +1589,9 @@ ERROR 42000: execute command denied to user 'mysqluser1'@'localhost' for routine
 select mysqltest1.f1();
 ERROR 42000: execute command denied to user 'mysqluser1'@'localhost' for routine 'mysqltest1.f1'
 select * from mysqltest1.t11;
-ERROR 42000: SELECT command denied to user 'mysqluser1'@'localhost' for table 't11'
+ERROR 42000: SELECT command denied to user 'mysqluser1'@'localhost' for table `mysqltest1`.`t11`
 select * from mysqltest1.t22;
-ERROR 42000: SELECT command denied to user 'mysqluser1'@'localhost' for table 't22'
+ERROR 42000: SELECT command denied to user 'mysqluser1'@'localhost' for table `mysqltest1`.`t22`
 disconnect bug36544_con3;
 connection default;
 #
@@ -1601,7 +1633,7 @@ drop database mysqltest1;
 End of 5.0 tests
 set names utf8;
 grant select on test.* to Ð¾ÑÐµÐ½Ñ_Ð´Ð»Ð¸Ð½Ð½ÑÐ¹_ÑÐ·ÐµÑ890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890@localhost;
-ERROR HY000: String 'Ð¾Ñ\0087ÐµÐ½Ñ\008C_Ð´Ð»Ð¸Ð½Ð½Ñ\008BÐ¹_Ñ\008EÐ·ÐµÑ\00808...' is too long for user name (should be no longer than 32)
+ERROR HY000: String 'Ð¾Ñ\0087ÐµÐ½Ñ\008C_Ð´Ð»Ð¸Ð½Ð½Ñ\008BÐ¹_Ñ\008EÐ·ÐµÑ\00808...' is too long for user name (should be no longer than 128)
 set names default;
 create database mysqltest;
 use mysqltest;
@@ -1610,7 +1642,7 @@ create table t1 (i INT);
 connect  user1,localhost,mysqltest,,mysqltest;
 connection user1;
 insert into t1 values (1);
-ERROR 42000: INSERT command denied to user 'mysqltest'@'localhost' for table 't1'
+ERROR 42000: INSERT command denied to user 'mysqltest'@'localhost' for table `mysqltest`.`t1`
 create table t2 (i INT);
 create table t4 (i INT);
 connection default;
@@ -1622,20 +1654,20 @@ flush privileges;
 connection user1;
 insert into t2 values (1);
 create table if not exists t1 select * from t2;
-ERROR 42000: INSERT command denied to user 'mysqltest'@'localhost' for table 't1'
+ERROR 42000: INSERT command denied to user 'mysqltest'@'localhost' for table `mysqltest`.`t1`
 create table if not exists t3 select * from t2;
-ERROR 42000: INSERT command denied to user 'mysqltest'@'localhost' for table 't3'
+ERROR 42000: INSERT command denied to user 'mysqltest'@'localhost' for table `mysqltest`.`t3`
 create table if not exists t4 select * from t2;
 Warnings:
 Note	1050	Table 't4' already exists
 create table if not exists t5 select * from t2;
 create table t6 select * from t2;
 create table t7 select * from t2;
-ERROR 42000: INSERT command denied to user 'mysqltest'@'localhost' for table 't7'
+ERROR 42000: INSERT command denied to user 'mysqltest'@'localhost' for table `mysqltest`.`t7`
 create table t4 select * from t2;
 ERROR 42S01: Table 't4' already exists
 create table t1 select * from t2;
-ERROR 42000: INSERT command denied to user 'mysqltest'@'localhost' for table 't1'
+ERROR 42000: INSERT command denied to user 'mysqltest'@'localhost' for table `mysqltest`.`t1`
 connection default;
 drop table t1,t2,t4,t5,t6;
 revoke create         on mysqltest.*  from mysqltest@localhost;
@@ -1644,6 +1676,8 @@ revoke insert         on mysqltest.t4 from mysqltest@localhost;
 revoke create, insert on mysqltest.t5 from mysqltest@localhost;
 revoke create, insert on mysqltest.t6 from mysqltest@localhost;
 drop user mysqltest@localhost;
+Warnings:
+Note	4227	Dropped users 'mysqltest'@'localhost' have active connections. Use KILL CONNECTION if they should not be used anymore.
 disconnect user1;
 drop database mysqltest;
 use test;
@@ -1780,7 +1814,7 @@ connect  con1,localhost,testbug,,db1;
 SELECT * FROM `../db2/tb2`;
 ERROR 42S02: Table 'db1.../db2/tb2' doesn't exist
 SELECT * FROM `../db2`.tb2;
-ERROR 42000: SELECT command denied to user 'testbug'@'localhost' for table 'tb2'
+ERROR 42000: SELECT command denied to user 'testbug'@'localhost' for table `../db2`.`tb2`
 SELECT * FROM `#mysql50#/../db2/tb2`;
 ERROR 42000: Incorrect table name '#mysql50#/../db2/tb2'
 connection default;
@@ -1811,6 +1845,8 @@ flush privileges;
 # --
 DELETE FROM mysql.user WHERE User LIKE 'mysqltest_%';
 DELETE FROM mysql.db WHERE User LIKE 'mysqltest_%';
+Warnings:
+Warning	4202	4 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 DELETE FROM mysql.tables_priv WHERE User LIKE 'mysqltest_%';
 DELETE FROM mysql.columns_priv WHERE User LIKE 'mysqltest_%';
 FLUSH PRIVILEGES;
@@ -1846,7 +1882,7 @@ connect  con1,localhost,mysqltest_u1,,mysqltest_db1;
 connection con1;
 
 SHOW CREATE TABLE t1;
-ERROR 42000: SHOW command denied to user 'mysqltest_u1'@'localhost' for table 't1'
+ERROR 42000: SHOW command denied to user 'mysqltest_u1'@'localhost' for table `mysqltest_db1`.`t1`
 connection default;
 disconnect con1;
 
@@ -1872,7 +1908,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 connection default;
 disconnect con1;
 
@@ -1898,7 +1934,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 connection default;
 disconnect con1;
 
@@ -1924,7 +1960,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 connection default;
 disconnect con1;
 
@@ -1950,7 +1986,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 connection default;
 disconnect con1;
 
@@ -1976,7 +2012,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 connection default;
 disconnect con1;
 
@@ -2002,7 +2038,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 connection default;
 disconnect con1;
 
@@ -2028,7 +2064,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 connection default;
 disconnect con1;
 
@@ -2054,7 +2090,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 connection default;
 disconnect con1;
 
@@ -2080,7 +2116,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 connection default;
 disconnect con1;
 
@@ -2106,7 +2142,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 connection default;
 disconnect con1;
 
@@ -2132,7 +2168,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 connection default;
 disconnect con1;
 
@@ -2158,7 +2194,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 connection default;
 disconnect con1;
 
@@ -2184,7 +2220,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 connection default;
 disconnect con1;
 
@@ -2210,7 +2246,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 connection default;
 disconnect con1;
 
@@ -2236,7 +2272,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 connection default;
 disconnect con1;
 
@@ -2262,7 +2298,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 connection default;
 disconnect con1;
 
@@ -2288,7 +2324,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 connection default;
 disconnect con1;
 
@@ -2314,7 +2350,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 connection default;
 disconnect con1;
 
@@ -2340,7 +2376,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 connection default;
 disconnect con1;
 
@@ -2366,7 +2402,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 connection default;
 disconnect con1;
 
@@ -2392,7 +2428,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 connection default;
 disconnect con1;
 
@@ -2418,7 +2454,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 connection default;
 disconnect con1;
 
@@ -2444,7 +2480,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 connection default;
 disconnect con1;
 
@@ -2470,7 +2506,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 connection default;
 disconnect con1;
 
@@ -2497,9 +2533,9 @@ create database mysqltest_db1;
 create user mysqltest_u1;
 # Both GRANT statements below should fail with the same error.
 grant execute on function mysqltest_db1.f1 to mysqltest_u1;
-ERROR 42000: FUNCTION or PROCEDURE f1 does not exist
+ERROR 42000: FUNCTION f1 does not exist
 grant execute on procedure mysqltest_db1.p1 to mysqltest_u1;
-ERROR 42000: FUNCTION or PROCEDURE p1 does not exist
+ERROR 42000: PROCEDURE p1 does not exist
 # Let us show that GRANT behaviour for routines is consistent
 # with GRANT behaviour for tables. Attempt to grant privilege
 # on non-existent table also results in an error.
@@ -2558,7 +2594,6 @@ GRANT USAGE ON *.* TO `untrusted`@`localhost`
 SHOW DATABASES;
 Database
 information_schema
-test
 # Both statements below should fail with the same error.
 # They used to give different errors, thereby
 # hinting that the secret database exists.
@@ -2585,7 +2620,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` varchar(30) DEFAULT user()
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 INSERT INTO t1 VALUES ();
 GRANT ALL PRIVILEGES ON test.* TO dummy@localhost IDENTIFIED BY 'pwd';
 connect  conn1,localhost,dummy,pwd,test;
@@ -2610,10 +2645,10 @@ CREATE DATABASE db;
 CREATE TABLE db.t (a INT);
 connect  con1,localhost,foo,,;
 GRANT ALL ON db.t TO foo;
-ERROR 42000: SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, GRANT, REFERENCES, INDEX, ALTER, CREATE VIEW, SHOW ... command denied to user 'foo'@'localhost' for table 't'
+ERROR 42000: SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, GRANT, REFERENCES, INDEX, ALTER, CREATE VIEW, SHOW ... command denied to user 'foo'@'localhost' for table `db`.`t`
 GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, GRANT OPTION, REFERENCES,
 INDEX, ALTER, CREATE VIEW, SHOW VIEW, TRIGGER ON db.t TO foo;
-ERROR 42000: SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, GRANT, REFERENCES, INDEX, ALTER, CREATE VIEW, SHOW ... command denied to user 'foo'@'localhost' for table 't'
+ERROR 42000: SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, GRANT, REFERENCES, INDEX, ALTER, CREATE VIEW, SHOW ... command denied to user 'foo'@'localhost' for table `db`.`t`
 connection default;
 disconnect con1;
 DROP USER foo;
@@ -2642,12 +2677,14 @@ DROP USER bar3@localhost;
 #
 # MDEV-17946 : Unsorted acl_dbs after RENAME USER
 #
+CREATE USER a;
 CREATE USER foo;
 GRANT SELECT ON test.* TO foo;
-RENAME USER '' TO 'name';
+RENAME USER 'a' TO 'name';
 GRANT UPDATE ON test.* TO foo;
-RENAME USER 'name' to '';
+RENAME USER 'name' to 'a';
 DROP USER foo;
+DROP USER a;
 #
 # End of 10.4 tests
 #

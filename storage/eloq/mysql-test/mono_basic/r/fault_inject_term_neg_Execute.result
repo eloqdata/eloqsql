@@ -37,7 +37,7 @@ SET SESSION debug_dbug="-d,eloq;term_TemplateCcMap_Execute_AcquireAllCc;node_id=
 create table t1(i int primary key, j int) engine= eloq;
 SET SESSION debug_dbug="+d,eloq;term_TemplateCcMap_Execute_AcquireAllCc;node_id=-1";
 drop table t1;
-ERROR HY000: Got error 201 'Failed at acquire write intent.' from ELOQ
+ERROR HY000: Got error 205 'Failed at acquire write intent.' from ELOQ
 SET SESSION debug_dbug="-d,eloq;term_TemplateCcMap_Execute_AcquireAllCc;node_id=-1";
 drop table t1;
 create table t1(i int primary key, j int) engine= eloq;

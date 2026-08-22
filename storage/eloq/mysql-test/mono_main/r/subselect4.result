@@ -378,29 +378,6 @@ RESULT
 NULL
 DROP TABLE t1,t2;
 #
-# BUG#45928 "Differing query results depending on MRR and
-# engine_condition_pushdown settings"
-#
-CREATE TABLE `t1` (
-`pk` int(11) NOT NULL AUTO_INCREMENT,
-`time_nokey` time NOT NULL,
-`varchar_key` varchar(1) NOT NULL,
-`varchar_nokey` varchar(1) NOT NULL,
-PRIMARY KEY (`pk`),
-KEY `varchar_key` (`varchar_key`)
-) AUTO_INCREMENT=12 DEFAULT CHARSET=latin1;
-INSERT INTO `t1` VALUES (10,'00:00:00','i','i'),(11,'00:00:00','','');
-set @old_optimizer_switch          = @@session.optimizer_switch;
-SET SESSION OPTIMIZER_SWITCH = 'materialization=off,semijoin=off,loosescan=off,firstmatch=off,mrr=on,engine_condition_pushdown=on';
-Warnings:
-Warning	1681	'engine_condition_pushdown=on' is deprecated and will be removed in a future release
-SELECT `time_nokey` G1  FROM t1  WHERE ( `varchar_nokey`  , `varchar_key`  )  IN ( 
-SELECT `varchar_nokey`  , `varchar_nokey`  )  AND `varchar_key`  >= 'c' HAVING G1  ORDER 
-BY `pk`   ;
-G1
-set @@session.optimizer_switch          = @old_optimizer_switch;
-DROP TABLE t1;
-#
 # During work with BUG#45863 I had problems with a query that was
 # optimized differently in regular and prepared mode.
 # Because there was a bug in one of the selected strategies, I became
@@ -524,9 +501,7 @@ PRIMARY KEY (pk)
 INSERT INTO t2 VALUES (9,1);
 # Enable Index condition pushdown
 set @old_icp=@@optimizer_switch;
-SET SESSION optimizer_switch="engine_condition_pushdown=on";
-Warnings:
-Warning	1681	'engine_condition_pushdown=on' is deprecated and will be removed in a future release
+SET SESSION optimizer_switch="index_condition_pushdown=on";
 
 SELECT pk
 FROM t2
@@ -1108,7 +1083,7 @@ WHERE ( alias2.f1 , alias2.f2 ) IN ( SELECT max(f2) , f1 FROM t0 GROUP BY f2 , f
 f1	f2
 8	8
 Warnings:
-Warning	1292	Truncated incorrect DECIMAL value: 'u'
+Warning	1292	Truncated incorrect BOOLEAN value: 'u'
 SELECT * FROM t2 WHERE (f1b, f2b) IN (SELECT max(f1a), f2a FROM t1 GROUP BY f1a, f2a);
 f1b	f2b	f3b
 10	5	d1d
@@ -1132,7 +1107,7 @@ WHERE ( alias2.f1 , alias2.f2 ) IN ( SELECT max(f2) , f1 FROM t0 GROUP BY f2 , f
 f1	f2
 8	8
 Warnings:
-Warning	1292	Truncated incorrect DECIMAL value: 'u'
+Warning	1292	Truncated incorrect BOOLEAN value: 'u'
 SELECT * FROM t2 WHERE (f1b, f2b) IN (SELECT max(f1a), f2a FROM t1 GROUP BY f1a, f2a);
 f1b	f2b	f3b
 10	5	d1d
@@ -1288,6 +1263,8 @@ id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 2	SUBQUERY	SUBQUERY2_t1	index	NULL	col_int_key	5	NULL	#	Using index
 2	SUBQUERY	SUBQUERY2_t2	ALL	col_varchar_key	NULL	NULL	NULL	#	Using where; Using join buffer (flat, BNL join)
 3	MATERIALIZED	t1	ALL	NULL	NULL	NULL	NULL	#	
+Warnings:
+Note	1105	Cannot use key `col_varchar_key` part[0] for lookup: `test`.`t1`.`col_varchar_key` of type `varchar` < "0" of type `bigint`
 SELECT col_int_key
 FROM t2
 WHERE (SELECT SUBQUERY2_t1.col_int_key
@@ -1297,8 +1274,8 @@ WHERE SUBQUERY2_t2.col_varchar_nokey IN
 (SELECT col_varchar_nokey FROM t1 GROUP BY col_varchar_nokey));
 col_int_key
 Warnings:
-Warning	1292	Truncated incorrect DECIMAL value: 'v'
-Warning	1292	Truncated incorrect DECIMAL value: 'r'
+Warning	1292	Truncated incorrect BOOLEAN value: 'v'
+Warning	1292	Truncated incorrect BOOLEAN value: 'r'
 set @@optimizer_switch='subquery_cache=off,materialization=off,in_to_exists=on,semijoin=off';
 EXPLAIN
 SELECT col_int_key
@@ -1313,6 +1290,8 @@ id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 2	SUBQUERY	SUBQUERY2_t1	index	NULL	col_int_key	5	NULL	#	Using index
 2	SUBQUERY	SUBQUERY2_t2	ALL	col_varchar_key	NULL	NULL	NULL	#	Using where; Using join buffer (flat, BNL join)
 3	DEPENDENT SUBQUERY	t1	ALL	NULL	NULL	NULL	NULL	#	Using where
+Warnings:
+Note	1105	Cannot use key `col_varchar_key` part[0] for lookup: `test`.`t1`.`col_varchar_key` of type `varchar` < "0" of type `bigint`
 SELECT col_int_key
 FROM t2
 WHERE (SELECT SUBQUERY2_t1.col_int_key
@@ -1322,8 +1301,8 @@ WHERE SUBQUERY2_t2.col_varchar_nokey IN
 (SELECT col_varchar_nokey FROM t1 GROUP BY col_varchar_nokey));
 col_int_key
 Warnings:
-Warning	1292	Truncated incorrect DECIMAL value: 'v'
-Warning	1292	Truncated incorrect DECIMAL value: 'r'
+Warning	1292	Truncated incorrect BOOLEAN value: 'v'
+Warning	1292	Truncated incorrect BOOLEAN value: 'r'
 drop table t1, t2;
 set @@optimizer_switch = @old_optimizer_switch;
 #
@@ -1886,7 +1865,7 @@ DROP TABLE t1,t2;
 #
 CREATE TABLE t1(l1 varchar(10), i2 int);
 INSERT INTO t1 VALUES ('e',2),('o',6),('x',4);
-CREATE TABLE t2 (v1 varchar(10) CHARACTER SET utf8, KEY v1 (v1(3)));
+CREATE TABLE t2 (v1 varchar(10) CHARACTER SET utf8 COLLATE utf8_bin, KEY v1 (v1(3)));
 INSERT INTO t2 VALUES  ('k'),('rid'),('f'),('x');
 EXPLAIN EXTENDED SELECT * FROM t1 where  ( t1.l1 < ANY (SELECT MAX(t2.v1) FROM t2));
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -2007,7 +1986,7 @@ DROP TABLE t1, t2;
 CREATE TABLE t1(a INT, b INT);
 INSERT INTO t1 VALUES (1,1), (2,2), (3,3), (4,4), (5,5);
 SELECT a, b FROM t1 WHERE a IN (SELECT A.a FROM t1 A GROUP BY s.id);
-ERROR 42S22: Unknown column 's.id' in 'group statement'
+ERROR 42S22: Unknown column 's.id' in 'GROUP BY'
 DROP TABLE t1;
 #
 # MDEV-24519: Server crashes in Charset::set_charset upon SELECT
@@ -2099,10 +2078,7 @@ set names 'utf8';
 EXPLAIN
 SELECT * FROM t2 WHERE (t2.a,t2.b) IN (('abc',1), ('def', 2));
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	PRIMARY	t2	ALL	NULL	NULL	NULL	NULL	#	
-1	PRIMARY	<subquery2>	eq_ref	distinct_key	distinct_key	16	func,func	#	Using where
-2	MATERIALIZED	<derived3>	ALL	NULL	NULL	NULL	NULL	#	
-3	DERIVED	NULL	NULL	NULL	NULL	NULL	NULL	#	No tables used
+1	SIMPLE	t2	ALL	NULL	NULL	NULL	NULL	#	Using where
 set names default;
 set @@in_predicate_conversion_threshold= @save_in_predicate_conversion_threshold;
 DROP TABLE t1,t2;

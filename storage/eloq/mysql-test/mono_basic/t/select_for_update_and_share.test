@@ -1,4 +1,5 @@
 --source include/have_eloq.inc
+--source include/eloq_errors.inc
 
 set @@default_storage_engine= eloq;
 select @@default_storage_engine;
@@ -138,7 +139,7 @@ update t1 set j=13 where i=3;
 
 --connection conn-tx1
 # Under OccRead/OCC Protocol, this tx fail. Under Locking Protocol, this tx succeeds.
---error 199
+--error $HA_ERR_ELOQ_COMMIT_FAILED
 commit;
 
 drop table t1;

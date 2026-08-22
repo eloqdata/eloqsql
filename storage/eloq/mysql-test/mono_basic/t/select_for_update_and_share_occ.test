@@ -1,4 +1,5 @@
 --source include/have_eloq.inc
+--source include/eloq_errors.inc
 
 set @@default_storage_engine= eloq;
 select @@default_storage_engine;
@@ -41,7 +42,7 @@ select * from t1 where i=1; # 1,11
 --connection conn-tx2
 # This "Update" query conflict with above query.  Under OCC Protocol, read in update also 
 # acquire WriteIntent lock but not block when fail. 
---error 213
+--error $HA_ERR_ELOQ_WW_CONFLICT
 update t1 set j=21 where i=1;
 
 select * from t1 where i=1;  # 1,1
@@ -64,7 +65,7 @@ select * from t1 where i=2 for update;    # 2,2
 
 --connection conn-tx2
 # Under Occ Protocol, this query also acquire WriteIntent lock, but not block when fail.
---error 213 
+--error $HA_ERR_ELOQ_WW_CONFLICT 
 select * from t1 where i=2 for update;    # 2,2
 
 --connection conn-tx1
@@ -84,7 +85,7 @@ select * from t1 where i=2 for update;    # 2,2
 --connection conn-tx2
 # This "Update" query conflict with above query.  Under OCC Protocol, read in update also 
 # acquire WriteIntent lock but not block when fail. 
---error 213
+--error $HA_ERR_ELOQ_WW_CONFLICT
 update t1 set j=12 where i=2;
 
 select * from t1 where i=2;    # 2,2
@@ -133,7 +134,7 @@ update t1 set j=13 where i=3;
 
 --connection conn-tx1
 # Under OccRead/OCC Protocol, this tx fail. Under Locking Protocol, this tx succeeds.
---error 199
+--error $HA_ERR_ELOQ_COMMIT_FAILED
 commit;
 
 

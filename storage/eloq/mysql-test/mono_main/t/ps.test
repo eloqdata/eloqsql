@@ -3016,7 +3016,7 @@ DROP TABLE t1, t2;
 #
 drop table if exists t1;
 prepare stmt
-from "create table t1 (c char(100) character set utf8, key (c(10)))";
+from "create table t1 (c char(100) character set utf8 collate utf8_bin, key (c(10)))";
 execute stmt;
 show create table t1;
 drop table t1;
@@ -3633,12 +3633,15 @@ DROP TABLE t1, t2;
 --echo # with out of range in GROUP BY
 --echo #
 CREATE TABLE t1 (a INT);
-
---error ER_DATA_OUT_OF_RANGE
 PREPARE stmt FROM "SELECT 1 FROM t1 GROUP BY 0 OR 18446744073709551615+1";
+execute stmt;
+insert into t1 values(1),(2);
+--error ER_DATA_OUT_OF_RANGE
+execute stmt;
 --error ER_DATA_OUT_OF_RANGE
 SELECT 1 FROM t1 GROUP BY 0 OR 18446744073709551615+1;
 
+deallocate prepare stmt;
 drop table t1;
 
 --echo # End of 5.3 tests

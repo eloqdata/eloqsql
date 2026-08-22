@@ -8,9 +8,9 @@ select otto from (select 1 as otto) as t1;
 otto
 1
 select friedrich from (select 1 as otto) as t1;
-mysqltest: At line 1: query 'select friedrich from (select 1 as otto) as t1' failed: ER_BAD_FIELD_ERROR (1054): Unknown column 'friedrich' in 'field list'
+mysqltest: At line 1: query 'select friedrich from (select 1 as otto) as t1' failed: ER_BAD_FIELD_ERROR (1054): Unknown column 'friedrich' in 'SELECT'
 select friedrich from (select 1 as otto) as t1;
-ERROR 42S22: Unknown column 'friedrich' in 'field list'
+ERROR 42S22: Unknown column 'friedrich' in 'SELECT'
 select otto from (select 1 as otto) as t1;
 otto
 1
@@ -18,9 +18,9 @@ select otto from (select 1 as otto) as t1;
 mysqltest: At line 1: query 'select otto from (select 1 as otto) as t1' succeeded - should have failed with sqlstate 42S22...
 mysqltest: At line 1: expecting a SQL-state (00000) from query 'remove_file MYSQLTEST_VARDIR/tmp/test_nonexistent.tmp' which cannot produce one...
 select friedrich from (select 1 as otto) as t1;
-ERROR 42S22: Unknown column 'friedrich' in 'field list'
+ERROR 42S22: Unknown column 'friedrich' in 'SELECT'
 select friedrich from (select 1 as otto) as t1;
-mysqltest: At line 1: query 'select friedrich from (select 1 as otto) as t1' failed with wrong sqlstate 42S22: 'Unknown column 'friedrich' in 'field list'', instead of 00000...
+mysqltest: At line 1: query 'select friedrich from (select 1 as otto) as t1' failed with wrong sqlstate 42S22: 'Unknown column 'friedrich' in 'SELECT'', instead of 00000...
 select otto from (select 1 as otto) as t1;
 otto
 1
@@ -301,8 +301,6 @@ hej
 hej 
 hej
 1
-
-
 a long variable content
 a long variable content
 a long a long variable content variable content
@@ -949,6 +947,10 @@ drop table t1;
 mysqltest: At line 1: query 'change_user root,,inexistent' failed: ER_BAD_DB_ERROR (1049): Unknown database 'inexistent'
 mysqltest: At line 1: query 'change_user inexistent,,test' failed: ER_ACCESS_DENIED_ERROR (1045): Access denied for user 'inexistent'@'localhost' (using password: NO)
 mysqltest: At line 1: query 'change_user root,inexistent,test' failed: ER_ACCESS_DENIED_ERROR (1045): Access denied for user 'root'@'localhost' (using password: YES)
+change_user root,,test;
+change_user root,,;
+change_user root,,;
+change_user root,,test;
 REPLACED_FILE1.txt
 file1.txt
 file2.txt

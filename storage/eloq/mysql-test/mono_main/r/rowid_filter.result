@@ -33,7 +33,7 @@ lineitem	CREATE TABLE `lineitem` (
   KEY `i_l_orderkey_quantity` (`l_orderkey`,`l_quantity`),
   KEY `i_l_commitdate` (`l_commitDATE`),
   KEY `i_l_quantity` (`l_quantity`)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 show create table orders;
 Table	Create Table
 orders	CREATE TABLE `orders` (
@@ -50,7 +50,7 @@ orders	CREATE TABLE `orders` (
   KEY `i_o_orderdate` (`o_orderDATE`),
   KEY `i_o_custkey` (`o_custkey`),
   KEY `i_o_totalprice` (`o_totalprice`)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 set optimizer_use_condition_selectivity=2;
 select
 100 *
@@ -521,7 +521,7 @@ EXPLAIN EXTENDED
 SELECT * FROM t1 HAVING (7, 9) IN (SELECT t2.i1, t2.i2 FROM t2 WHERE t2.i1 = 3);
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible HAVING
-2	SUBQUERY	t2	ref	i1,i2	i1	5	const	1	100.00	Using index condition; Using where
+2	SUBQUERY	t2	ref	i1,i2	i1	5	const	1	6.67	Using index condition; Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk` from `test`.`t1` having 0
 DROP TABLE t1,t2;
@@ -569,40 +569,58 @@ EXPLAIN
 {
   "query_block": {
     "select_id": 1,
-    "table": {
-      "table_name": "t2",
-      "access_type": "ALL",
-      "rows": 101,
-      "filtered": 100,
-      "attached_condition": "t2.a2 <> t2.pk2 and t2.a2 is not null"
-    },
-    "table": {
-      "table_name": "t1",
-      "access_type": "eq_ref",
-      "possible_keys": ["PRIMARY", "b1"],
-      "key": "PRIMARY",
-      "key_length": "4",
-      "used_key_parts": ["pk1"],
-      "ref": ["test.t2.a2"],
-      "rows": 1,
-      "filtered": 85,
-      "attached_condition": "t1.b1 <= (subquery#2)"
-    },
+    "cost": "COST_REPLACED",
+    "nested_loop": [
+      {
+        "table": {
+          "table_name": "t2",
+          "access_type": "ALL",
+          "loops": 1,
+          "rows": 101,
+          "cost": "COST_REPLACED",
+          "filtered": 100,
+          "attached_condition": "t2.a2 <> t2.pk2 and t2.a2 is not null"
+        }
+      },
+      {
+        "table": {
+          "table_name": "t1",
+          "access_type": "eq_ref",
+          "possible_keys": ["PRIMARY", "b1"],
+          "key": "PRIMARY",
+          "key_length": "4",
+          "used_key_parts": ["pk1"],
+          "ref": ["test.t2.a2"],
+          "loops": 101,
+          "rows": 1,
+          "cost": "COST_REPLACED",
+          "filtered": 85,
+          "attached_condition": "t1.b1 <= (subquery#2)"
+        }
+      }
+    ],
     "subqueries": [
       {
         "query_block": {
           "select_id": 2,
-          "table": {
-            "table_name": "t2",
-            "access_type": "range",
-            "possible_keys": ["PRIMARY"],
-            "key": "PRIMARY",
-            "key_length": "4",
-            "used_key_parts": ["pk2"],
-            "rows": 1,
-            "filtered": 100,
-            "attached_condition": "t2.pk2 <= 1"
-          }
+          "cost": "COST_REPLACED",
+          "nested_loop": [
+            {
+              "table": {
+                "table_name": "t2",
+                "access_type": "range",
+                "possible_keys": ["PRIMARY"],
+                "key": "PRIMARY",
+                "key_length": "4",
+                "used_key_parts": ["pk2"],
+                "loops": 1,
+                "rows": 1,
+                "cost": "COST_REPLACED",
+                "filtered": 100,
+                "attached_condition": "t2.pk2 <= 1"
+              }
+            }
+          ]
         }
       }
     ]
@@ -656,7 +674,7 @@ INSERT INTO t1 VALUES (0,0),(1,0),(-1,1), (-2,1), (-2,3), (-3,4), (-2,4);
 explain
 SELECT * FROM t1 WHERE a > 0 AND b=0;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	ref|filter	a,b	b|a	5|5	const	1 (14%)	Using where; Using rowid filter
+1	SIMPLE	t1	ref	a,b	b	5	const	1	Using where
 SELECT * FROM t1 WHERE a > 0 AND b=0;
 a	b
 1	0

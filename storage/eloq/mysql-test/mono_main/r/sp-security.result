@@ -17,7 +17,7 @@ create procedure stamp(i int)
 insert into db1_secret.t1 values (user(), i);
 show procedure status like 'stamp';
 Db	Name	Type	Definer	Modified	Created	Security_type	Comment	character_set_client	collation_connection	Database Collation
-db1_secret	stamp	PROCEDURE	root@localhost	0000-00-00 00:00:00	0000-00-00 00:00:00	DEFINER		latin1	latin1_swedish_ci	latin1_bin
+db1_secret	stamp	PROCEDURE	root@localhost	0000-00-00 00:00:00	0000-00-00 00:00:00	DEFINER		latin1	latin1_swedish_ci	latin1_swedish_ci
 create function db() returns varchar(64)
 begin
 declare v varchar(64);
@@ -26,7 +26,7 @@ return v;
 end|
 show function status like 'db';
 Db	Name	Type	Definer	Modified	Created	Security_type	Comment	character_set_client	collation_connection	Database Collation
-db1_secret	db	FUNCTION	root@localhost	0000-00-00 00:00:00	0000-00-00 00:00:00	DEFINER		latin1	latin1_swedish_ci	latin1_bin
+db1_secret	db	FUNCTION	root@localhost	0000-00-00 00:00:00	0000-00-00 00:00:00	DEFINER		latin1	latin1_swedish_ci	latin1_swedish_ci
 call stamp(1);
 select * from t1;
 u	i
@@ -50,7 +50,7 @@ select db1_secret.db();
 db1_secret.db()
 test
 select * from db1_secret.t1;
-ERROR 42000: SELECT command denied to user 'user1'@'localhost' for table 't1'
+ERROR 42000: SELECT command denied to user 'user1'@'localhost' for table `db1_secret`.`t1`
 create procedure db1_secret.dummy() begin end;
 ERROR 42000: Access denied for user 'user1'@'localhost' to database 'db1_secret'
 drop procedure db1_secret.dummy;
@@ -65,7 +65,7 @@ select db1_secret.db();
 db1_secret.db()
 test
 select * from db1_secret.t1;
-ERROR 42000: SELECT command denied to user ''@'localhost' for table 't1'
+ERROR 42000: SELECT command denied to user ''@'localhost' for table `db1_secret`.`t1`
 create procedure db1_secret.dummy() begin end;
 ERROR 42000: Access denied for user ''@'%' to database 'db1_secret'
 drop procedure db1_secret.dummy;
@@ -84,11 +84,11 @@ anon@localhost	3
 alter procedure stamp sql security invoker;
 show procedure status like 'stamp';
 Db	Name	Type	Definer	Modified	Created	Security_type	Comment	character_set_client	collation_connection	Database Collation
-db1_secret	stamp	PROCEDURE	root@localhost	0000-00-00 00:00:00	0000-00-00 00:00:00	INVOKER		latin1	latin1_swedish_ci	latin1_bin
+db1_secret	stamp	PROCEDURE	root@localhost	0000-00-00 00:00:00	0000-00-00 00:00:00	INVOKER		latin1	latin1_swedish_ci	latin1_swedish_ci
 alter function db sql security invoker;
 show function status like 'db';
 Db	Name	Type	Definer	Modified	Created	Security_type	Comment	character_set_client	collation_connection	Database Collation
-db1_secret	db	FUNCTION	root@localhost	0000-00-00 00:00:00	0000-00-00 00:00:00	INVOKER		latin1	latin1_swedish_ci	latin1_bin
+db1_secret	db	FUNCTION	root@localhost	0000-00-00 00:00:00	0000-00-00 00:00:00	INVOKER		latin1	latin1_swedish_ci	latin1_swedish_ci
 call stamp(4);
 select * from t1;
 u	i
@@ -102,14 +102,14 @@ db()
 test
 connection con2user1;
 call db1_secret.stamp(5);
-ERROR 42000: INSERT command denied to user 'user1'@'localhost' for table 't1'
+ERROR 42000: INSERT command denied to user 'user1'@'localhost' for table `db1_secret`.`t1`
 select db1_secret.db();
-ERROR 42000: SELECT command denied to user 'user1'@'localhost' for table 't1'
+ERROR 42000: SELECT command denied to user 'user1'@'localhost' for table `db1_secret`.`t1`
 connection con3anon;
 call db1_secret.stamp(6);
-ERROR 42000: INSERT command denied to user ''@'localhost' for table 't1'
+ERROR 42000: INSERT command denied to user ''@'localhost' for table `db1_secret`.`t1`
 select db1_secret.db();
-ERROR 42000: SELECT command denied to user ''@'localhost' for table 't1'
+ERROR 42000: SELECT command denied to user ''@'localhost' for table `db1_secret`.`t1`
 connection con1root;
 drop database if exists db2;
 create database db2;
@@ -127,7 +127,7 @@ connection con2user1;
 use db2;
 create procedure p () insert into t2 values (1);
 call p();
-ERROR 42000: INSERT command denied to user 'user1'@'localhost' for table 't2'
+ERROR 42000: INSERT command denied to user 'user1'@'localhost' for table `db2`.`t2`
 connect  con4user2,localhost,user2,,;
 connection con4user2;
 use db2;
@@ -172,10 +172,14 @@ select type,db,name from mysql.proc where db like 'db%';
 type	db	name
 FUNCTION	db1_secret	db
 PROCEDURE	db1_secret	stamp
+Warnings:
+Warning	4202	4 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 drop database db1_secret;
 drop database db2;
 select type,db,name from mysql.proc where db like 'db%';
 type	db	name
+Warnings:
+Warning	4202	4 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 delete from mysql.user where user='user1' or user='user2';
 delete from mysql.user where user='' and host='%';
 delete from mysql.procs_priv where user='user1' or user='user2';
@@ -240,7 +244,7 @@ grant all privileges on procedure sptest.p1 to userc@localhost;
 show grants for userc@localhost;
 Grants for userc@localhost
 GRANT USAGE ON *.* TO `userc`@`localhost`
-GRANT EXECUTE, ALTER ROUTINE ON PROCEDURE `sptest`.`p1` TO `userc`@`localhost` WITH GRANT OPTION
+GRANT EXECUTE, ALTER ROUTINE, SHOW CREATE ROUTINE ON PROCEDURE `sptest`.`p1` TO `userc`@`localhost` WITH GRANT OPTION
 show grants for userb@localhost;
 Grants for userb@localhost
 GRANT USAGE ON *.* TO `userb`@`localhost`
@@ -270,6 +274,7 @@ use mysqltest//
 create table t1 (s1 int)//
 create user user1@localhost//
 grant select on t1 to user1@localhost//
+grant select on test.* to user1@localhost//
 create function bug_9503 () returns int sql security invoker begin declare v int;
 select min(s1) into v from t1; return v; end//
 connect  user1,localhost,user1,,test;
@@ -349,6 +354,7 @@ return 'ok';
 end;
 |
 create user user_bug12812@localhost IDENTIFIED BY 'ABC'|
+grant select,create view on test.* to user_bug12812@localhost|
 connect  test_user_12812,localhost,user_bug12812,ABC,test;
 SELECT test.bug12812()|
 ERROR 42000: execute command denied to user 'user_bug12812'@'localhost' for routine 'test.bug12812'
@@ -398,6 +404,7 @@ sql security definer
 select * from db_bug14533.t1;
 grant execute on procedure db_bug14533.bug14533_1 to user_bug14533@localhost;
 grant execute on procedure db_bug14533.bug14533_2 to user_bug14533@localhost;
+grant select on test.* to user_bug14533@localhost;
 connect  user_bug14533,localhost,user_bug14533,,test;
 call db_bug14533.bug14533_1();
 Field	Type	Null	Key	Default	Extra
@@ -405,9 +412,9 @@ id	int(11)	YES		NULL
 call db_bug14533.bug14533_2();
 id
 desc db_bug14533.t1;
-ERROR 42000: SELECT command denied to user 'user_bug14533'@'localhost' for table 't1'
+ERROR 42000: SELECT command denied to user 'user_bug14533'@'localhost' for table `db_bug14533`.`t1`
 select * from db_bug14533.t1;
-ERROR 42000: SELECT command denied to user 'user_bug14533'@'localhost' for table 't1'
+ERROR 42000: SELECT command denied to user 'user_bug14533'@'localhost' for table `db_bug14533`.`t1`
 connection default;
 disconnect user_bug14533;
 drop user user_bug14533@localhost;
@@ -429,37 +436,41 @@ CREATE FUNCTION wl2897_f1() RETURNS INT RETURN 1;
 connection mysqltest_1_con;
 USE mysqltest;
 CREATE DEFINER=root@localhost PROCEDURE wl2897_p2() SELECT 2;
-ERROR 42000: Access denied; you need (at least one of) the SUPER, SET USER privilege(s) for this operation
+ERROR 42000: Access denied; you need (at least one of) the SET USER privilege(s) for this operation
 CREATE DEFINER=root@localhost FUNCTION wl2897_f2() RETURNS INT RETURN 2;
-ERROR 42000: Access denied; you need (at least one of) the SUPER, SET USER privilege(s) for this operation
+ERROR 42000: Access denied; you need (at least one of) the SET USER privilege(s) for this operation
 connection mysqltest_2_con;
 use mysqltest;
 CREATE DEFINER='a @ b @ c'@localhost PROCEDURE wl2897_p3() SELECT 3;
 Warnings:
-Note	1449	The user specified as a definer ('a @ b @ c'@'localhost') does not exist
+Note	1446	The user specified as a definer ('a @ b @ c'@'localhost') does not exist
 CREATE DEFINER='a @ b @ c'@localhost FUNCTION wl2897_f3() RETURNS INT RETURN 3;
 Warnings:
-Note	1449	The user specified as a definer ('a @ b @ c'@'localhost') does not exist
+Note	1446	The user specified as a definer ('a @ b @ c'@'localhost') does not exist
 connection con1root;
 USE mysqltest;
 SHOW CREATE PROCEDURE wl2897_p1;
 Procedure	sql_mode	Create Procedure	character_set_client	collation_connection	Database Collation
 wl2897_p1	STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION	CREATE DEFINER=`mysqltest_2`@`localhost` PROCEDURE `wl2897_p1`()
-SELECT 1	latin1	latin1_swedish_ci	latin1_bin
+SELECT 1	latin1	latin1_swedish_ci	latin1_swedish_ci
 SHOW CREATE PROCEDURE wl2897_p3;
 Procedure	sql_mode	Create Procedure	character_set_client	collation_connection	Database Collation
 wl2897_p3	STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION	CREATE DEFINER=`a @ b @ c`@`localhost` PROCEDURE `wl2897_p3`()
-SELECT 3	latin1	latin1_swedish_ci	latin1_bin
+SELECT 3	latin1	latin1_swedish_ci	latin1_swedish_ci
 SHOW CREATE FUNCTION wl2897_f1;
 Function	sql_mode	Create Function	character_set_client	collation_connection	Database Collation
 wl2897_f1	STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION	CREATE DEFINER=`mysqltest_2`@`localhost` FUNCTION `wl2897_f1`() RETURNS int(11)
-RETURN 1	latin1	latin1_swedish_ci	latin1_bin
+RETURN 1	latin1	latin1_swedish_ci	latin1_swedish_ci
 SHOW CREATE FUNCTION wl2897_f3;
 Function	sql_mode	Create Function	character_set_client	collation_connection	Database Collation
 wl2897_f3	STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION	CREATE DEFINER=`a @ b @ c`@`localhost` FUNCTION `wl2897_f3`() RETURNS int(11)
-RETURN 3	latin1	latin1_swedish_ci	latin1_bin
+RETURN 3	latin1	latin1_swedish_ci	latin1_swedish_ci
 DROP USER mysqltest_1@localhost;
+Warnings:
+Note	4227	Dropped users 'mysqltest_1'@'localhost' have active connections. Use KILL CONNECTION if they should not be used anymore.
 DROP USER mysqltest_2@localhost;
+Warnings:
+Note	4227	Dropped users 'mysqltest_2'@'localhost' have active connections. Use KILL CONNECTION if they should not be used anymore.
 DROP DATABASE mysqltest;
 disconnect mysqltest_1_con;
 disconnect mysqltest_2_con;
@@ -549,6 +560,8 @@ DROP PROCEDURE IF EXISTS p_suid;
 DROP FUNCTION IF EXISTS f_evil;
 DELETE FROM mysql.user WHERE user LIKE 'mysqltest\_%';
 DELETE FROM mysql.db WHERE user LIKE 'mysqltest\_%';
+Warnings:
+Warning	4202	4 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 DELETE FROM mysql.tables_priv WHERE user LIKE 'mysqltest\_%';
 DELETE FROM mysql.columns_priv WHERE user LIKE 'mysqltest\_%';
 FLUSH PRIVILEGES;
@@ -567,24 +580,24 @@ END|
 CREATE SQL SECURITY INVOKER VIEW v1 AS SELECT f_evil();
 connect  conn1, localhost, mysqltest_u1,,;
 SELECT COUNT(*) FROM t1;
-ERROR 42000: SELECT command denied to user 'mysqltest_u1'@'localhost' for table 't1'
+ERROR 42000: SELECT command denied to user 'mysqltest_u1'@'localhost' for table `test`.`t1`
 SELECT f_evil();
-ERROR 42000: SELECT command denied to user 'mysqltest_u1'@'localhost' for table 't1'
+ERROR 42000: SELECT command denied to user 'mysqltest_u1'@'localhost' for table `test`.`t1`
 SELECT @a, @b;
 @a	@b
 mysqltest_u1@localhost	NULL
 SELECT f_suid(f_evil());
-ERROR 42000: SELECT command denied to user 'mysqltest_u1'@'localhost' for table 't1'
+ERROR 42000: SELECT command denied to user 'mysqltest_u1'@'localhost' for table `test`.`t1`
 SELECT @a, @b;
 @a	@b
 mysqltest_u1@localhost	NULL
 CALL p_suid(f_evil());
-ERROR 42000: SELECT command denied to user 'mysqltest_u1'@'localhost' for table 't1'
+ERROR 42000: SELECT command denied to user 'mysqltest_u1'@'localhost' for table `test`.`t1`
 SELECT @a, @b;
 @a	@b
 mysqltest_u1@localhost	NULL
 SELECT * FROM v1;
-ERROR 42000: SELECT command denied to user 'mysqltest_u1'@'localhost' for table 'v1'
+ERROR 42000: SELECT command denied to user 'mysqltest_u1'@'localhost' for table `test`.`v1`
 SELECT @a, @b;
 @a	@b
 mysqltest_u1@localhost	NULL
@@ -709,6 +722,7 @@ DROP USER user2@localhost;
 DROP DATABASE db1;
 create user foo@local_ost;
 create user foo@`local\_ost` identified via mysql_old_password using '0123456789ABCDEF';
+grant select,create routine on test.* to foo@local_ost;
 create database foodb;
 grant create routine on foodb.* to foo@local_ost;
 connect con1,localhost,foo;
@@ -718,11 +732,13 @@ foo@localhost	foo@local_ost
 show grants;
 Grants for foo@local_ost
 GRANT USAGE ON *.* TO `foo`@`local_ost`
+GRANT SELECT, CREATE ROUTINE ON `test`.* TO `foo`@`local_ost`
 GRANT CREATE ROUTINE ON `foodb`.* TO `foo`@`local_ost`
 create procedure fooproc() select 'i am fooproc';
 show grants;
 Grants for foo@local_ost
 GRANT USAGE ON *.* TO `foo`@`local_ost`
+GRANT SELECT, CREATE ROUTINE ON `test`.* TO `foo`@`local_ost`
 GRANT CREATE ROUTINE ON `foodb`.* TO `foo`@`local_ost`
 GRANT EXECUTE, ALTER ROUTINE ON PROCEDURE `test`.`fooproc` TO `foo`@`local_ost`
 disconnect con1;
@@ -742,6 +758,7 @@ create function mysqltest_db.f1() returns int return 0;
 create procedure mysqltest_db.p1() begin end;
 # Create user with no privileges on mysqltest_db database.
 create user bug12602983_user@localhost;
+grant create view on test.* to bug12602983_user@localhost;
 connect  conn1, localhost, bug12602983_user,,;
 # Attempt to execute routine on which user doesn't have privileges
 # should result in the same 'access denied' error whether

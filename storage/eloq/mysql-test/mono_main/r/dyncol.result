@@ -6,16 +6,16 @@ hex(COLUMN_CREATE(1, NULL AS char character set utf8))
 000000
 select hex(COLUMN_CREATE(1, "afaf" AS char character set utf8));
 hex(COLUMN_CREATE(1, "afaf" AS char character set utf8))
-0001000100035361666166
+000100010003801061666166
 select hex(COLUMN_CREATE(1, 1212 AS char character set utf8));
 hex(COLUMN_CREATE(1, 1212 AS char character set utf8))
-0001000100035331323132
+000100010003801031323132
 select hex(COLUMN_CREATE(1, 12.12 AS char character set utf8));
 hex(COLUMN_CREATE(1, 12.12 AS char character set utf8))
-0001000100035331322E3132
+000100010003801031322E3132
 select hex(COLUMN_CREATE(1, 99999999999999999999999999999 AS char character set utf8));
 hex(COLUMN_CREATE(1, 99999999999999999999999999999 AS char character set utf8))
-000100010003533939393939393939393939393939393939393939393939393939393939
+0101000100030080103939393939393939393939393939393939393939393939393939393939
 select hex(COLUMN_CREATE(1, NULL AS unsigned int));
 hex(COLUMN_CREATE(1, NULL AS unsigned int))
 000000
@@ -144,7 +144,7 @@ hex(COLUMN_CREATE(1, "afaf" AS char character set utf8,
 6, "2011-04-05" AS date,
 7, "- 0:45:49.000001" AS time,
 8, "2011-04-05 0:45:49.000001" AS datetime))
-01080001000300020029000300380004004A0005008C000600AE000700C7000800F5005361666166BC0478093D0AD7A3703D284002028C0C85B60F010010B7000485B60F010010B70000
+01080001000300020031000300400004005200050094000600B6000700CF000800FD00801061666166BC0478093D0AD7A3703D284002028C0C85B60F010010B7000485B60F010010B70000
 explain extended
 select hex(COLUMN_CREATE(1, "afaf" AS char character set utf8,
 2, 1212 AS unsigned int,
@@ -157,7 +157,7 @@ select hex(COLUMN_CREATE(1, "afaf" AS char character set utf8,
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	No tables used
 Warnings:
-Note	1003	select hex(column_create(1,'afaf' AS char charset utf8mb3 ,2,1212 AS unsigned int,3,1212 AS int,4,12.12 AS double,4 + 1,12.12 AS decimal,6,'2011-04-05' AS date,7,'- 0:45:49.000001' AS time,8,'2011-04-05 0:45:49.000001' AS datetime)) AS `hex(COLUMN_CREATE(1, "afaf" AS char character set utf8,
+Note	1003	select hex(column_create(1,'afaf' AS char charset utf8mb3 collate utf8mb3_uca1400_ai_ci ,2,1212 AS unsigned int,3,1212 AS int,4,12.12 AS double,4 + 1,12.12 AS decimal,6,'2011-04-05' AS date,7,'- 0:45:49.000001' AS time,8,'2011-04-05 0:45:49.000001' AS datetime)) AS `hex(COLUMN_CREATE(1, "afaf" AS char character set utf8,
 2, 1212 AS unsigned int,
 3, 1212 AS int,
 4, 12.12 AS double,
@@ -368,7 +368,7 @@ select column_get(column_create(1, "1212" AS char charset utf8), 1 as char chars
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	No tables used
 Warnings:
-Note	1003	select column_get(column_create(1,'1212' AS char charset utf8mb3 ),1 as char charset utf8mb3) AS `column_get(column_create(1, "1212" AS char charset utf8), 1 as char charset utf8)`
+Note	1003	select column_get(column_create(1,'1212' AS char charset utf8mb3 collate utf8mb3_uca1400_ai_ci ),1 as char charset utf8mb3) AS `column_get(column_create(1, "1212" AS char charset utf8), 1 as char charset utf8)`
 select column_get(column_create(1, 1212 AS unsigned int), 1 as char charset utf8);
 column_get(column_create(1, 1212 AS unsigned int), 1 as char charset utf8)
 1212
@@ -428,7 +428,7 @@ select column_get(column_create(1, "1212" AS char charset utf8), 1 as char chars
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	No tables used
 Warnings:
-Note	1003	select column_get(column_create(1,'1212' AS char charset utf8mb3 ),1 as char charset binary) AS `column_get(column_create(1, "1212" AS char charset utf8), 1 as char charset binary)`
+Note	1003	select column_get(column_create(1,'1212' AS char charset utf8mb3 collate utf8mb3_uca1400_ai_ci ),1 as char charset binary) AS `column_get(column_create(1, "1212" AS char charset utf8), 1 as char charset binary)`
 #
 # column get real
 #
@@ -1441,9 +1441,9 @@ SELECT
 column_get(column_create(1, -999999999999999 AS int), 1 AS TIME) AS t1,
 column_get(column_create(1, -9223372036854775808 AS int), 1 AS TIME) AS t2;
 t1	t2
--838:59:59	-838:59:59
+NULL	-838:59:59
 Warnings:
-Warning	1292	Truncated incorrect time value: '-999999999999999'
+Warning	1292	Incorrect time value: '-999999999999999'
 Warning	1292	Truncated incorrect time value: '-9223372036854775808'
 #
 # end of 5.3 tests
@@ -1459,7 +1459,7 @@ Note	1105	Cast to signed converted positive out-of-range integer to it's negativ
 #             mysqld
 #
 SELECT COLUMN_GET(`x`, 'y' AS DECIMAL(5,50));
-ERROR 42000: Too big scale 50 specified for ''y''. Maximum is 38
+ERROR 42000: Too big scale specified for ''y''. Maximum is 38
 #
 # test of symbolic names
 #
@@ -1538,10 +1538,10 @@ set names latin1;
 # column changing test (names)
 select hex(column_add(column_create(1, "AAA"), "b", "BBB"));
 hex(column_add(column_create(1, "AAA"), "b", "BBB"))
-0402000200000003000100430031622F4141412F424242
+0402000200000003000100430031620841414108424242
 select hex(column_add(column_create("1", "AAA"), "b", "BBB"));
 hex(column_add(column_create("1", "AAA"), "b", "BBB"))
-0402000200000003000100430031622F4141412F424242
+0402000200000003000100430031620841414108424242
 select column_get(column_add(column_create(1, "AAA"), "b", "BBB"), 1 as char);
 column_get(column_add(column_create(1, "AAA"), "b", "BBB"), 1 as char)
 AAA
@@ -1550,10 +1550,10 @@ column_get(column_add(column_create(1, "AAA"), "b", "BBB"), "b" as char)
 BBB
 select hex(column_add(column_create("a", "AAA"), 1, "BBB"));
 hex(column_add(column_create("a", "AAA"), 1, "BBB"))
-0402000200000003000100430031612F4242422F414141
+0402000200000003000100430031610842424208414141
 select hex(column_add(column_create("a", "AAA"), "1", "BBB"));
 hex(column_add(column_create("a", "AAA"), "1", "BBB"))
-0402000200000003000100430031612F4242422F414141
+0402000200000003000100430031610842424208414141
 select hex(column_add(column_create("a", 1212 as integer), "b", "1212" as integer));
 hex(column_add(column_create("a", 1212 as integer), "b", "1212" as integer))
 04020002000000000001002000616278097809
@@ -1635,7 +1635,7 @@ hex(column_delete("", "a"))
 # as a dynamic column name
 #
 select COLUMN_CREATE(color, "black");
-ERROR 42S22: Unknown column 'color' in 'field list'
+ERROR 42S22: Unknown column 'color' in 'SELECT'
 #
 # MDEV-489 Assertion `offset < 0x1f' failed in
 # type_and_offset_store on COLUMN_ADD
@@ -1717,7 +1717,7 @@ NULL
 #
 select column_json(column_create("string", "'\"/\\`.,whatever")),hex(column_create("string", "'\"/\\`.,whatever"));
 column_json(column_create("string", "'\"/\\`.,whatever"))	hex(column_create("string", "'\"/\\`.,whatever"))
-{"string":"'\"/\\`.,whatever"}	040100060000000300737472696E672F27222F5C602E2C7768617465766572
+{"string":"'\"/\\`.,whatever"}	040100060000000300737472696E670827222F5C602E2C7768617465766572
 #
 # embedding test
 #
@@ -1901,7 +1901,7 @@ drop table t1;
 create view v1 as select column_get(column_add(column_create(1 , 'blue' as char), 2, 'ttt'), 1 as char);
 show create view v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select column_get(column_add(column_create(1,'blue' AS char charset utf8mb3 ),2,'ttt'),1 as char charset utf8mb3) AS `Name_exp_1`	utf8mb3	utf8mb3_bin
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select column_get(column_add(column_create(1,'blue' AS char charset utf8mb3 collate utf8mb3_uca1400_ai_ci ),2,'ttt'),1 as char charset utf8mb3) AS `Name_exp_1`	utf8mb3	utf8mb3_uca1400_ai_ci
 select * from v1;
 Name_exp_1
 blue
@@ -1938,7 +1938,7 @@ t1	CREATE TABLE `t1` (
   `dyncol2_check` int(11) DEFAULT column_check(`dyncol2`),
   `dyncol1_list` text DEFAULT column_list(`dyncol1`),
   `dyncol1_json` text DEFAULT column_json(`dyncol1`)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 INSERT INTO t1 (name,value) VALUES ('name0', 'value0');
 SELECT value_dyncol0_name0, value_dyncol1_name1 FROM t1;
 value_dyncol0_name0	value_dyncol1_name1

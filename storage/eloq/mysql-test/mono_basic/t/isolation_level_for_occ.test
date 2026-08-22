@@ -1,4 +1,5 @@
 --source include/have_eloq.inc
+--source include/eloq_errors.inc
 
 set @@default_storage_engine= eloq;
 select @@default_storage_engine;
@@ -53,7 +54,7 @@ update t1 set j=11 where i=1;
 select * from t1 where i=1;  # 1,11
 
 --connection conn-tx1
---error 214
+--error $HA_ERR_ELOQ_RECORD_WAS_UPDATED
 select * from t1 where i=1;  # error: for read-write conflict exists, validate error while read
 commit;
 
@@ -72,7 +73,7 @@ update t1 set j=12 where i=1;
 select * from t1 where i=1;    # 1,12
 
 --connection conn-tx1
---error 214
+--error $HA_ERR_ELOQ_RECORD_WAS_UPDATED
 update t1 set j=13 where i=1;  # error: for read-write conflict exists, validate error when add read set after ReadForWrite
 commit;
 
@@ -92,7 +93,7 @@ select * from t1 where i=1;    # 1,14
 
 --connection conn-tx1
 update t1 set j=10 where i=2;
-error 214;
+error 218;
 select * from t1 where i=1;    # error: for read-write conflict exists, validate error while read
 commit;
 
@@ -112,7 +113,7 @@ select * from t1 where i=1;    # 1,15
 
 --connection conn-tx1
 update t1 set j=15 where i=2;
-error 199;
+error 203;
 commit;               # error: for read-write conflict exists, validate error during committing    
 
 select * from t1;     # 1,15 | 2,3
@@ -136,7 +137,7 @@ select * from t1;     # 1,16 | 2,16 | 3,1
 
 --connection conn-tx1
 update t1 set j=2 where i=3;
-error 214;
+error 218;
 select * from t1 where i=1;    # error: for read-write conflict exists, tx abort under OCC
 #select * from t1 where i=2;    # error: for read-write conflict exists, tx abort under OCC
 #update t1 set j=17 where i=2;
@@ -153,7 +154,7 @@ begin;
 update t1 set j=18 where i=1;
 
 --connection conn-tx2
---error 213
+--error $HA_ERR_ELOQ_WW_CONFLICT
 update t1 set j=19 where i=1;   # fail to acquire WriteIntent.
 
 select * from t1 where i=1;     # 1,16
@@ -251,7 +252,7 @@ select * from t1;     # 1,19 | 2,16 | 3,1 | 11,4 | 12,4
 set session transaction isolation level read uncommitted;
 select @@tx_isolation;
 
---error 203
+--error $HA_ERR_ELOQ_ISO_LEVEL_UNSUPPORT_ERROR
 select * from t1;
 
 set session transaction isolation level read committed;

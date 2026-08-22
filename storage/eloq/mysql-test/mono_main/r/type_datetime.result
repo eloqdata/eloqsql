@@ -192,13 +192,13 @@ CAST(CAST('10:11:12.098700' AS TIME(6)) AS DECIMAL(20,6))
 set @org_mode=@@sql_mode;
 create table t1 (da date default '1962-03-03 23:33:34', dt datetime default '1962-03-03');
 Warnings:
-Note	1265	Data truncated for column 'da' at row 1
+Note	1265	Data truncated for column 'da' at row 0
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `da` date DEFAULT '1962-03-03',
   `dt` datetime DEFAULT '1962-03-03 00:00:00'
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 insert into t1 values ();
 insert into t1 values ('2007-03-23 13:49:38','2007-03-23 13:49:38');
 Warnings:
@@ -554,13 +554,13 @@ End of 5.0 tests
 set @org_mode=@@sql_mode;
 create table t1 (da date default '1962-03-03 23:33:34', dt datetime default '1962-03-03');
 Warnings:
-Note	1265	Data truncated for column 'da' at row 1
+Note	1265	Data truncated for column 'da' at row 0
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `da` date DEFAULT '1962-03-03',
   `dt` datetime DEFAULT '1962-03-03 00:00:00'
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 insert into t1 values ();
 insert into t1 values ('2007-03-23 13:49:38','2007-03-23 13:49:38');
 Warnings:
@@ -893,6 +893,8 @@ SELECT STR_TO_DATE('0000-00-00 00:00:00.000001','%Y-%m-%d %H:%i:%s.%f');
 STR_TO_DATE('0000-00-00 00:00:00.000001','%Y-%m-%d %H:%i:%s.%f')
 0000-00-00 00:00:00.000001
 SET old_mode=zero_date_time_cast;
+Warnings:
+Warning	1287	'ZERO_DATE_TIME_CAST' is deprecated and will be removed in a future release
 SELECT CAST(TIME'10:20:30' AS DATETIME);
 CAST(TIME'10:20:30' AS DATETIME)
 0000-00-00 10:20:30
@@ -1079,7 +1081,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `MAX(CAST(a AS DATETIME))` datetime DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t2;
 DROP TABLE t1;
 SET timestamp=DEFAULT;
@@ -1520,15 +1522,15 @@ pk
 17
 18
 Warnings:
-Warning	1292	Truncated incorrect datetime value: ''
-Warning	1292	Truncated incorrect datetime value: 'k'
+Warning	1292	Incorrect datetime value: '' for column `test`.`t1`.`x2` at row 1
+Warning	1292	Incorrect datetime value: 'k' for column `test`.`t1`.`x2` at row 2
 SELECT pk FROM v1 WHERE x1 >x2;
 pk
 17
 18
 Warnings:
-Warning	1292	Truncated incorrect datetime value: ''
-Warning	1292	Truncated incorrect datetime value: 'k'
+Warning	1292	Incorrect datetime value: '' for column `test`.`t1`.`x2` at row 1
+Warning	1292	Incorrect datetime value: 'k' for column `test`.`t1`.`x2` at row 2
 DROP VIEW v1;
 DROP TABLE t1;
 #

@@ -119,15 +119,15 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `uuid() collate latin1_bin` varchar(36) DEFAULT NULL,
-  `length(uuid())` int(10) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `length(uuid())` int(10) NOT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1 select INET_ATON('255.255.0.1') as `a`;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` bigint(21) unsigned DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 drop table if exists table_26093;
 drop function if exists func_26093_a;
@@ -1466,10 +1466,10 @@ COERCIBILITY(NAME_CONST('name','test'))
 2
 SELECT COERCIBILITY(NAME_CONST('name',TIME'00:00:00'));
 COERCIBILITY(NAME_CONST('name',TIME'00:00:00'))
-5
+7
 SELECT COERCIBILITY(NAME_CONST('name',15));
 COERCIBILITY(NAME_CONST('name',15))
-5
+7
 SELECT CONCAT(NAME_CONST('name',15),'오');
 CONCAT(NAME_CONST('name',15),'오')
 15오
@@ -1530,7 +1530,7 @@ t1	CREATE TABLE `t1` (
   `a1` varchar(30) DEFAULT inet_ntoa(`b`),
   `c` int(11) DEFAULT is_ipv4(`a`),
   `d` int(11) DEFAULT is_ipv6(`a`)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 INSERT INTO t1 (a) VALUES ('192.168.001.001'),('::1'),('xxx');
 SELECT * FROM t1;
 a	b	a1	c	d
@@ -1553,7 +1553,7 @@ t1	CREATE TABLE `t1` (
   `str1` varchar(128) DEFAULT inet6_ntoa(`addr`),
   `b` int(11) DEFAULT is_ipv4_compat(`addr`),
   `c` int(11) DEFAULT is_ipv4_mapped(`addr`)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 INSERT INTO t1 (str) VALUES ('::FFFF:192.168.0.1'),('::10.0.5.9');
 SELECT str, str1, b,c FROM t1;
 str	str1	b	c
@@ -1613,7 +1613,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `c1` bigint(20) unsigned NOT NULL,
   `c2` bigint(20) unsigned DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t1;
 c1	c2
 18446744073709551615	18446744073709551615

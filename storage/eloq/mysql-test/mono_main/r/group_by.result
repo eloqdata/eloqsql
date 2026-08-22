@@ -509,8 +509,8 @@ select * from t1 AS m LEFT JOIN t2 AS c1 ON m.c1id =
 c1.id AND c1.active = 'Yes' LEFT JOIN t3 AS c2 ON m.c2id = c2.id AND 
 c2.active = 'Yes' WHERE m.pid=1  AND (c1.id IS NOT NULL OR c2.id IS NOT NULL);
 pid	c1id	c2id	value	id	active	id	active
-1	1	NULL	1	1	Yes	NULL	NULL
 1	NULL	3	3	NULL	NULL	3	Yes
+1	1	NULL	1	1	Yes	NULL	NULL
 1	4	NULL	4	4	Yes	NULL	NULL
 select max(value) from t1 AS m LEFT JOIN t2 AS c1 ON 
 m.c1id = c1.id AND c1.active = 'Yes' LEFT JOIN t3 AS c2 ON m.c2id = 
@@ -724,7 +724,7 @@ from t1 x3, t1 x4, t1 C, t1 D where x3.a < 3 and x4.a < 4 and D.a < 4;
 delete from t2  where a = 2 and b = 'val-2' order by a,b,c,d limit 30;
 explain select c from t2 where a = 2 and b = 'val-2' group by c;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	ref	PRIMARY,a	a	606	const,const	3	Using where; Using index; Using temporary; Using filesort
+1	SIMPLE	t2	ref	PRIMARY,a	PRIMARY	402	const,const	3	Using where
 select c from t2 where a = 2 and b = 'val-2' group by c;
 c
 val-74
@@ -792,7 +792,7 @@ SELECT n+1 AS n FROM t1 GROUP BY n;
 n
 2
 Warnings:
-Warning	1052	Column 'n' in group statement is ambiguous
+Warning	1052	Column 'n' in GROUP BY is ambiguous
 DROP TABLE t1;
 create table t1(f1 varchar(5) key);
 insert into t1 values (1),(2);
@@ -879,10 +879,10 @@ c2
 aaa
 aaa
 Warnings:
-Warning	1052	Column 'c2' in group statement is ambiguous
+Warning	1052	Column 'c2' in GROUP BY is ambiguous
 show warnings;
 Level	Code	Message
-Warning	1052	Column 'c2' in group statement is ambiguous
+Warning	1052	Column 'c2' in GROUP BY is ambiguous
 select t1.c1 as c2 from t1, t2 where t1.c2 = t2.c4
 group by t1.c1;
 c2
@@ -1030,7 +1030,7 @@ FROM t1 AS t1_outer GROUP BY t1_outer.b;
 ERROR 42000: 'test.t1_outer.a' isn't in GROUP BY
 SELECT 1 FROM t1 as t1_outer GROUP BY a 
 HAVING (SELECT t1_outer.b FROM t1 AS t1_inner LIMIT 1);
-ERROR 42S22: Unknown column 'test.t1_outer.b' in 'field list'
+ERROR 42S22: Unknown column 'test.t1_outer.b' in 'SELECT'
 SELECT (SELECT SUM(t1_inner.a) FROM t1 AS t1_inner LIMIT 1) 
 FROM t1 AS t1_outer GROUP BY t1_outer.b;
 (SELECT SUM(t1_inner.a) FROM t1 AS t1_inner LIMIT 1)
@@ -1071,7 +1071,7 @@ SELECT 1 FROM t1 GROUP BY b HAVING ROW (b,b) = ROW (1,1);
 1
 1
 SELECT 1 FROM t1 GROUP BY b HAVING a = 2;
-ERROR 42S22: Unknown column 'a' in 'having clause'
+ERROR 42S22: Unknown column 'a' in 'HAVING'
 SELECT 1 FROM t1 GROUP BY SUM(b);
 ERROR HY000: Invalid use of group function
 SELECT b FROM t1 AS t1_outer GROUP BY a HAVING t1_outer.a IN 
@@ -1348,13 +1348,13 @@ test.t1	analyze	status	Engine-independent statistics collected
 test.t1	analyze	status	OK
 EXPLAIN SELECT a FROM t1 WHERE a < 2;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	range	PRIMARY,i2	i2	4	NULL	2	Using where; Using index
+1	SIMPLE	t1	range	PRIMARY,i2	PRIMARY	4	NULL	2	Using where; Using index
 EXPLAIN SELECT a FROM t1 WHERE a < 2 ORDER BY a;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	range	PRIMARY,i2	i2	4	NULL	2	Using where; Using index
+1	SIMPLE	t1	range	PRIMARY,i2	PRIMARY	4	NULL	2	Using where; Using index
 EXPLAIN SELECT a FROM t1 WHERE a < 2 GROUP BY a;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	range	PRIMARY,i2	i2	4	NULL	2	Using where; Using index
+1	SIMPLE	t1	range	PRIMARY,i2	PRIMARY	4	NULL	2	Using where; Using index
 EXPLAIN SELECT a FROM t1 IGNORE INDEX (PRIMARY,i2);
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	#	
@@ -1674,7 +1674,7 @@ c	b	d
 3	2	40
 EXPLAIN SELECT c,b   FROM t1 GROUP BY c,b;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	range	NULL	c	8	NULL	4	Using index for group-by
+1	SIMPLE	t1	range	NULL	c	8	NULL	3	Using index for group-by
 SELECT c,b   FROM t1 GROUP BY c,b;
 c	b
 1	1
@@ -1693,7 +1693,7 @@ NULL	1
 1	2
 EXPLAIN SELECT a,b from t2 GROUP BY a,b;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	range	NULL	a	10	NULL	7	Using index for group-by
+1	SIMPLE	t2	range	NULL	a	10	NULL	6	Using index for group-by
 SELECT a,b from t2 GROUP BY a,b;
 a	b
 NULL	NULL
@@ -1703,7 +1703,7 @@ NULL	1
 1	2
 EXPLAIN SELECT a from t2 GROUP BY a;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	range	NULL	a	5	NULL	7	Using index for group-by
+1	SIMPLE	t2	range	NULL	a	5	NULL	6	Using index for group-by
 SELECT a from t2 GROUP BY a;
 a
 NULL
@@ -1909,6 +1909,8 @@ Extra	Using filesort
 SELECT SUBSTRING(a,1,10), LENGTH(a), GROUP_CONCAT(b) FROM t1 GROUP BY a;
 SUBSTRING(a,1,10)	LENGTH(a)	GROUP_CONCAT(b)
 1111111111	1300	one,two
+Warnings:
+Warning	4202	2 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 EXPLAIN 
 SELECT SUBSTRING(a,1,10), LENGTH(a) FROM t1 GROUP BY a;
 id	1
@@ -1924,6 +1926,8 @@ Extra	Using temporary; Using filesort
 SELECT SUBSTRING(a,1,10), LENGTH(a) FROM t1 GROUP BY a;
 SUBSTRING(a,1,10)	LENGTH(a)
 1111111111	1300
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 DROP TABLE t1;
 #
 # Bug#57688 Assertion `!table || (!table->write_set || bitmap_is_set(table->write_set, field
@@ -2016,7 +2020,7 @@ INSERT INTO t1 VALUES (1),(2),(3),(4),(5),(6),(7),(8),(9),(10),
 EXPLAIN SELECT col1 AS field1, col1 AS field2
 FROM t1 GROUP BY field1, field2;;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	range	NULL	idx	5	NULL	21	Using index for group-by
+1	SIMPLE	t1	index	NULL	idx	5	NULL	20	Using index
 FLUSH STATUS;
 SELECT col1 AS field1, col1 AS field2
 FROM t1 GROUP BY field1, field2;;
@@ -2047,7 +2051,7 @@ Sort_scan	0
 EXPLAIN SELECT SQL_BIG_RESULT col1 AS field1, col1 AS field2
 FROM t1 GROUP BY field1, field2;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	range	NULL	idx	5	NULL	21	Using index for group-by
+1	SIMPLE	t1	index	NULL	idx	5	NULL	20	Using index; Using filesort
 FLUSH STATUS;
 SELECT SQL_BIG_RESULT col1 AS field1, col1 AS field2
 FROM t1 GROUP BY field1, field2;
@@ -2138,7 +2142,7 @@ f1	f2
 explain
 select col1 f1, col1 f2 from t1 group by f1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	range	NULL	idx	5	NULL	21	Using index for group-by
+1	SIMPLE	t1	index	NULL	idx	5	NULL	20	Using index
 select col1 f1, col1 f2 from t1 group by f1;
 f1	f2
 1	1
@@ -2164,7 +2168,7 @@ f1	f2
 explain
 select col1 f1, col1 f2 from t1 group by f1, f2;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	range	NULL	idx	5	NULL	21	Using index for group-by
+1	SIMPLE	t1	index	NULL	idx	5	NULL	20	Using index
 select col1 f1, col1 f2 from t1 group by f1, f2;
 f1	f2
 1	1
@@ -2190,7 +2194,7 @@ f1	f2
 explain
 select col1 f1, col1 f2 from t1 group by f2 order by f2, f1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	range	NULL	idx	5	NULL	21	Using index for group-by
+1	SIMPLE	t1	index	NULL	idx	5	NULL	20	Using index
 select col1 f1, col1 f2 from t1 group by f2 order by f2, f1;
 f1	f2
 1	1
@@ -2216,7 +2220,7 @@ f1	f2
 explain
 select col1 f1, col1 f2 from t1 group by f1, f2 order by f2, f1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	range	NULL	idx	5	NULL	21	Using index for group-by
+1	SIMPLE	t1	index	NULL	idx	5	NULL	20	Using index
 select col1 f1, col1 f2 from t1 group by f1, f2 order by f2, f1;
 f1	f2
 1	1
@@ -2249,19 +2253,19 @@ INSERT INTO t2(col1, col2) VALUES
 explain
 select col1 f1, col2 f2, col1 f3 from t2 group by f1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	range	NULL	idx	5	NULL	21	Using index for group-by
+1	SIMPLE	t2	index	NULL	idx	10	NULL	20	Using index
 explain
 select SQL_BIG_RESULT col1 f1, col2 f2, col1 f3 from t2 group by f1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	range	NULL	idx	5	NULL	21	Using index for group-by
+1	SIMPLE	t2	index	NULL	idx	10	NULL	20	Using index; Using filesort
 explain
 select col1 f1, col2 f2, col1 f3 from t2 group by f1, f2;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	range	NULL	idx	10	NULL	21	Using index for group-by
+1	SIMPLE	t2	index	NULL	idx	10	NULL	20	Using index
 explain
 select col1 f1, col1 f2 from t2 group by f1, 1+1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	range	NULL	idx	5	NULL	21	Using index for group-by
+1	SIMPLE	t2	index	NULL	idx	10	NULL	20	Using index
 explain
 select col1 f1, col2 f2, col1 f3 from t2 group by f1, f2, f3+0;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
@@ -2451,7 +2455,7 @@ test.t1	analyze	status	OK
 
 EXPLAIN SELECT SQL_BUFFER_RESULT MIN(a), b FROM t1 WHERE t1.b = 'a' GROUP BY b;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	ref	b	b	4	const	4	Using where; Using index; Using temporary; Using filesort
+1	SIMPLE	t1	range	b	b	9	NULL	1	Using where; Using index for group-by; Using temporary; Using filesort
 
 SELECT SQL_BUFFER_RESULT MIN(a), b FROM t1 WHERE t1.b = 'a' GROUP BY b;
 MIN(a)	b
@@ -2459,7 +2463,7 @@ MIN(a)	b
 
 EXPLAIN SELECT MIN(a), b FROM t1 WHERE t1.b = 'a' GROUP BY b;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	ref	b	b	4	const	4	Using where; Using index; Using temporary; Using filesort
+1	SIMPLE	t1	range	b	b	9	NULL	1	Using where; Using index for group-by; Using temporary; Using filesort
 
 SELECT MIN(a), b FROM t1 WHERE t1.b = 'a' GROUP BY b;
 MIN(a)	b
@@ -2560,7 +2564,7 @@ DROP TABLE t1,t2;
 # MDEV-5104 crash in Item_field::used_tables with broken order by
 #
 (select 1 order by x(y)) order by 1;
-ERROR 42S22: Unknown column 'y' in 'order clause'
+ERROR 42S22: Unknown column 'y' in 'ORDER BY'
 # End of 5.3 tests
 #
 # Bug#49771: Incorrect MIN (date) when minimum value is 0000-00-00
@@ -2716,6 +2720,8 @@ f1	f2
 	                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
 	NULL
 NULL	NULL
+Warnings:
+Warning	4202	116 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 SET @@sort_buffer_size = @old_sort_buff_size;
 DROP TABLE t1;
 #

@@ -3,11 +3,13 @@ drop table if exists t1;
 create table t1 (i int);
 delete from mysql.user where user like 'mysqltest\_%';
 delete from mysql.db where user like 'mysqltest\_%';
+Warnings:
+Warning	4202	4 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 delete from mysql.tables_priv where user like 'mysqltest\_%';
 delete from mysql.columns_priv where user like 'mysqltest\_%';
 flush privileges;
 create user mysqltest_1@localhost;
-grant usage on *.* to mysqltest_1@localhost with max_queries_per_hour 2;
+grant all on test.* to mysqltest_1@localhost with max_queries_per_hour 2;
 flush user_resources;
 connect  mqph, localhost, mysqltest_1,,;
 connection mqph;
@@ -23,10 +25,12 @@ select * from t1;
 ERROR 42000: User 'mysqltest_1' has exceeded the 'max_queries_per_hour' resource (current value: 2)
 connection default;
 drop user mysqltest_1@localhost;
+Warnings:
+Note	4227	Dropped users 'mysqltest_1'@'localhost' have active connections. Use KILL CONNECTION if they should not be used anymore.
 disconnect mqph;
 disconnect mqph2;
 create user mysqltest_1@localhost;
-grant usage on *.* to mysqltest_1@localhost with max_updates_per_hour 2;
+grant all on test.* to mysqltest_1@localhost with max_updates_per_hour 2;
 flush user_resources;
 connect  muph, localhost, mysqltest_1,,;
 connection muph;
@@ -50,10 +54,12 @@ select * from t1;
 i
 connection default;
 drop user mysqltest_1@localhost;
+Warnings:
+Note	4227	Dropped users 'mysqltest_1'@'localhost' have active connections. Use KILL CONNECTION if they should not be used anymore.
 disconnect muph;
 disconnect muph2;
 create user mysqltest_1@localhost;
-grant usage on *.* to mysqltest_1@localhost with max_connections_per_hour 2;
+grant all on test.* to mysqltest_1@localhost with max_connections_per_hour 2;
 flush user_resources;
 connect  mcph1, localhost, mysqltest_1,,;
 connection mcph1;
@@ -77,7 +83,7 @@ connection default;
 drop user mysqltest_1@localhost;
 flush privileges;
 create user mysqltest_1@localhost;
-grant usage on *.* to mysqltest_1@localhost with max_user_connections 2;
+grant all on test.* to mysqltest_1@localhost with max_user_connections 2;
 flush user_resources;
 connect  muc1, localhost, mysqltest_1,,;
 connection muc1;
@@ -109,10 +115,12 @@ grant usage on *.* to mysqltest_1@localhost with max_user_connections -1;
 show grants for mysqltest_1@localhost;
 Grants for mysqltest_1@localhost
 GRANT USAGE ON *.* TO `mysqltest_1`@`localhost` WITH MAX_USER_CONNECTIONS -1
+GRANT ALL PRIVILEGES ON `test`.* TO `mysqltest_1`@`localhost`
 flush user_resources;
 show grants for mysqltest_1@localhost;
 Grants for mysqltest_1@localhost
 GRANT USAGE ON *.* TO `mysqltest_1`@`localhost` WITH MAX_USER_CONNECTIONS -1
+GRANT ALL PRIVILEGES ON `test`.* TO `mysqltest_1`@`localhost`
 connect(localhost,mysqltest_1,,test,MYSQL_PORT,MYSQL_SOCK);
 connect  muc5, localhost, mysqltest_1,,;
 ERROR 42000: User 'mysqltest_1' has exceeded the 'max_user_connections' resource (current value: -1)
@@ -130,7 +138,7 @@ select @@session.max_user_connections, @@global.max_user_connections;
 @@session.max_user_connections	@@global.max_user_connections
 2	2
 create user mysqltest_1@localhost;
-grant usage on *.* to mysqltest_1@localhost;
+grant all on test.* to mysqltest_1@localhost;
 flush user_resources;
 connect  muca1, localhost, mysqltest_1,,;
 connection muca1;

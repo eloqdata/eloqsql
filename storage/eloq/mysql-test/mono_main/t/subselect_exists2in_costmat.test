@@ -27,8 +27,7 @@ drop database if exists world;
 --enable_warnings
 
 set names utf8;
-# Compatible with cassandra
-set @@character_set_server=utf8;
+set collation_server=utf8_bin;
 
 create database world;
 use world;
@@ -50,9 +49,7 @@ create index Language on CountryLanguage(Language);
 create index CityName on City(Name);
 #alter table City change population population int(11) null default 0;
 
---enable_prepare_warnings
 select max(id) from City into @max_city_id;
---disable_prepare_warnings
 insert into City values (@max_city_id + 1,'Kilifarevo','BGR',NULL);
 
 

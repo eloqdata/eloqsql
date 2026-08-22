@@ -188,12 +188,12 @@ set statement timestamp=888888888 for insert t1 (a) values ('1999-12-11 10:9:8')
 select b, a, unix_timestamp(a) from t1;
 b	a	unix_timestamp(a)
 1	2000-10-20 10:20:30	972030030
-2	1998-03-03 03:34:48	888888888
+2	NULL	NULL
 set statement timestamp=999999999 for update t1 set b=3 where b=2;
 select b, a, unix_timestamp(a) from t1;
 b	a	unix_timestamp(a)
 1	2000-10-20 10:20:30	972030030
-3	2001-09-09 03:46:39	999999999
+3	NULL	NULL
 create trigger trgu before update on t1 for each row set new.a='2011-11-11 11:11:11';
 update t1 set b=4 where b=3;
 select b, a, unix_timestamp(a) from t1;

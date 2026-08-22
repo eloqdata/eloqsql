@@ -7,7 +7,7 @@ t1	CREATE TABLE `t1` (
   `c` char(3) DEFAULT NULL,
   `e` enum('abc','def','ghi') DEFAULT NULL,
   `t` text DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 insert into t1 values ('abc', 'de', 'ghi', 'jkl');
 insert into t1 values ('abc ', 'de ', 'ghi', 'jkl ');
 insert into t1 values ('abc    ', 'd  ', 'ghi', 'jkl    ');
@@ -341,7 +341,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `f1` varchar(65500) DEFAULT NULL,
   KEY `index1` (`f1`(10))
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1 (f1 varchar(255), index index1 (f1(10)));
 show create table t1;
@@ -349,7 +349,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `f1` varchar(255) DEFAULT NULL,
   KEY `index1` (`f1`(10))
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1 (f1 tinytext, index index1 (f1(10)));
 show create table t1;
@@ -357,7 +357,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `f1` tinytext DEFAULT NULL,
   KEY `index1` (`f1`(10))
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 DROP TABLE IF EXISTS t1;
 CREATE TABLE t1(f1 VARCHAR(100) DEFAULT 'test');
@@ -403,7 +403,7 @@ a	(a + 0)
 t	0
 Warnings:
 Warning	1292	Truncated incorrect DOUBLE value: '1a'
-Warning	1292	Truncated incorrect DOUBLE value: 't '
+Warning	1292	Truncated incorrect DOUBLE value: 't'
 SELECT a,(a DIV 2) FROM t1 ORDER BY a;
 a	(a DIV 2)
 10	5
@@ -414,7 +414,7 @@ a	(a DIV 2)
 t	0
 Warnings:
 Warning	1292	Truncated incorrect DECIMAL value: '1a'
-Warning	1292	Truncated incorrect DECIMAL value: 't '
+Warning	1292	Truncated incorrect DECIMAL value: 't'
 SELECT a,CAST(a AS SIGNED) FROM t1 ORDER BY a;
 a	CAST(a AS SIGNED)
 10	10
@@ -446,8 +446,8 @@ SELECT 5 = a FROM t1;
 0
 0
 Warnings:
-Warning	1292	Truncated incorrect DECIMAL value: 's               '
-Warning	1292	Truncated incorrect DECIMAL value: '                '
+Warning	1292	Truncated incorrect DECIMAL value: 's'
+Warning	1292	Truncated incorrect DECIMAL value: ''
 DROP TABLE t1;
 #
 # MDEV-13530 VARBINARY doesn't convert to to BLOB for sizes 65533, 65534 and 65535
@@ -579,7 +579,7 @@ a	a
 EXPLAIN SELECT * FROM t1, t2 WHERE t1.c1=t2.c1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	1	Using where
-1	SIMPLE	t2	eq_ref	PRIMARY	PRIMARY	12	test.t1.c1	1	Using index
+1	SIMPLE	t2	eq_ref	PRIMARY	PRIMARY	12	test.t1.c1	1	Using where; Using index
 DROP TABLE t1, t2;
 CREATE TABLE t1 (c1 VARCHAR(10) CHARACTER SET latin1 COLLATE latin1_bin);
 INSERT INTO t1 VALUES ('a'),('c');
@@ -621,14 +621,14 @@ CREATE TABLE t1 (c VARCHAR(1) DEFAULT 'foo');
 ERROR 42000: Invalid default value for 'c'
 SHOW WARNINGS;
 Level	Code	Message
-Warning	1265	Data truncated for column 'c' at row 1
+Warning	1265	Data truncated for column 'c' at row 0
 Error	1067	Invalid default value for 'c'
 SET sql_mode='STRICT_ALL_TABLES';
 CREATE TABLE t1 (c VARCHAR(1) DEFAULT 'foo');
 ERROR 42000: Invalid default value for 'c'
 SHOW WARNINGS;
 Level	Code	Message
-Warning	1265	Data truncated for column 'c' at row 1
+Warning	1265	Data truncated for column 'c' at row 0
 Error	1067	Invalid default value for 'c'
 CREATE TABLE t1 (c VARCHAR(1));
 SET sql_mode='';

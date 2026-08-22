@@ -10,7 +10,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) NOT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 affected rows: 1
 DROP TABLE db1.t1;
 affected rows: 0
@@ -25,7 +25,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) NOT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=ELOQ DEFAULT CHARSET=utf8mb4
+) ENGINE=ELOQ DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin
 affected rows: 1
 DROP TABLE db1.t1;
 affected rows: 0

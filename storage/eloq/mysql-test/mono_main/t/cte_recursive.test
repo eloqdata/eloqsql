@@ -1551,6 +1551,9 @@ DROP TABLE edges;
 
 create table t1 (id int, test_data varchar(36));
 
+set @save_max_recursive_iterations= @@max_recursive_iterations;
+set max_recursive_iterations= 200000;
+
 insert into t1(id, test_data)
 select id, test_data
     from (
@@ -1564,10 +1567,13 @@ select id, test_data
 
 drop table t1;
 
+set max_recursive_iterations= @save_max_recursive_iterations;
+
 --echo #
 --echo # MDEV-10773: ANALYZE for query with recursive CTE
 --echo #
 
+--source include/analyze-format.inc
 --source include/analyze-format.inc
 analyze format=json 
 with recursive src(counter) as 
@@ -2654,6 +2660,7 @@ select a2 from cte);
 eval $q;
 eval explain $q;
 --source include/analyze-format.inc
+--source include/analyze-format.inc
 eval analyze format=json $q;
 
 drop function f1;
@@ -2725,6 +2732,7 @@ select 0 as b FROM dual union all select b FROM r_cte as t;
 eval explain $q;
 eval $q;
 --source include/analyze-format.inc
+--source include/analyze-format.inc
 eval analyze format=json $q;
 eval prepare stmt from "$q";
 execute stmt;
@@ -2743,6 +2751,7 @@ select * from t1 as tt;
 --replace_column 9 #
 eval explain $q1;
 eval $q1;
+--source include/analyze-format.inc
 --source include/analyze-format.inc
 eval analyze format=json $q1;
 eval prepare stmt from "$q1";
@@ -2792,8 +2801,7 @@ use test;
 --echo # MDEV-23406: query with mutually recursive CTEs when big_tables=1
 --echo #
 
-set @save_big_tables=@@big_tables;
-set big_tables=1;
+set tmp_memory_table_size=0; # force on-disk tmp table
 
 create table  folks(id int, name char(32), dob date, father int, mother int);
 
@@ -2881,7 +2889,7 @@ deallocate prepare stmt;
 
 drop table folks;
 
-set big_tables=@save_big_tables;
+set tmp_memory_table_size=default;
 
 --echo #
 --echo # MDEV-26135: execution of PS for query with hanging recursive CTE

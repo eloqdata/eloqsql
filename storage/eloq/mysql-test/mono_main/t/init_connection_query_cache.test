@@ -10,10 +10,6 @@ set GLOBAL query_cache_size=1355776;
 create user mysqltest1@localhost;
 grant SELECT on test.* to mysqltest1@localhost;
 
---disable_warnings
-drop table if exists t1,t2;
---enable_warnings
-
 create table t1 (a int);
 
 connect (con1,localhost,mysqltest1,,);

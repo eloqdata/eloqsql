@@ -123,7 +123,7 @@ show create table v1;
 Table	Create Table
 v1	CREATE TEMPORARY TABLE `v1` (
   `A` varchar(19) NOT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 show create view v1;
 View	Create View	character_set_client	collation_connection
 v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select 'This is view' AS `A`	latin1	latin1_bin
@@ -304,6 +304,7 @@ i
 1
 SHOW TABLES;
 Tables_in_temp_db
+temp_t1
 DROP TABLE temp_t1;
 #
 # Create and drop a temporary table.
@@ -521,7 +522,7 @@ DROP TABLE t1, t2;
 #
 CREATE TEMPORARY TABLE t1 (col1 BIGINT) ENGINE =eloq;
 INSERT INTO t1 (no_such_col) SELECT * FROM t1;
-ERROR 42S22: Unknown column 'no_such_col' in 'field list'
+ERROR 42S22: Unknown column 'no_such_col' in 'INSERT INTO'
 DELETE FROM t1;
 DELETE FROM t1;
 DROP TEMPORARY TABLE t1;

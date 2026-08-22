@@ -237,7 +237,7 @@ drop table t2;
 # Bug 4521: unique key prefix interacts poorly with utf8
 # MYISAM: keys with prefix compression, case insensitive collation.
 #FIXME; unqiue key
-create table t1 (c varchar(30) character set utf8, key(c(10)));
+create table t1 (c varchar(30) character set utf8 collate utf8_bin, key(c(10)));
 insert into t1 values ('1'),('2'),('3'),('x'),('y'),('z');
 insert into t1 values ('aaaaaaaaaa');
 #FIXME: #201
@@ -261,7 +261,7 @@ drop table t1;
 # InnoDB: keys with prefix compression, case insensitive collation.
 #
 #FIXME:unique key
-create table t1 (c varchar(30) character set utf8, key(c(10))) engine=eloq;
+create table t1 (c varchar(30) character set utf8 collate utf8_bin, key(c(10))) engine=eloq;
 insert into t1 values ('1'),('2'),('3'),('x'),('y'),('z');
 insert into t1 values ('aaaaaaaaaa');
 #FIXME: #201
@@ -285,7 +285,7 @@ drop table t1;
 #
 #FIXME:UNIQUE no support
 #create table t1 (c char(3) character set utf8, unique (c(2)));
-create table t1 (c char(3) character set utf8, key (c(2)));
+create table t1 (c char(3) character set utf8 collate utf8_bin, key (c(2)));
 insert into t1 values ('1'),('2'),('3'),('4'),('x'),('y'),('z');
 insert into t1 values ('a');
 insert into t1 values ('aa');
@@ -314,7 +314,7 @@ drop table t1;
 #
 #FIXME:UNIQUE no support
 #create table t1 (c char(3) character set utf8, unique (c(2))) engine=eloq;
-create table t1 (c char(3) character set utf8, key (c(2))) engine=eloq;
+create table t1 (c char(3) character set utf8 collate utf8_bin, key (c(2))) engine=eloq;
 insert into t1 values ('1'),('2'),('3'),('4'),('x'),('y'),('z');
 insert into t1 values ('a');
 insert into t1 values ('aa');
@@ -343,7 +343,7 @@ drop table t1;
 #
 #FIXME:UNIQUE no support
 create table t1 (
-c char(10) character set utf8,
+c char(10) character set utf8 collate utf8_bin,
 key a using hash (c(1))
 ) engine=eloq;
 show create table t1;
@@ -368,7 +368,7 @@ drop table t1;
 #
 #FIXME:UNIQUE no support
 create table t1 (
-c char(10) character set utf8,
+c char(10) character set utf8 collate utf8_bin,
 key a using btree (c(1))
 ) engine=eloq;
 show create table t1;
@@ -393,7 +393,7 @@ drop table t1;
 #
 #FIXME:UNIQUE no support
 create table t1 (
-c char(10) character set utf8,
+c char(10) character set utf8 collate utf8_bin,
 key a (c(1))
 ) engine=eloq;
 insert into t1 values ('a'),('b'),('c'),('d'),('e'),('f');
@@ -544,7 +544,7 @@ drop table t1;
 # Check MYISAM
 #
 create table t1 (
-  str varchar(255) character set utf8 not null,
+  str varchar(255) character set utf8 collate utf8_bin not null,
   key str  (str(2))
 ) engine=eloq;
 INSERT INTO t1 VALUES ('str');
@@ -556,7 +556,7 @@ drop table t1;
 # Check InnoDB
 #
 create table t1 (
-  str varchar(255) character set utf8 not null,
+  str varchar(255) character set utf8 collate utf8_bin not null,
   key str  (str(2))
 ) engine=eloq;
 INSERT INTO t1 VALUES ('str');
@@ -568,7 +568,7 @@ drop table t1;
 #
 
 create table t1 (
-  str varchar(255) character set utf8 not null,
+  str varchar(255) character set utf8 collate utf8_bin not null,
   key str using btree (str(2))
 ) engine=eloq;
 INSERT INTO t1 VALUES ('str');
@@ -580,7 +580,7 @@ drop table t1;
 #
 
 create table t1 (
-  str varchar(255) character set utf8 not null,
+  str varchar(255) character set utf8 collate utf8_bin not null,
   key str using hash (str(2))
 ) engine=eloq;
 INSERT INTO t1 VALUES ('str');
@@ -592,7 +592,7 @@ drop table t1;
 #
 
 create table t1 (
-  str varchar(255) character set utf8 not null,
+  str varchar(255) character set utf8 collate utf8_bin not null,
   key str (str(2))
 ) engine=eloq;
 INSERT INTO t1 VALUES ('str');
@@ -631,7 +631,7 @@ CREATE TABLE t1 (
     term     TEXT NOT NULL,
     PRIMARY KEY(id),
     INDEX(list_id, term(4))
-) ENGINE=eloq CHARSET=utf8;
+) ENGINE=eloq CHARSET=utf8 COLLATE=utf8_bin;
 INSERT INTO t1 SET list_id = 1, term = "letterc";
 INSERT INTO t1 SET list_id = 1, term = "letterb";
 INSERT INTO t1 SET list_id = 1, term = "lettera";
@@ -653,7 +653,7 @@ CREATE TABLE t1 (
     term text NOT NULL,
     PRIMARY KEY(id),
     INDEX(list_id, term(19))
-) ENGINE=eloq CHARSET=utf8;
+) ENGINE=eloq CHARSET=utf8 COLLATE=utf8_bin;
 INSERT INTO t1 set list_id = 1, term = "test�test";
 INSERT INTO t1 set list_id = 1, term = "testetest";
 INSERT INTO t1 set list_id = 1, term = "test�test";
@@ -670,7 +670,7 @@ create table t1 (
   a int primary key,
   b varchar(6),
   index b3(b(3))
-) engine=eloq character set=utf8;
+) engine=eloq character set=utf8 collate=utf8_bin;
 insert into t1 values(1,'foo'),(2,'foobar');
 select * from t1 where b like 'foob%';
 #FIXME:ALTER TABLE no support
@@ -799,7 +799,7 @@ create table t1 (
  id int not null,
  city varchar(20) not null,
  key (city(7),id)
-) character set=utf8;
+) character set=utf8 collate=utf8_bin;
 insert into t1 values (1,'Durban North');
 insert into t1 values (2,'Durban');
 select * from t1 where city = 'Durban';
@@ -838,7 +838,7 @@ CREATE TABLE t1 (
   KEY `IX_mobile_originated_message_keyword` (`keyword`),
   KEY `IX_mobile_originated_message_created` (`created`),
   KEY `IX_mobile_originated_message_support` (`msisdn`,`momid`,`keyword`,`gateway_id`,`created`)
-) ENGINE=eloq DEFAULT CHARSET=utf8;
+) ENGINE=eloq DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 INSERT INTO t1 VALUES 
 (1,'blah','464','aaa','fkc1c9ilc20x0hgae7lx6j09','ERR','ERR Имри.Афимим.Аеимимримдмримрмрирор имримримримр имридм ирбднримрфмририримрфмфмим.Ад.Д имдимримрад.Адимримримрмдиримримримр м.Дадимфшьмримд им.Адимимрн имадми','ИМРИ.АФИМИМ.АЕИМИМРИМДМРИМРМРИРОР',3,'2005-06-01 17:30:43','1234567890'),
@@ -850,7 +850,7 @@ CREATE TABLE t2 (
   `operator_id` int(11) NOT NULL default '0',
   `created` datetime NOT NULL default '0000-00-00 00:00:00',
   KEY `PK_user` (`msisdn`)
-) ENGINE=eloq DEFAULT CHARSET=utf8;
+) ENGINE=eloq DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 
 INSERT INTO t2 VALUES ('1234567890',2,'2005-05-24 13:53:25');
 
@@ -884,7 +884,7 @@ set names utf8;
 select 'a\\' like 'a\\';
 select 'aa\\' like 'a%\\';
 
-create table t1 (a char(10), key(a)) character set utf8;
+create table t1 (a char(10) collate utf8_bin, key(a)) character set utf8;
 insert into t1 values ("a"),("abc"),("abcd"),("hello"),("test");
 select * from t1 where a like "abc%";
 select * from t1 where a like concat("abc","%");
@@ -954,7 +954,7 @@ DROP TABLE t1;
 
 SET NAMES utf8;
 DROP TABLE IF EXISTS t1;
-CREATE TABLE t1(a VARCHAR(255),b int, KEY(a)) ENGINE=eloq DEFAULT CHARSET=utf8;
+CREATE TABLE t1(a VARCHAR(255),b int, KEY(a)) ENGINE=eloq DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 INSERT INTO t1(a) VALUES('uuABCDEFGHIGKLMNOPRSTUVWXYZ̈bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb');
 INSERT INTO t1(a) VALUES('uu');
 #FIXME;check no support
@@ -988,7 +988,7 @@ drop table t1;
 #
 set names utf8;
 #FIXME:CREATE INDEX no support
-create table t1 (s1 char(5) character set utf8,index it1(s1));
+create table t1 (s1 char(5) character set utf8 collate utf8_bin,index it1(s1));
 insert into t1 values
 ('a'),('b'),(null),('ペテルグル'),('ü'),('Y');
 #create index it1 on t1 (s1);
@@ -1420,13 +1420,13 @@ drop table t1;
 
 CREATE TABLE t1 (
   colA int(11) NOT NULL,
-  colB varchar(255) character set utf8 NOT NULL,
+  colB varchar(255) character set utf8 collate utf8_bin NOT NULL,
    PRIMARY KEY  (colA)
 ) ENGINE=eloq DEFAULT CHARSET=latin1;
 INSERT INTO t1 (colA, colB) VALUES (1, 'foo'), (2, 'foo bar');
 CREATE TABLE t2 (
   colA int(11) NOT NULL,
-  colB varchar(255) character set utf8 NOT NULL,
+  colB varchar(255) character set utf8 collate utf8_bin NOT NULL,
    KEY bad  (colA,colB(3))
 ) ENGINE=eloq DEFAULT CHARSET=latin1;
 INSERT INTO t2 (colA, colB) VALUES (1, 'foo'),(2, 'foo bar');
@@ -1565,7 +1565,7 @@ CREATE TABLE t1 (
   Tape TINYTEXT,
   PRIMARY KEY (clipid),
   KEY tape(Tape(255))
-) CHARACTER SET=utf8;
+) CHARACTER SET=utf8 COLLATE=utf8_bin;
 #ALTER TABLE t1 ADD mos TINYINT DEFAULT 0 AFTER clipid;
 SHOW CREATE TABLE t1;
 DROP TABLE t1;
@@ -1861,7 +1861,7 @@ SET NAMES utf8;
 --echo # MDEV-6679 Different optimizer plan for "a BETWEEN 'string' AND ?" and "a BETWEEN ? AND 'string'"
 --echo #
 SET NAMES utf8, collation_connection=utf8_bin;
-CREATE TABLE t1 (a VARCHAR(10) CHARACTER SET utf8, b INT NOT NULL DEFAULT 0, key(a));
+CREATE TABLE t1 (a VARCHAR(10) CHARACTER SET utf8 COLLATE utf8_bin, b INT NOT NULL DEFAULT 0, key(a));
 INSERT INTO t1 (a) VALUES ('a'),('b'),('c'),('d'),('¢');
 SET @arg='¢';
 PREPARE stmt FROM "EXPLAIN SELECT * FROM t1 WHERE a BETWEEN _utf8'¢' and ?";

@@ -8,8 +8,10 @@ plugin-maturity=experimental
 skip-log-bin
 default-storage-engine=eloq
 default-tmp-storage-engine=eloq
+character-set-server=latin1
 collation-server=latin1_bin
-eloq_config = @ENV.MYSQLTEST_VARDIR/../../../storage/eloq/mysql-test/mono_main/data_substrate.cnf
+init-file=@ENV.MTR_SUITE_DIR/init_db.sql
+eloq_config = @ENV.MTR_SUITE_DIR/data_substrate.cnf
 
 [mysqld.1]
 loose-thread-handling=   pool-of-threads

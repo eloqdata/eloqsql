@@ -357,6 +357,7 @@ use mysqltest//
 create table t1 (s1 int)//
 create user user1@localhost//
 grant select on t1 to user1@localhost//
+grant select on test.* to user1@localhost//
 create function bug_9503 () returns int sql security invoker begin declare v int;
 select min(s1) into v from t1; return v; end//
 delimiter ;//
@@ -467,6 +468,7 @@ begin
 end;
 |
 create user user_bug12812@localhost IDENTIFIED BY 'ABC'|
+grant select,create view on test.* to user_bug12812@localhost|
 --replace_result $MONO1_PORT MYSQL_PORT $MONO1_SOCK MYSQL_SOCK
 connect (test_user_12812,localhost,user_bug12812,ABC,test)|
 --error ER_PROCACCESS_DENIED_ERROR
@@ -543,6 +545,7 @@ create procedure bug14533_2()
 
 grant execute on procedure db_bug14533.bug14533_1 to user_bug14533@localhost;
 grant execute on procedure db_bug14533.bug14533_2 to user_bug14533@localhost;
+grant select on test.* to user_bug14533@localhost;
 
 connect (user_bug14533,localhost,user_bug14533,,test);
 
@@ -719,10 +722,10 @@ DROP USER mysqltest_1@localhost;
 
 USE mysqltest;
 
---error ER_NO_SUCH_USER
+--error ER_MALFORMED_DEFINER
 CALL bug13198_p1();
 
---error ER_NO_SUCH_USER
+--error ER_MALFORMED_DEFINER
 SELECT bug13198_f1();
 
 # Cleanup.
@@ -982,6 +985,7 @@ DROP DATABASE db1;
 #
 create user foo@local_ost;
 create user foo@`local\_ost` identified via mysql_old_password using '0123456789ABCDEF';
+grant select,create routine on test.* to foo@local_ost;
 create database foodb;
 grant create routine on foodb.* to foo@local_ost;
 connect con1,localhost,foo;
@@ -1010,6 +1014,7 @@ create procedure mysqltest_db.p1() begin end;
 
 --echo # Create user with no privileges on mysqltest_db database.
 create user bug12602983_user@localhost;
+grant create view on test.* to bug12602983_user@localhost;
 
 connect (conn1, localhost, bug12602983_user,,);
 

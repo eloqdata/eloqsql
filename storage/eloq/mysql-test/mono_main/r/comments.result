@@ -65,8 +65,8 @@ SELECT 1 /*!100000 +1*/;
 1  +1
 2
 SELECT 1 /*!110000 +1*/;
-1
-1
+1  +1
+2
 #
 # Tesing that versions >= 5.7.x and < 10.0.0 are not ignored 
 # when used with the MariaDB executable comment syntax.
@@ -87,8 +87,8 @@ SELECT 1 /*M!100000 +1*/;
 1  +1
 2
 SELECT 1 /*M!110000 +1*/;
-1
-1
+1  +1
+2
 select 1/*!2*/;
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '2*/' at line 1
 select 1/*!0000002*/;

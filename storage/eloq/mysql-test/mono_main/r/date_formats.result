@@ -5,17 +5,11 @@ FROM information_schema.global_variables
 WHERE variable_name IN ('date_format', 'datetime_format', 'time_format')
 ORDER BY variable_name;
 variable_name	variable_value
-DATETIME_FORMAT	%Y-%m-%d %H:%i:%s
-DATE_FORMAT	%d.%m.%Y
-TIME_FORMAT	%H.%i.%s
 SELECT variable_name, variable_value
 FROM information_schema.session_variables
 WHERE variable_name IN ('date_format', 'datetime_format', 'time_format')
 ORDER BY variable_name;
 variable_name	variable_value
-DATETIME_FORMAT	%Y-%m-%d %H:%i:%s
-DATE_FORMAT	%d.%m.%Y
-TIME_FORMAT	%H.%i.%s
 select str_to_date(concat('15-01-2001',' 2:59:58.999'),
 concat('%d-%m-%Y',' ','%H:%i:%s.%f'));
 str_to_date(concat('15-01-2001',' 2:59:58.999'),
@@ -78,11 +72,11 @@ date	format	str_to_date
 10:20:10.44AM	%h:%i:%s.%f%p	0000-00-00 10:20:10.440000
 15-01-2001 12:59:58	%d-%m-%Y %H:%i:%S	2001-01-15 12:59:58.000000
 15 September 2001	%d %M %Y	2001-09-15 00:00:00.000000
-15 SEPTEMB 2001	%d %M %Y	2001-09-15 00:00:00.000000
-15 MAY 2001	%d %b %Y	2001-05-15 00:00:00.000000
+15 SEPTEMB 2001	%d %M %Y	NULL
+15 MAY 2001	%d %b %Y	NULL
 15th May 2001	%D %b %Y	2001-05-15 00:00:00.000000
-Sunday 15 MAY 2001	%W %d %b %Y	2001-05-15 00:00:00.000000
-Sund 15 MAY 2001	%W %d %b %Y	2001-05-15 00:00:00.000000
+Sunday 15 MAY 2001	%W %d %b %Y	NULL
+Sund 15 MAY 2001	%W %d %b %Y	NULL
 Tuesday 00 2002	%W %U %Y	2002-01-01 00:00:00.000000
 Thursday 53 1998	%W %u %Y	1998-12-31 00:00:00.000000
 Sunday 01 2001	%W %v %x	2001-01-07 00:00:00.000000
@@ -92,6 +86,11 @@ Tuesday 52 2001	%W %V %X	2002-01-01 00:00:00.000000
 15-01-2001	%d-%m-%Y %H:%i:%S	2001-01-15 00:00:00.000000
 15-01-20	%d-%m-%y	2020-01-15 00:00:00.000000
 15-2001-1	%d-%Y-%c	2001-01-15 00:00:00.000000
+Warnings:
+Warning	1411	Incorrect datetime value: '15 SEPTEMB 2001' for function str_to_date
+Warning	1411	Incorrect datetime value: '15 MAY 2001' for function str_to_date
+Warning	1411	Incorrect datetime value: 'Sunday 15 MAY 2001' for function str_to_date
+Warning	1411	Incorrect datetime value: 'Sund 15 MAY 2001' for function str_to_date
 select date,format,concat('',str_to_date(date, format)) as con from t1;
 date	format	con
 2003-01-02 10:11:12	%Y-%m-%d %H:%i:%S	2003-01-02 10:11:12.000000
@@ -111,11 +110,11 @@ date	format	con
 10:20:10.44AM	%h:%i:%s.%f%p	0000-00-00 10:20:10.440000
 15-01-2001 12:59:58	%d-%m-%Y %H:%i:%S	2001-01-15 12:59:58.000000
 15 September 2001	%d %M %Y	2001-09-15 00:00:00.000000
-15 SEPTEMB 2001	%d %M %Y	2001-09-15 00:00:00.000000
-15 MAY 2001	%d %b %Y	2001-05-15 00:00:00.000000
+15 SEPTEMB 2001	%d %M %Y	NULL
+15 MAY 2001	%d %b %Y	NULL
 15th May 2001	%D %b %Y	2001-05-15 00:00:00.000000
-Sunday 15 MAY 2001	%W %d %b %Y	2001-05-15 00:00:00.000000
-Sund 15 MAY 2001	%W %d %b %Y	2001-05-15 00:00:00.000000
+Sunday 15 MAY 2001	%W %d %b %Y	NULL
+Sund 15 MAY 2001	%W %d %b %Y	NULL
 Tuesday 00 2002	%W %U %Y	2002-01-01 00:00:00.000000
 Thursday 53 1998	%W %u %Y	1998-12-31 00:00:00.000000
 Sunday 01 2001	%W %v %x	2001-01-07 00:00:00.000000
@@ -125,6 +124,11 @@ Tuesday 52 2001	%W %V %X	2002-01-01 00:00:00.000000
 15-01-2001	%d-%m-%Y %H:%i:%S	2001-01-15 00:00:00.000000
 15-01-20	%d-%m-%y	2020-01-15 00:00:00.000000
 15-2001-1	%d-%Y-%c	2001-01-15 00:00:00.000000
+Warnings:
+Warning	1411	Incorrect datetime value: '15 SEPTEMB 2001' for function str_to_date
+Warning	1411	Incorrect datetime value: '15 MAY 2001' for function str_to_date
+Warning	1411	Incorrect datetime value: 'Sunday 15 MAY 2001' for function str_to_date
+Warning	1411	Incorrect datetime value: 'Sund 15 MAY 2001' for function str_to_date
 select date,format,cast(str_to_date(date, format) as datetime) as datetime from t1;
 date	format	datetime
 2003-01-02 10:11:12	%Y-%m-%d %H:%i:%S	2003-01-02 10:11:12
@@ -144,11 +148,11 @@ date	format	datetime
 10:20:10.44AM	%h:%i:%s.%f%p	0000-00-00 10:20:10
 15-01-2001 12:59:58	%d-%m-%Y %H:%i:%S	2001-01-15 12:59:58
 15 September 2001	%d %M %Y	2001-09-15 00:00:00
-15 SEPTEMB 2001	%d %M %Y	2001-09-15 00:00:00
-15 MAY 2001	%d %b %Y	2001-05-15 00:00:00
+15 SEPTEMB 2001	%d %M %Y	NULL
+15 MAY 2001	%d %b %Y	NULL
 15th May 2001	%D %b %Y	2001-05-15 00:00:00
-Sunday 15 MAY 2001	%W %d %b %Y	2001-05-15 00:00:00
-Sund 15 MAY 2001	%W %d %b %Y	2001-05-15 00:00:00
+Sunday 15 MAY 2001	%W %d %b %Y	NULL
+Sund 15 MAY 2001	%W %d %b %Y	NULL
 Tuesday 00 2002	%W %U %Y	2002-01-01 00:00:00
 Thursday 53 1998	%W %u %Y	1998-12-31 00:00:00
 Sunday 01 2001	%W %v %x	2001-01-07 00:00:00
@@ -158,6 +162,11 @@ Tuesday 52 2001	%W %V %X	2002-01-01 00:00:00
 15-01-2001	%d-%m-%Y %H:%i:%S	2001-01-15 00:00:00
 15-01-20	%d-%m-%y	2020-01-15 00:00:00
 15-2001-1	%d-%Y-%c	2001-01-15 00:00:00
+Warnings:
+Warning	1411	Incorrect datetime value: '15 SEPTEMB 2001' for function str_to_date
+Warning	1411	Incorrect datetime value: '15 MAY 2001' for function str_to_date
+Warning	1411	Incorrect datetime value: 'Sunday 15 MAY 2001' for function str_to_date
+Warning	1411	Incorrect datetime value: 'Sund 15 MAY 2001' for function str_to_date
 select date,format,DATE(str_to_date(date, format)) as date2 from t1;
 date	format	date2
 2003-01-02 10:11:12	%Y-%m-%d %H:%i:%S	2003-01-02
@@ -177,11 +186,11 @@ date	format	date2
 10:20:10.44AM	%h:%i:%s.%f%p	0000-00-00
 15-01-2001 12:59:58	%d-%m-%Y %H:%i:%S	2001-01-15
 15 September 2001	%d %M %Y	2001-09-15
-15 SEPTEMB 2001	%d %M %Y	2001-09-15
-15 MAY 2001	%d %b %Y	2001-05-15
+15 SEPTEMB 2001	%d %M %Y	NULL
+15 MAY 2001	%d %b %Y	NULL
 15th May 2001	%D %b %Y	2001-05-15
-Sunday 15 MAY 2001	%W %d %b %Y	2001-05-15
-Sund 15 MAY 2001	%W %d %b %Y	2001-05-15
+Sunday 15 MAY 2001	%W %d %b %Y	NULL
+Sund 15 MAY 2001	%W %d %b %Y	NULL
 Tuesday 00 2002	%W %U %Y	2002-01-01
 Thursday 53 1998	%W %u %Y	1998-12-31
 Sunday 01 2001	%W %v %x	2001-01-07
@@ -191,6 +200,11 @@ Tuesday 52 2001	%W %V %X	2002-01-01
 15-01-2001	%d-%m-%Y %H:%i:%S	2001-01-15
 15-01-20	%d-%m-%y	2020-01-15
 15-2001-1	%d-%Y-%c	2001-01-15
+Warnings:
+Warning	1411	Incorrect datetime value: '15 SEPTEMB 2001' for function str_to_date
+Warning	1411	Incorrect datetime value: '15 MAY 2001' for function str_to_date
+Warning	1411	Incorrect datetime value: 'Sunday 15 MAY 2001' for function str_to_date
+Warning	1411	Incorrect datetime value: 'Sund 15 MAY 2001' for function str_to_date
 select date,format,TIME(str_to_date(date, format)) as time from t1;
 date	format	time
 2003-01-02 10:11:12	%Y-%m-%d %H:%i:%S	10:11:12.000000
@@ -210,11 +224,11 @@ date	format	time
 10:20:10.44AM	%h:%i:%s.%f%p	10:20:10.440000
 15-01-2001 12:59:58	%d-%m-%Y %H:%i:%S	12:59:58.000000
 15 September 2001	%d %M %Y	00:00:00.000000
-15 SEPTEMB 2001	%d %M %Y	00:00:00.000000
-15 MAY 2001	%d %b %Y	00:00:00.000000
+15 SEPTEMB 2001	%d %M %Y	NULL
+15 MAY 2001	%d %b %Y	NULL
 15th May 2001	%D %b %Y	00:00:00.000000
-Sunday 15 MAY 2001	%W %d %b %Y	00:00:00.000000
-Sund 15 MAY 2001	%W %d %b %Y	00:00:00.000000
+Sunday 15 MAY 2001	%W %d %b %Y	NULL
+Sund 15 MAY 2001	%W %d %b %Y	NULL
 Tuesday 00 2002	%W %U %Y	00:00:00.000000
 Thursday 53 1998	%W %u %Y	00:00:00.000000
 Sunday 01 2001	%W %v %x	00:00:00.000000
@@ -224,6 +238,11 @@ Tuesday 52 2001	%W %V %X	00:00:00.000000
 15-01-2001	%d-%m-%Y %H:%i:%S	00:00:00.000000
 15-01-20	%d-%m-%y	00:00:00.000000
 15-2001-1	%d-%Y-%c	00:00:00.000000
+Warnings:
+Warning	1411	Incorrect datetime value: '15 SEPTEMB 2001' for function str_to_date
+Warning	1411	Incorrect datetime value: '15 MAY 2001' for function str_to_date
+Warning	1411	Incorrect datetime value: 'Sunday 15 MAY 2001' for function str_to_date
+Warning	1411	Incorrect datetime value: 'Sund 15 MAY 2001' for function str_to_date
 select date,format,concat(TIME(str_to_date(date, format))) as time2 from t1;
 date	format	time2
 2003-01-02 10:11:12	%Y-%m-%d %H:%i:%S	10:11:12.000000
@@ -243,11 +262,11 @@ date	format	time2
 10:20:10.44AM	%h:%i:%s.%f%p	10:20:10.440000
 15-01-2001 12:59:58	%d-%m-%Y %H:%i:%S	12:59:58.000000
 15 September 2001	%d %M %Y	00:00:00.000000
-15 SEPTEMB 2001	%d %M %Y	00:00:00.000000
-15 MAY 2001	%d %b %Y	00:00:00.000000
+15 SEPTEMB 2001	%d %M %Y	NULL
+15 MAY 2001	%d %b %Y	NULL
 15th May 2001	%D %b %Y	00:00:00.000000
-Sunday 15 MAY 2001	%W %d %b %Y	00:00:00.000000
-Sund 15 MAY 2001	%W %d %b %Y	00:00:00.000000
+Sunday 15 MAY 2001	%W %d %b %Y	NULL
+Sund 15 MAY 2001	%W %d %b %Y	NULL
 Tuesday 00 2002	%W %U %Y	00:00:00.000000
 Thursday 53 1998	%W %u %Y	00:00:00.000000
 Sunday 01 2001	%W %v %x	00:00:00.000000
@@ -257,6 +276,11 @@ Tuesday 52 2001	%W %V %X	00:00:00.000000
 15-01-2001	%d-%m-%Y %H:%i:%S	00:00:00.000000
 15-01-20	%d-%m-%y	00:00:00.000000
 15-2001-1	%d-%Y-%c	00:00:00.000000
+Warnings:
+Warning	1411	Incorrect datetime value: '15 SEPTEMB 2001' for function str_to_date
+Warning	1411	Incorrect datetime value: '15 MAY 2001' for function str_to_date
+Warning	1411	Incorrect datetime value: 'Sunday 15 MAY 2001' for function str_to_date
+Warning	1411	Incorrect datetime value: 'Sund 15 MAY 2001' for function str_to_date
 select concat('',str_to_date('8:11:2.123456 03-01-02','%H:%i:%S.%f %y-%m-%d'));
 concat('',str_to_date('8:11:2.123456 03-01-02','%H:%i:%S.%f %y-%m-%d'))
 2003-01-02 08:11:02.123456

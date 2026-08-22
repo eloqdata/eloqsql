@@ -6,6 +6,8 @@ connection master;
 drop table if exists t1;
 delete from mysql.user where user like 'mysqltest\_%';
 delete from mysql.db where user like 'mysqltest\_%';
+Warnings:
+Warning	4202	4 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 delete from mysql.tables_priv where user like 'mysqltest\_%';
 delete from mysql.columns_priv where user like 'mysqltest\_%';
 flush privileges;
@@ -22,6 +24,8 @@ disconnect master;
 connection default;
 delete from mysql.user where user like 'mysqltest\_%';
 delete from mysql.db where user like 'mysqltest\_%';
+Warnings:
+Warning	4202	4 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 delete from mysql.tables_priv where user like 'mysqltest\_%';
 delete from mysql.columns_priv where user like 'mysqltest\_%';
 flush privileges;

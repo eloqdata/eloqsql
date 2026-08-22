@@ -199,7 +199,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` varchar(10) DEFAULT NULL,
   `b` varchar(30) DEFAULT encrypt(`a`,123)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 INSERT INTO t1 (a) VALUES ('hello');
 SELECT * FROM t1;
 a	b

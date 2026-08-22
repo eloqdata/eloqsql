@@ -1673,7 +1673,7 @@ CREATE TABLE t1 (
   KEY (b, c),
   KEY (b, a, c)
 )
-DEFAULT CHARSET = utf8;
+DEFAULT CHARSET = utf8 COLLATE = utf8_bin;
 
 INSERT INTO t1 VALUES 
 (1,  1, 1),
@@ -2255,6 +2255,7 @@ SET max_length_for_sort_data=7000;
 CREATE TABLE t1(a VARCHAR(64), b VARCHAR(2048))DEFAULT CHARSET=utf8;
 INSERT INTO t1 SELECT seq,seq from seq_1_to_100;
 --source include/analyze-format.inc
+--source include/analyze-format.inc
 ANALYZE FORMAT=JSON SELECT * FROM t1 ORDER BY a LIMIT 5;
 SELECT * FROM t1 ORDER BY a LIMIT 5;
 SET max_sort_length= @save_max_sort_length;
@@ -2484,6 +2485,7 @@ insert into t1 select seq, seq, seq  from seq_1_to_100;
 
 --echo # in r_sort_mode it should show sort_key and not packed_sort_key
 --source include/analyze-format.inc
+--source include/analyze-format.inc
 ANALYZE FORMAT=JSON select * from t1 order by a,b,c;
 select * from t1 order by a,b,c;
 
@@ -2507,6 +2509,7 @@ show variables like '%sort_buffer_size';
 
 select a, substr(b, @save_max_sort_length+1) from t1 order by b desc;
 --source include/analyze-format.inc
+--source include/analyze-format.inc
 analyze format=json
 select a, substr(b, @save_max_sort_length+1) from t1 order by b desc;
 
@@ -2525,6 +2528,7 @@ insert into t1 values ('def', 4, 4) , ('efg', 5, 5), ('fgh', 6, 6);
 --echo #
 
 --source include/analyze-format.inc
+--source include/analyze-format.inc
 ANALYZE FORMAT=JSON select a, b, c from t1 order by a, b;
 select a, b, c from t1 order by a, b;
 
@@ -2536,6 +2540,7 @@ set max_sort_length=5;
 --echo # truncation is not possible
 --echo #
 
+--source include/analyze-format.inc
 --source include/analyze-format.inc
 ANALYZE FORMAT=JSON select a, b, c from t1 order by a, b;
 select a, b, c from t1 order by a, b;
@@ -2554,6 +2559,7 @@ select * from t1 order by a;
 --echo #
 --echo # r_sort_mode should show both packed_sort_key and packed_addon_fields
 --echo #
+--source include/analyze-format.inc
 --source include/analyze-format.inc
 analyze format=json select * from t1 order by a;
 drop table t1;
@@ -2668,6 +2674,7 @@ INSERT INTO t2 SELECT seq, seq FROM seq_1_to_50;
 set @save_sort_buffer_size= @@sort_buffer_size;
 set sort_buffer_size=2000;
 --source include/analyze-format.inc
+--source include/analyze-format.inc
 ANALYZE FORMAT=JSON
 SELECT (SELECT sum(t2.b) FROM t2 WHERE t1.b=t2.b GROUP BY t2.a) FROM t1;
 SELECT (SELECT sum(t2.b) FROM t2 WHERE t1.b=t2.b GROUP BY t2.a) FROM t1;
@@ -2696,6 +2703,7 @@ let $query= SELECT t1.a
             ORDER BY t1.a DESC;
 
 eval EXPLAIN $query;
+--source include/explain-no-costs.inc
 eval EXPLAIN FORMAT=JSON $query;
 eval $query;
 
@@ -2705,6 +2713,7 @@ let $query= SELECT t1.a, group_concat(t1.b)
             GROUP BY t1.a DESC;
 
 eval EXPLAIN $query;
+--source include/explain-no-costs.inc
 eval EXPLAIN FORMAT=JSON $query;
 eval $query;
 DROP TABLE t1, t2;

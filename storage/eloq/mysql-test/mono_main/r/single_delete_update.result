@@ -125,7 +125,7 @@ NULL	12	12
 NULL	13	13
 EXPLAIN EXTENDED SELECT * FROM t2 WHERE key1 < 13 or key2 < 14 ORDER BY key1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-x	x	x	x	x	x	x	x	x	x	Using sort_union(key1,key2); Using where; Using filesort
+x	x	x	x	x	x	x	x	x	x	Using where; Using filesort
 Warnings:
 x	x	x
 FLUSH STATUS;
@@ -354,7 +354,7 @@ NULL	12	12
 NULL	13	13
 EXPLAIN EXTENDED SELECT * FROM t2 WHERE key1 < 13 or key2 < 14 ORDER BY key1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-x	x	x	x	x	x	x	x	x	x	Using sort_union(key1,key2); Using where; Using filesort
+x	x	x	x	x	x	x	x	x	x	Using where; Using filesort
 Warnings:
 x	x	x
 FLUSH STATUS;
@@ -367,7 +367,7 @@ i	key1	key2
 123	13	13
 EXPLAIN EXTENDED SELECT * FROM t2 WHERE key1 < 13 or key2 < 14 ORDER BY key1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-x	x	x	x	x	x	x	x	x	x	Using sort_union(key1,key2); Using where; Using filesort
+x	x	x	x	x	x	x	x	x	x	Using where; Using filesort
 Warnings:
 x	x	x
 DROP TABLE t2;

@@ -27,7 +27,6 @@ connect  conn-tx2,localhost,root,,test,$MONO1_PORT;
 connection conn-tx1;
 SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
 START TRANSACTION READ ONLY;
-begin;
 select count(*) from t1;
 count(*)
 5

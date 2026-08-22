@@ -58,7 +58,7 @@ INSERT INTO t1 VALUES (3359362,406,3359362,'Mustermann Musterfrau',7001,'2000-05
 SELECT ELT(FIELD(kundentyp,'PP','PPA','PG','PGA','FK','FKA','FP','FPA','K','KA','V','VA',''), 'Privat (Private Nutzung)','Privat (Private Nutzung) Sitz im Ausland','Privat (geschaeftliche Nutzung)','Privat (geschaeftliche Nutzung) Sitz im Ausland','Firma (Kapitalgesellschaft)','Firma (Kapitalgesellschaft) Sitz im Ausland','Firma (Personengesellschaft)','Firma (Personengesellschaft) Sitz im Ausland','oeff. rechtl. Koerperschaft','oeff. rechtl. Koerperschaft Sitz im Ausland','Eingetragener Verein','Eingetragener Verein Sitz im Ausland','Typ unbekannt') AS Kundentyp ,kategorie FROM t1 WHERE hdl_nr < 2000000 AND kategorie IN ('Prepaid','Mobilfunk') AND st_klasse = 'Workflow' GROUP BY kundentyp ORDER BY kategorie;
 Kundentyp	kategorie
 Warnings:
-Warning	1052	Column 'kundentyp' in group statement is ambiguous
+Warning	1052	Column 'kundentyp' in GROUP BY is ambiguous
 drop table t1;
 CREATE TABLE t1 (
 AUFNR varchar(12) NOT NULL default '',
@@ -256,7 +256,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `x'FF32'` varbinary(2) NOT NULL,
   `CONCAT(x'FF32')` varbinary(2) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1;
 SELECT x'32FF', CONCAT(x'32FF') LIMIT 0;
 x'32FF'	CONCAT(x'32FF')
@@ -266,7 +266,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `x'32FF'` varbinary(2) NOT NULL,
   `CONCAT(x'32FF')` varbinary(2) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1;
 SELECT x'0032', CONCAT(x'0032') LIMIT 0;
 x'0032'	CONCAT(x'0032')
@@ -276,7 +276,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `x'0032'` varbinary(2) NOT NULL,
   `CONCAT(x'0032')` varbinary(2) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1;
 SELECT x'3200', CONCAT(x'3200') LIMIT 0;
 x'3200'	CONCAT(x'3200')
@@ -286,7 +286,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `x'3200'` varbinary(2) NOT NULL,
   `CONCAT(x'3200')` varbinary(2) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1;
 SELECT '0\a', CONCAT('0\a') LIMIT 0;
 0a	CONCAT('0\a')

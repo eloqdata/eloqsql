@@ -1,6 +1,9 @@
 drop table if exists t1;
 set names latin1;
 set collation_connection=latin1_bin;
+#
+# Bug#31081 server crash in regexp function
+#
 drop table if exists t1;
 create table t1 as
 select repeat(' ', 64) as s1, repeat(' ',64) as s2
@@ -11,7 +14,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `s1` varchar(64) DEFAULT NULL,
   `s2` varchar(64) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 delete from t1;
 insert into t1 values('aaa','aaa');
 insert into t1 values('aaa|qqq','qqq');

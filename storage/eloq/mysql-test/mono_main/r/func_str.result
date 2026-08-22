@@ -8,7 +8,7 @@ select 'hello',"'hello'",'""hello""','''h''e''l''l''o''',"hel""lo",'hel\'lo';
 hello	'hello'	""hello""	'h'e'l'l'o'	hel"lo	hel'lo
 hello	'hello'	""hello""	'h'e'l'l'o'	hel"lo	hel'lo
 select 'hello' 'monty';
-hello
+hellomonty
 hellomonty
 select length('\n\t\r\b\0\_\%\\');
 length('\n\t\r\b\0\_\%\\')
@@ -33,7 +33,7 @@ locate('he','hello')	locate('he','hello',2)	locate('lo','hello',2)
 1	0	4
 select instr('hello','HE'), instr('hello',binary 'HE'), instr(binary 'hello','HE');
 instr('hello','HE')	instr('hello',binary 'HE')	instr(binary 'hello','HE')
-0	0	0
+1	0	0
 select position(binary 'll' in 'hello'),position('a' in binary 'hello');
 position(binary 'll' in 'hello')	position('a' in binary 'hello')
 3	0
@@ -494,13 +494,13 @@ select 1=_latin2'1';
 1=_latin2'1'
 1
 select _latin1'1'=_latin2'1';
-ERROR HY000: Illegal mix of collations (latin1_bin,COERCIBLE) and (latin2_general_ci,COERCIBLE) for operation '='
+ERROR HY000: Illegal mix of collations (latin1_swedish_ci,COERCIBLE) and (latin2_general_ci,COERCIBLE) for operation '='
 select row('a','b','c') = row('a','b','c');
 row('a','b','c') = row('a','b','c')
 1
 select row('A','b','c') = row('a','b','c');
 row('A','b','c') = row('a','b','c')
-0
+1
 select row('A' COLLATE latin1_bin,'b','c') = row('a','b','c');
 row('A' COLLATE latin1_bin,'b','c') = row('a','b','c')
 0
@@ -510,16 +510,16 @@ row('A','b','c') = row('a' COLLATE latin1_bin,'b','c')
 select row('A' COLLATE latin1_general_ci,'b','c') = row('a' COLLATE latin1_bin,'b','c');
 ERROR HY000: Illegal mix of collations (latin1_general_ci,EXPLICIT) and (latin1_bin,EXPLICIT) for operation '='
 select concat(_latin1'a',_latin2'a');
-ERROR HY000: Illegal mix of collations (latin1_bin,COERCIBLE) and (latin2_general_ci,COERCIBLE) for operation 'concat'
+ERROR HY000: Illegal mix of collations (latin1_swedish_ci,COERCIBLE) and (latin2_general_ci,COERCIBLE) for operation 'concat'
 select concat(_latin1'a',_latin2'a',_latin5'a');
-ERROR HY000: Illegal mix of collations (latin1_bin,COERCIBLE), (latin2_general_ci,COERCIBLE), (latin5_turkish_ci,COERCIBLE) for operation 'concat'
+ERROR HY000: Illegal mix of collations (latin1_swedish_ci,COERCIBLE), (latin2_general_ci,COERCIBLE), (latin5_turkish_ci,COERCIBLE) for operation 'concat'
 select concat(_latin1'a',_latin2'a',_latin5'a',_latin7'a');
 ERROR HY000: Illegal mix of collations for operation 'concat'
 select concat_ws(_latin1'a',_latin2'a');
-ERROR HY000: Illegal mix of collations (latin1_bin,COERCIBLE) and (latin2_general_ci,COERCIBLE) for operation 'concat_ws'
+ERROR HY000: Illegal mix of collations (latin1_swedish_ci,COERCIBLE) and (latin2_general_ci,COERCIBLE) for operation 'concat_ws'
 select FIELD('b','A','B');
 FIELD('b','A','B')
-0
+2
 select FIELD('B','A','B');
 FIELD('B','A','B')
 2
@@ -530,15 +530,15 @@ select FIELD('b','A' COLLATE latin1_bin,'B');
 FIELD('b','A' COLLATE latin1_bin,'B')
 0
 select FIELD(_latin2'b','A','B');
-ERROR HY000: Illegal mix of collations (latin2_general_ci,COERCIBLE), (latin1_bin,COERCIBLE), (latin1_bin,COERCIBLE) for operation 'field'
+ERROR HY000: Illegal mix of collations (latin2_general_ci,COERCIBLE), (latin1_swedish_ci,COERCIBLE), (latin1_swedish_ci,COERCIBLE) for operation 'field'
 select FIELD('b',_latin2'A','B');
-ERROR HY000: Illegal mix of collations (latin1_bin,COERCIBLE), (latin2_general_ci,COERCIBLE), (latin1_bin,COERCIBLE) for operation 'field'
+ERROR HY000: Illegal mix of collations (latin1_swedish_ci,COERCIBLE), (latin2_general_ci,COERCIBLE), (latin1_swedish_ci,COERCIBLE) for operation 'field'
 select FIELD('1',_latin2'3','2',1);
 FIELD('1',_latin2'3','2',1)
 3
 select POSITION(_latin1'B' IN _latin1'abcd');
 POSITION(_latin1'B' IN _latin1'abcd')
-0
+2
 select POSITION(_latin1'B' IN _latin1'abcd' COLLATE latin1_bin);
 POSITION(_latin1'B' IN _latin1'abcd' COLLATE latin1_bin)
 0
@@ -548,24 +548,24 @@ POSITION(_latin1'B' COLLATE latin1_bin IN _latin1'abcd')
 select POSITION(_latin1'B' COLLATE latin1_general_ci IN _latin1'abcd' COLLATE latin1_bin);
 ERROR HY000: Illegal mix of collations (latin1_bin,EXPLICIT) and (latin1_general_ci,EXPLICIT) for operation 'locate'
 select POSITION(_latin1'B' IN _latin2'abcd');
-ERROR HY000: Illegal mix of collations (latin2_general_ci,COERCIBLE) and (latin1_bin,COERCIBLE) for operation 'locate'
+ERROR HY000: Illegal mix of collations (latin2_general_ci,COERCIBLE) and (latin1_swedish_ci,COERCIBLE) for operation 'locate'
 select FIND_IN_SET(_latin1'B',_latin1'a,b,c,d');
 FIND_IN_SET(_latin1'B',_latin1'a,b,c,d')
-0
+2
 select FIND_IN_SET(_latin1'B' COLLATE latin1_general_ci,_latin1'a,b,c,d' COLLATE latin1_bin);
 ERROR HY000: Illegal mix of collations (latin1_general_ci,EXPLICIT) and (latin1_bin,EXPLICIT) for operation 'find_in_set'
 select FIND_IN_SET(_latin1'B',_latin2'a,b,c,d');
-ERROR HY000: Illegal mix of collations (latin1_bin,COERCIBLE) and (latin2_general_ci,COERCIBLE) for operation 'find_in_set'
+ERROR HY000: Illegal mix of collations (latin1_swedish_ci,COERCIBLE) and (latin2_general_ci,COERCIBLE) for operation 'find_in_set'
 select SUBSTRING_INDEX(_latin1'abcdabcdabcd',_latin1'd',2);
 SUBSTRING_INDEX(_latin1'abcdabcdabcd',_latin1'd',2)
 abcdabc
 select SUBSTRING_INDEX(_latin1'abcdabcdabcd',_latin2'd',2);
-ERROR HY000: Illegal mix of collations (latin1_bin,COERCIBLE) and (latin2_general_ci,COERCIBLE) for operation 'substring_index'
+ERROR HY000: Illegal mix of collations (latin1_swedish_ci,COERCIBLE) and (latin2_general_ci,COERCIBLE) for operation 'substring_index'
 select SUBSTRING_INDEX(_latin1'abcdabcdabcd' COLLATE latin1_general_ci,_latin1'd' COLLATE latin1_bin,2);
 ERROR HY000: Illegal mix of collations (latin1_general_ci,EXPLICIT) and (latin1_bin,EXPLICIT) for operation 'substring_index'
 select _latin1'B' between _latin1'a' and _latin1'c';
 _latin1'B' between _latin1'a' and _latin1'c'
-0
+1
 select _latin1'B' collate latin1_bin between _latin1'a' and _latin1'c';
 _latin1'B' collate latin1_bin between _latin1'a' and _latin1'c'
 0
@@ -576,16 +576,16 @@ select _latin1'B' between _latin1'a' and _latin1'c' collate latin1_bin;
 _latin1'B' between _latin1'a' and _latin1'c' collate latin1_bin
 0
 select _latin2'B' between _latin1'a' and _latin1'b';
-ERROR HY000: Illegal mix of collations (latin2_general_ci,COERCIBLE), (latin1_bin,COERCIBLE), (latin1_bin,COERCIBLE) for operation 'between'
+ERROR HY000: Illegal mix of collations (latin2_general_ci,COERCIBLE), (latin1_swedish_ci,COERCIBLE), (latin1_swedish_ci,COERCIBLE) for operation 'between'
 select _latin1'B' between _latin2'a' and _latin1'b';
-ERROR HY000: Illegal mix of collations (latin1_bin,COERCIBLE), (latin2_general_ci,COERCIBLE), (latin1_bin,COERCIBLE) for operation 'between'
+ERROR HY000: Illegal mix of collations (latin1_swedish_ci,COERCIBLE), (latin2_general_ci,COERCIBLE), (latin1_swedish_ci,COERCIBLE) for operation 'between'
 select _latin1'B' between _latin1'a' and _latin2'b';
-ERROR HY000: Illegal mix of collations (latin1_bin,COERCIBLE), (latin1_bin,COERCIBLE), (latin2_general_ci,COERCIBLE) for operation 'between'
+ERROR HY000: Illegal mix of collations (latin1_swedish_ci,COERCIBLE), (latin1_swedish_ci,COERCIBLE), (latin2_general_ci,COERCIBLE) for operation 'between'
 select _latin1'B' collate latin1_general_ci between _latin1'a' collate latin1_bin and _latin1'b';
-ERROR HY000: Illegal mix of collations (latin1_general_ci,EXPLICIT), (latin1_bin,EXPLICIT), (latin1_bin,COERCIBLE) for operation 'between'
+ERROR HY000: Illegal mix of collations (latin1_general_ci,EXPLICIT), (latin1_bin,EXPLICIT), (latin1_swedish_ci,COERCIBLE) for operation 'between'
 select _latin1'B' in (_latin1'a',_latin1'b');
 _latin1'B' in (_latin1'a',_latin1'b')
-0
+1
 select _latin1'B' collate latin1_bin in (_latin1'a',_latin1'b');
 _latin1'B' collate latin1_bin in (_latin1'a',_latin1'b')
 0
@@ -596,114 +596,114 @@ select _latin1'B' in (_latin1'a',_latin1'b' collate latin1_bin);
 _latin1'B' in (_latin1'a',_latin1'b' collate latin1_bin)
 0
 select _latin2'B' in (_latin1'a',_latin1'b');
-ERROR HY000: Illegal mix of collations (latin2_general_ci,COERCIBLE), (latin1_bin,COERCIBLE), (latin1_bin,COERCIBLE) for operation 'in'
+ERROR HY000: Illegal mix of collations (latin2_general_ci,COERCIBLE), (latin1_swedish_ci,COERCIBLE), (latin1_swedish_ci,COERCIBLE) for operation 'in'
 select _latin1'B' in (_latin2'a',_latin1'b');
-ERROR HY000: Illegal mix of collations (latin1_bin,COERCIBLE), (latin2_general_ci,COERCIBLE), (latin1_bin,COERCIBLE) for operation 'in'
+ERROR HY000: Illegal mix of collations (latin1_swedish_ci,COERCIBLE), (latin2_general_ci,COERCIBLE), (latin1_swedish_ci,COERCIBLE) for operation 'in'
 select _latin1'B' in (_latin1'a',_latin2'b');
-ERROR HY000: Illegal mix of collations (latin1_bin,COERCIBLE), (latin1_bin,COERCIBLE), (latin2_general_ci,COERCIBLE) for operation 'in'
+ERROR HY000: Illegal mix of collations (latin1_swedish_ci,COERCIBLE), (latin1_swedish_ci,COERCIBLE), (latin2_general_ci,COERCIBLE) for operation 'in'
 select _latin1'B' COLLATE latin1_general_ci in (_latin1'a' COLLATE latin1_bin,_latin1'b');
-ERROR HY000: Illegal mix of collations (latin1_general_ci,EXPLICIT), (latin1_bin,EXPLICIT), (latin1_bin,COERCIBLE) for operation 'in'
+ERROR HY000: Illegal mix of collations (latin1_general_ci,EXPLICIT), (latin1_bin,EXPLICIT), (latin1_swedish_ci,COERCIBLE) for operation 'in'
 select _latin1'B' COLLATE latin1_general_ci in (_latin1'a',_latin1'b' COLLATE latin1_bin);
-ERROR HY000: Illegal mix of collations (latin1_general_ci,EXPLICIT), (latin1_bin,COERCIBLE), (latin1_bin,EXPLICIT) for operation 'in'
+ERROR HY000: Illegal mix of collations (latin1_general_ci,EXPLICIT), (latin1_swedish_ci,COERCIBLE), (latin1_bin,EXPLICIT) for operation 'in'
 select collation(bin(130)), coercibility(bin(130));
 collation(bin(130))	coercibility(bin(130))
-latin1_bin	4
+latin1_swedish_ci	6
 select collation(oct(130)), coercibility(oct(130));
 collation(oct(130))	coercibility(oct(130))
-latin1_bin	4
+latin1_swedish_ci	6
 select collation(conv(130,16,10)), coercibility(conv(130,16,10));
 collation(conv(130,16,10))	coercibility(conv(130,16,10))
-latin1_bin	4
+latin1_swedish_ci	6
 select collation(hex(130)), coercibility(hex(130));
 collation(hex(130))	coercibility(hex(130))
-latin1_bin	4
+latin1_swedish_ci	6
 select collation(char(130)), coercibility(hex(130));
 collation(char(130))	coercibility(hex(130))
-binary	4
+binary	6
 select collation(format(130,10)), coercibility(format(130,10));
 collation(format(130,10))	coercibility(format(130,10))
-latin1_bin	4
+latin1_swedish_ci	6
 select collation(lcase(_latin2'a')), coercibility(lcase(_latin2'a'));
 collation(lcase(_latin2'a'))	coercibility(lcase(_latin2'a'))
-latin2_general_ci	4
+latin2_general_ci	6
 select collation(ucase(_latin2'a')), coercibility(ucase(_latin2'a'));
 collation(ucase(_latin2'a'))	coercibility(ucase(_latin2'a'))
-latin2_general_ci	4
+latin2_general_ci	6
 select collation(left(_latin2'a',1)), coercibility(left(_latin2'a',1));
 collation(left(_latin2'a',1))	coercibility(left(_latin2'a',1))
-latin2_general_ci	4
+latin2_general_ci	6
 select collation(right(_latin2'a',1)), coercibility(right(_latin2'a',1));
 collation(right(_latin2'a',1))	coercibility(right(_latin2'a',1))
-latin2_general_ci	4
+latin2_general_ci	6
 select collation(substring(_latin2'a',1,1)), coercibility(substring(_latin2'a',1,1));
 collation(substring(_latin2'a',1,1))	coercibility(substring(_latin2'a',1,1))
-latin2_general_ci	4
+latin2_general_ci	6
 select collation(concat(_latin2'a',_latin2'b')), coercibility(concat(_latin2'a',_latin2'b'));
 collation(concat(_latin2'a',_latin2'b'))	coercibility(concat(_latin2'a',_latin2'b'))
-latin2_general_ci	4
+latin2_general_ci	6
 select collation(lpad(_latin2'a',4,_latin2'b')), coercibility(lpad(_latin2'a',4,_latin2'b'));
 collation(lpad(_latin2'a',4,_latin2'b'))	coercibility(lpad(_latin2'a',4,_latin2'b'))
-latin2_general_ci	4
+latin2_general_ci	6
 select collation(lpad(_latin2'a',4)), coercibility(lpad(_latin2'a',4));
 collation(lpad(_latin2'a',4))	coercibility(lpad(_latin2'a',4))
-latin2_general_ci	4
+latin2_general_ci	6
 select collation(rpad(_latin2'a',4,_latin2'b')), coercibility(rpad(_latin2'a',4,_latin2'b'));
 collation(rpad(_latin2'a',4,_latin2'b'))	coercibility(rpad(_latin2'a',4,_latin2'b'))
-latin2_general_ci	4
+latin2_general_ci	6
 select collation(rpad(_latin2'a',4)), coercibility(rpad(_latin2'a',4));
 collation(rpad(_latin2'a',4))	coercibility(rpad(_latin2'a',4))
-latin2_general_ci	4
+latin2_general_ci	6
 select collation(concat_ws(_latin2'a',_latin2'b')), coercibility(concat_ws(_latin2'a',_latin2'b'));
 collation(concat_ws(_latin2'a',_latin2'b'))	coercibility(concat_ws(_latin2'a',_latin2'b'))
-latin2_general_ci	4
+latin2_general_ci	6
 select collation(make_set(255,_latin2'a',_latin2'b',_latin2'c')), coercibility(make_set(255,_latin2'a',_latin2'b',_latin2'c'));
 collation(make_set(255,_latin2'a',_latin2'b',_latin2'c'))	coercibility(make_set(255,_latin2'a',_latin2'b',_latin2'c'))
-latin2_general_ci	4
+latin2_general_ci	6
 select collation(export_set(255,_latin2'y',_latin2'n',_latin2' ')), coercibility(export_set(255,_latin2'y',_latin2'n',_latin2' '));
 collation(export_set(255,_latin2'y',_latin2'n',_latin2' '))	coercibility(export_set(255,_latin2'y',_latin2'n',_latin2' '))
-latin2_general_ci	4
+latin2_general_ci	6
 select collation(trim(_latin2' a ')), coercibility(trim(_latin2' a '));
 collation(trim(_latin2' a '))	coercibility(trim(_latin2' a '))
-latin2_general_ci	4
+latin2_general_ci	6
 select collation(ltrim(_latin2' a ')), coercibility(ltrim(_latin2' a '));
 collation(ltrim(_latin2' a '))	coercibility(ltrim(_latin2' a '))
-latin2_general_ci	4
+latin2_general_ci	6
 select collation(rtrim(_latin2' a ')), coercibility(rtrim(_latin2' a '));
 collation(rtrim(_latin2' a '))	coercibility(rtrim(_latin2' a '))
-latin2_general_ci	4
+latin2_general_ci	6
 select collation(trim(LEADING _latin2' ' FROM _latin2'a')), coercibility(trim(LEADING _latin2'a' FROM _latin2'a'));
 collation(trim(LEADING _latin2' ' FROM _latin2'a'))	coercibility(trim(LEADING _latin2'a' FROM _latin2'a'))
-latin2_general_ci	4
+latin2_general_ci	6
 select collation(trim(TRAILING _latin2' ' FROM _latin2'a')), coercibility(trim(TRAILING _latin2'a' FROM _latin2'a'));
 collation(trim(TRAILING _latin2' ' FROM _latin2'a'))	coercibility(trim(TRAILING _latin2'a' FROM _latin2'a'))
-latin2_general_ci	4
+latin2_general_ci	6
 select collation(trim(BOTH _latin2' ' FROM _latin2'a')), coercibility(trim(BOTH _latin2'a' FROM _latin2'a'));
 collation(trim(BOTH _latin2' ' FROM _latin2'a'))	coercibility(trim(BOTH _latin2'a' FROM _latin2'a'))
-latin2_general_ci	4
+latin2_general_ci	6
 select collation(repeat(_latin2'a',10)), coercibility(repeat(_latin2'a',10));
 collation(repeat(_latin2'a',10))	coercibility(repeat(_latin2'a',10))
-latin2_general_ci	4
+latin2_general_ci	6
 select collation(reverse(_latin2'ab')), coercibility(reverse(_latin2'ab'));
 collation(reverse(_latin2'ab'))	coercibility(reverse(_latin2'ab'))
-latin2_general_ci	4
+latin2_general_ci	6
 select collation(quote(_latin2'ab')), coercibility(quote(_latin2'ab'));
 collation(quote(_latin2'ab'))	coercibility(quote(_latin2'ab'))
-latin2_general_ci	4
+latin2_general_ci	6
 select collation(soundex(_latin2'ab')), coercibility(soundex(_latin2'ab'));
 collation(soundex(_latin2'ab'))	coercibility(soundex(_latin2'ab'))
-latin2_general_ci	4
+latin2_general_ci	6
 select collation(substring(_latin2'ab',1)), coercibility(substring(_latin2'ab',1));
 collation(substring(_latin2'ab',1))	coercibility(substring(_latin2'ab',1))
-latin2_general_ci	4
+latin2_general_ci	6
 select collation(insert(_latin2'abcd',2,3,_latin2'ef')), coercibility(insert(_latin2'abcd',2,3,_latin2'ef'));
 collation(insert(_latin2'abcd',2,3,_latin2'ef'))	coercibility(insert(_latin2'abcd',2,3,_latin2'ef'))
-latin2_general_ci	4
+latin2_general_ci	6
 select collation(replace(_latin2'abcd',_latin2'b',_latin2'B')), coercibility(replace(_latin2'abcd',_latin2'b',_latin2'B'));
 collation(replace(_latin2'abcd',_latin2'b',_latin2'B'))	coercibility(replace(_latin2'abcd',_latin2'b',_latin2'B'))
-latin2_general_ci	4
+latin2_general_ci	6
 select collation(encode('abcd','ab')), coercibility(encode('abcd','ab'));
 collation(encode('abcd','ab'))	coercibility(encode('abcd','ab'))
-binary	4
+binary	6
 create table t1 
 select
 bin(130),
@@ -743,50 +743,50 @@ encode('abcd','ab')
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `bin(130)` varchar(64) DEFAULT NULL,
-  `oct(130)` varchar(64) DEFAULT NULL,
-  `conv(130,16,10)` varchar(64) DEFAULT NULL,
-  `hex(130)` varchar(6) DEFAULT NULL,
+  `bin(130)` varchar(65) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `oct(130)` varchar(65) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `conv(130,16,10)` varchar(65) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `hex(130)` varchar(16) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
   `char(130)` varbinary(4) DEFAULT NULL,
-  `format(130,10)` varchar(25) DEFAULT NULL,
-  `left(_latin1'a',1)` varchar(1) DEFAULT NULL,
-  `right(_latin1'a',1)` varchar(1) DEFAULT NULL,
-  `lcase(_latin1'a')` varchar(1) DEFAULT NULL,
-  `ucase(_latin1'a')` varchar(1) DEFAULT NULL,
-  `substring(_latin1'a',1,1)` varchar(1) DEFAULT NULL,
-  `concat(_latin1'a',_latin1'b')` varchar(2) DEFAULT NULL,
-  `lpad(_latin1'a',4,_latin1'b')` varchar(4) DEFAULT NULL,
-  `rpad(_latin1'a',4,_latin1'b')` varchar(4) DEFAULT NULL,
-  `lpad(_latin1'a',4)` varchar(4) DEFAULT NULL,
-  `rpad(_latin1'a',4)` varchar(4) DEFAULT NULL,
-  `concat_ws(_latin1'a',_latin1'b')` varchar(1) DEFAULT NULL,
-  `make_set(255,_latin1'a',_latin1'b',_latin1'c')` varchar(5) DEFAULT NULL,
-  `export_set(255,_latin1'y',_latin1'n',_latin1' ')` varchar(127) DEFAULT NULL,
-  `trim(_latin1' a ')` varchar(3) DEFAULT NULL,
-  `ltrim(_latin1' a ')` varchar(3) DEFAULT NULL,
-  `rtrim(_latin1' a ')` varchar(3) DEFAULT NULL,
-  `trim(LEADING _latin1' ' FROM _latin1' a ')` varchar(3) DEFAULT NULL,
-  `trim(TRAILING _latin1' ' FROM _latin1' a ')` varchar(3) DEFAULT NULL,
-  `trim(BOTH _latin1' ' FROM _latin1' a ')` varchar(3) DEFAULT NULL,
-  `repeat(_latin1'a',10)` varchar(10) DEFAULT NULL,
-  `reverse(_latin1'ab')` varchar(2) DEFAULT NULL,
-  `quote(_latin1'ab')` varchar(6) DEFAULT NULL,
-  `soundex(_latin1'ab')` varchar(4) DEFAULT NULL,
-  `substring(_latin1'ab',1)` varchar(2) DEFAULT NULL,
-  `insert(_latin1'abcd',2,3,_latin1'ef')` varchar(6) DEFAULT NULL,
-  `replace(_latin1'abcd',_latin1'b',_latin1'B')` varchar(4) DEFAULT NULL,
+  `format(130,10)` varchar(25) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `left(_latin1'a',1)` varchar(1) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `right(_latin1'a',1)` varchar(1) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `lcase(_latin1'a')` varchar(1) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `ucase(_latin1'a')` varchar(1) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `substring(_latin1'a',1,1)` varchar(1) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `concat(_latin1'a',_latin1'b')` varchar(2) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `lpad(_latin1'a',4,_latin1'b')` varchar(4) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `rpad(_latin1'a',4,_latin1'b')` varchar(4) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `lpad(_latin1'a',4)` varchar(4) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `rpad(_latin1'a',4)` varchar(4) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `concat_ws(_latin1'a',_latin1'b')` varchar(1) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `make_set(255,_latin1'a',_latin1'b',_latin1'c')` varchar(5) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `export_set(255,_latin1'y',_latin1'n',_latin1' ')` varchar(127) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `trim(_latin1' a ')` varchar(3) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `ltrim(_latin1' a ')` varchar(3) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `rtrim(_latin1' a ')` varchar(3) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `trim(LEADING _latin1' ' FROM _latin1' a ')` varchar(3) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `trim(TRAILING _latin1' ' FROM _latin1' a ')` varchar(3) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `trim(BOTH _latin1' ' FROM _latin1' a ')` varchar(3) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `repeat(_latin1'a',10)` varchar(10) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `reverse(_latin1'ab')` varchar(2) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `quote(_latin1'ab')` varchar(6) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `soundex(_latin1'ab')` varchar(4) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `substring(_latin1'ab',1)` varchar(2) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `insert(_latin1'abcd',2,3,_latin1'ef')` varchar(6) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `replace(_latin1'abcd',_latin1'b',_latin1'B')` varchar(4) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
   `encode('abcd','ab')` varbinary(4) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1 (a char character set latin1);
 insert into t1 values (null);
 select charset(a), collation(a), coercibility(a) from t1;
 charset(a)	collation(a)	coercibility(a)
-latin1	latin1_bin	2
+latin1	latin1_swedish_ci	2
 drop table t1;
 select charset(null), collation(null), coercibility(null);
 charset(null)	collation(null)	coercibility(null)
-binary	binary	6
+binary	binary	8
 CREATE TABLE t1 (a int, b int);
 CREATE TABLE t2 (a int, b int);
 INSERT INTO t1 VALUES (1,1),(2,2);
@@ -804,8 +804,6 @@ a	b	a	b
 select t1.*,t2.* from t1 left join t2 on (t1.b=t2.b)
 where coercibility(t2.a) = 5 order by t1.a,t2.a;
 a	b	a	b
-1	1	NULL	NULL
-2	2	2	2
 DROP TABLE t1, t2;
 select SUBSTR('abcdefg',3,2);
 SUBSTR('abcdefg',3,2)
@@ -970,17 +968,17 @@ explain extended select length('\n\t\r\b\0\_\%\\');
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	No tables used
 Warnings:
-Note	1003	select octet_length('\n	\r\0008\0\\_\\%\\') AS `length('\n\t\r\b\0\_\%\\')`
+Note	1003	select octet_length('\n\t\r\b\0\\_\\%\\') AS `length('\n\t\r\b\0\_\%\\')`
 explain extended select bit_length('\n\t\r\b\0\_\%\\');
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	No tables used
 Warnings:
-Note	1003	select bit_length('\n	\r\0008\0\\_\\%\\') AS `bit_length('\n\t\r\b\0\_\%\\')`
+Note	1003	select bit_length('\n\t\r\b\0\\_\\%\\') AS `bit_length('\n\t\r\b\0\_\%\\')`
 explain extended select bit_length('\n\t\r\b\0\_\%\\');
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	No tables used
 Warnings:
-Note	1003	select bit_length('\n	\r\0008\0\\_\\%\\') AS `bit_length('\n\t\r\b\0\_\%\\')`
+Note	1003	select bit_length('\n\t\r\b\0\\_\\%\\') AS `bit_length('\n\t\r\b\0\_\%\\')`
 explain extended select concat('monty',' was here ','again');
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	No tables used
@@ -1079,7 +1077,7 @@ conv(71, 10, 36)	conv('1Z', 36, 10)
 1Z	71
 SELECT conv(71, 10, 37), conv('1Z', 37, 10), conv(0,1,10),conv(0,0,10), conv(0,-1,10);
 conv(71, 10, 37)	conv('1Z', 37, 10)	conv(0,1,10)	conv(0,0,10)	conv(0,-1,10)
-NULL	NULL	NULL	NULL	NULL
+1Y	72	NULL	NULL	NULL
 create table t1 (id int(1), str varchar(10)) DEFAULT CHARSET=utf8;
 insert into t1 values (1,'aaaaaaaaaa'), (2,'bbbbbbbbbb');
 create table t2 (id int(1), str varchar(10)) DEFAULT CHARSET=utf8;
@@ -2896,18 +2894,16 @@ format(12345678901234567890.123, 3)
 12,345,678,901,234,567,890.123
 SELECT format(12345678901234567890.123, 3, NULL);
 format(12345678901234567890.123, 3, NULL)
-12,345,678,901,234,567,890.123
-Warnings:
-Warning	1649	Unknown locale: 'NULL'
+NULL
 SELECT format(12345678901234567890.123, 3, 'ar_AE');
 format(12345678901234567890.123, 3, 'ar_AE')
 12,345,678,901,234,567,890.123
 SELECT format(12345678901234567890.123, 3, 'ar_SA');
 format(12345678901234567890.123, 3, 'ar_SA')
-12345678901234567890.123
+12,345,678,901,234,567,890.123
 SELECT format(12345678901234567890.123, 3, 'be_BY');
 format(12345678901234567890.123, 3, 'be_BY')
-12.345.678.901.234.567.890,123
+12 345 678 901 234 567 890,123
 SELECT format(12345678901234567890.123, 3, 'de_DE');
 format(12345678901234567890.123, 3, 'de_DE')
 12.345.678.901.234.567.890,123
@@ -2919,7 +2915,7 @@ format(12345678901234567890.123, 3, 'en_US')
 12,345,678,901,234,567,890.123
 SELECT format(12345678901234567890.123, 3, 'it_CH');
 format(12345678901234567890.123, 3, 'it_CH')
-12'345'678'901'234'567'890,123
+12'345'678'901'234'567'890.123
 SELECT format(12345678901234567890.123, 3, 'ru_RU');
 format(12345678901234567890.123, 3, 'ru_RU')
 12 345 678 901 234 567 890,123
@@ -2939,19 +2935,19 @@ INSERT INTO t1 VALUES ('ta_IN');
 SELECT fmt, format(12345678901234567890.123, 3, fmt) FROM t1 ORDER BY fmt;
 fmt	format(12345678901234567890.123, 3, fmt)
 ar_AE	12,345,678,901,234,567,890.123
-ar_SA	12345678901234567890.123
-be_BY	12.345.678.901.234.567.890,123
+ar_SA	12,345,678,901,234,567,890.123
+be_BY	12 345 678 901 234 567 890,123
 de_DE	12.345.678.901.234.567.890,123
 en_IN	1,23,45,67,89,01,23,45,67,890.123
 en_US	12,345,678,901,234,567,890.123
-it_CH	12'345'678'901'234'567'890,123
+it_CH	12'345'678'901'234'567'890.123
 ru_RU	12 345 678 901 234 567 890,123
 ta_IN	1,23,45,67,89,01,23,45,67,890.123
 SELECT fmt, format(12345678901234567890.123, 0, fmt) FROM t1 ORDER BY fmt;
 fmt	format(12345678901234567890.123, 0, fmt)
 ar_AE	12,345,678,901,234,567,890
-ar_SA	12345678901234567890
-be_BY	12.345.678.901.234.567.890
+ar_SA	12,345,678,901,234,567,890
+be_BY	12 345 678 901 234 567 890
 de_DE	12.345.678.901.234.567.890
 en_IN	1,23,45,67,89,01,23,45,67,890
 en_US	12,345,678,901,234,567,890
@@ -2961,56 +2957,56 @@ ta_IN	1,23,45,67,89,01,23,45,67,890
 SELECT fmt, format(12345678901234567890,     3, fmt) FROM t1 ORDER BY fmt;
 fmt	format(12345678901234567890,     3, fmt)
 ar_AE	12,345,678,901,234,567,890.000
-ar_SA	12345678901234567890.000
-be_BY	12.345.678.901.234.567.890,000
+ar_SA	12,345,678,901,234,567,890.000
+be_BY	12 345 678 901 234 567 890,000
 de_DE	12.345.678.901.234.567.890,000
 en_IN	1,23,45,67,89,01,23,45,67,890.000
 en_US	12,345,678,901,234,567,890.000
-it_CH	12'345'678'901'234'567'890,000
+it_CH	12'345'678'901'234'567'890.000
 ru_RU	12 345 678 901 234 567 890,000
 ta_IN	1,23,45,67,89,01,23,45,67,890.000
 SELECT fmt, format(-12345678901234567890,    3, fmt) FROM t1 ORDER BY fmt;
 fmt	format(-12345678901234567890,    3, fmt)
 ar_AE	-12,345,678,901,234,567,890.000
-ar_SA	-12345678901234567890.000
-be_BY	-12.345.678.901.234.567.890,000
+ar_SA	-12,345,678,901,234,567,890.000
+be_BY	-12 345 678 901 234 567 890,000
 de_DE	-12.345.678.901.234.567.890,000
 en_IN	-1,23,45,67,89,01,23,45,67,890.000
 en_US	-12,345,678,901,234,567,890.000
-it_CH	-12'345'678'901'234'567'890,000
+it_CH	-12'345'678'901'234'567'890.000
 ru_RU	-12 345 678 901 234 567 890,000
 ta_IN	-1,23,45,67,89,01,23,45,67,890.000
 SELECT fmt, format(-02345678901234567890,    3, fmt) FROM t1 ORDER BY fmt;
 fmt	format(-02345678901234567890,    3, fmt)
 ar_AE	-2,345,678,901,234,567,890.000
-ar_SA	-2345678901234567890.000
-be_BY	-2.345.678.901.234.567.890,000
+ar_SA	-2,345,678,901,234,567,890.000
+be_BY	-2 345 678 901 234 567 890,000
 de_DE	-2.345.678.901.234.567.890,000
 en_IN	-23,45,67,89,01,23,45,67,890.000
 en_US	-2,345,678,901,234,567,890.000
-it_CH	-2'345'678'901'234'567'890,000
+it_CH	-2'345'678'901'234'567'890.000
 ru_RU	-2 345 678 901 234 567 890,000
 ta_IN	-23,45,67,89,01,23,45,67,890.000
 SELECT fmt, format(-00345678901234567890,    3, fmt) FROM t1 ORDER BY fmt;
 fmt	format(-00345678901234567890,    3, fmt)
 ar_AE	-345,678,901,234,567,890.000
-ar_SA	-345678901234567890.000
-be_BY	-345.678.901.234.567.890,000
+ar_SA	-345,678,901,234,567,890.000
+be_BY	-345 678 901 234 567 890,000
 de_DE	-345.678.901.234.567.890,000
 en_IN	-3,45,67,89,01,23,45,67,890.000
 en_US	-345,678,901,234,567,890.000
-it_CH	-345'678'901'234'567'890,000
+it_CH	-345'678'901'234'567'890.000
 ru_RU	-345 678 901 234 567 890,000
 ta_IN	-3,45,67,89,01,23,45,67,890.000
 SELECT fmt, format(-00045678901234567890,    3, fmt) FROM t1 ORDER BY fmt;
 fmt	format(-00045678901234567890,    3, fmt)
 ar_AE	-45,678,901,234,567,890.000
-ar_SA	-45678901234567890.000
-be_BY	-45.678.901.234.567.890,000
+ar_SA	-45,678,901,234,567,890.000
+be_BY	-45 678 901 234 567 890,000
 de_DE	-45.678.901.234.567.890,000
 en_IN	-45,67,89,01,23,45,67,890.000
 en_US	-45,678,901,234,567,890.000
-it_CH	-45'678'901'234'567'890,000
+it_CH	-45'678'901'234'567'890.000
 ru_RU	-45 678 901 234 567 890,000
 ta_IN	-45,67,89,01,23,45,67,890.000
 DROP TABLE t1;
@@ -3028,16 +3024,16 @@ End of 5.4 tests
 #
 SELECT FORMAT(123.33, 2, 'no_NO'), FORMAT(1123.33, 2, 'no_NO');
 FORMAT(123.33, 2, 'no_NO')	FORMAT(1123.33, 2, 'no_NO')
-123,33	1.123,33
+123,33	1 123,33
 SELECT FORMAT(12333e-2, 2, 'no_NO'), FORMAT(112333e-2, 2, 'no_NO');
 FORMAT(12333e-2, 2, 'no_NO')	FORMAT(112333e-2, 2, 'no_NO')
-123,33	1.123,33
+123,33	1 123,33
 CREATE TABLE t1 AS SELECT format(123,2,'no_NO');
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `format(123,2,'no_NO')` varchar(17) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `format(123,2,'no_NO')` varchar(17) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t1;
 format(123,2,'no_NO')
 123,00
@@ -3190,17 +3186,17 @@ RPAD('a',10,RAND());
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `LPAD('a',10,' ')` varchar(10) DEFAULT NULL,
-  `RPAD('a',10,' ')` varchar(10) DEFAULT NULL,
-  `LPAD('a',10,'  ')` varchar(10) DEFAULT NULL,
-  `RPAD('a',10,'  ')` varchar(10) DEFAULT NULL,
-  `LPAD('a',10,NULL)` varchar(10) DEFAULT NULL,
-  `RPAD('a',10,NULL)` varchar(10) DEFAULT NULL,
-  `LPAD('a',10,'')` varchar(10) DEFAULT NULL,
-  `RPAD('a',10,'')` varchar(10) DEFAULT NULL,
-  `LPAD('a',10,RAND())` varchar(10) DEFAULT NULL,
-  `RPAD('a',10,RAND())` varchar(10) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `LPAD('a',10,' ')` varchar(10) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `RPAD('a',10,' ')` varchar(10) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `LPAD('a',10,'  ')` varchar(10) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `RPAD('a',10,'  ')` varchar(10) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `LPAD('a',10,NULL)` varchar(10) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `RPAD('a',10,NULL)` varchar(10) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `LPAD('a',10,'')` varchar(10) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `RPAD('a',10,'')` varchar(10) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `LPAD('a',10,RAND())` varchar(10) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `RPAD('a',10,RAND())` varchar(10) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1;
 SET SESSION SQL_MODE= '';
 CREATE TABLE t1 AS SELECT
@@ -3217,17 +3213,17 @@ RPAD('a',10,RAND());
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `LPAD('a',10,' ')` varchar(10) NOT NULL,
-  `RPAD('a',10,' ')` varchar(10) NOT NULL,
-  `LPAD('a',10,'  ')` varchar(10) NOT NULL,
-  `RPAD('a',10,'  ')` varchar(10) NOT NULL,
-  `LPAD('a',10,NULL)` varchar(10) DEFAULT NULL,
-  `RPAD('a',10,NULL)` varchar(10) DEFAULT NULL,
-  `LPAD('a',10,'')` varchar(10) DEFAULT NULL,
-  `RPAD('a',10,'')` varchar(10) DEFAULT NULL,
-  `LPAD('a',10,RAND())` varchar(10) DEFAULT NULL,
-  `RPAD('a',10,RAND())` varchar(10) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `LPAD('a',10,' ')` varchar(10) CHARACTER SET latin1 COLLATE latin1_swedish_ci NOT NULL,
+  `RPAD('a',10,' ')` varchar(10) CHARACTER SET latin1 COLLATE latin1_swedish_ci NOT NULL,
+  `LPAD('a',10,'  ')` varchar(10) CHARACTER SET latin1 COLLATE latin1_swedish_ci NOT NULL,
+  `RPAD('a',10,'  ')` varchar(10) CHARACTER SET latin1 COLLATE latin1_swedish_ci NOT NULL,
+  `LPAD('a',10,NULL)` varchar(10) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `RPAD('a',10,NULL)` varchar(10) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `LPAD('a',10,'')` varchar(10) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `RPAD('a',10,'')` varchar(10) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `LPAD('a',10,RAND())` varchar(10) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
+  `RPAD('a',10,RAND())` varchar(10) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1;
 SET SESSION SQL_MODE=DEFAULT;
 #
@@ -3243,8 +3239,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',63)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(85) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(85) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFh
@@ -3254,7 +3250,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(66) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	63
@@ -3265,8 +3261,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',62)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(85) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(85) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFh
@@ -3276,7 +3272,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(66) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	62
@@ -3287,8 +3283,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',61)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(85) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(85) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFh
@@ -3298,7 +3294,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(66) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	61
@@ -3309,8 +3305,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',60)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(81) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(81) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFh
@@ -3320,7 +3316,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(63) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	60
@@ -3331,8 +3327,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',59)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(81) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(81) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFh
@@ -3342,7 +3338,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(63) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	59
@@ -3353,8 +3349,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',58)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(81) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(81) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFh
@@ -3364,7 +3360,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(63) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	58
@@ -3375,8 +3371,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',57)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(76) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(76) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFh	76
@@ -3385,7 +3381,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(57) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	57
@@ -3396,8 +3392,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',56)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(76) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(76) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=	76
@@ -3406,7 +3402,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(57) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	56
@@ -3417,8 +3413,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',55)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(76) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(76) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYQ==	76
@@ -3427,7 +3423,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(57) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	55
@@ -3438,8 +3434,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',54)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(72) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(72) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFh	72
@@ -3448,7 +3444,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(54) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	54
@@ -3459,8 +3455,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',53)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(72) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(72) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=	72
@@ -3469,7 +3465,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(54) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	53
@@ -3480,8 +3476,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',52)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(72) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(72) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYQ==	72
@@ -3490,7 +3486,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(54) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	52
@@ -3501,8 +3497,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',51)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(68) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(68) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFh	68
@@ -3511,7 +3507,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(51) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	51
@@ -3522,8 +3518,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',50)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(68) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(68) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=	68
@@ -3532,7 +3528,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(51) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	50
@@ -3543,8 +3539,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',49)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(68) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(68) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYQ==	68
@@ -3553,7 +3549,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(51) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	49
@@ -3564,8 +3560,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',48)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(64) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(64) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFh	64
@@ -3574,7 +3570,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(48) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	48
@@ -3585,8 +3581,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',47)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(64) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(64) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=	64
@@ -3595,7 +3591,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(48) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	47
@@ -3606,8 +3602,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',46)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(64) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(64) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYQ==	64
@@ -3616,7 +3612,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(48) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	46
@@ -3627,8 +3623,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',45)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(60) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(60) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFh	60
@@ -3637,7 +3633,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(45) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	45
@@ -3648,8 +3644,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',44)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(60) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(60) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=	60
@@ -3658,7 +3654,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(45) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	44
@@ -3669,8 +3665,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',43)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(60) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(60) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYQ==	60
@@ -3679,7 +3675,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(45) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	43
@@ -3690,8 +3686,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',42)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(56) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(56) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFh	56
@@ -3700,7 +3696,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(42) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	42
@@ -3711,8 +3707,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',41)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(56) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(56) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=	56
@@ -3721,7 +3717,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(42) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	41
@@ -3732,8 +3728,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',40)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(56) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(56) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYQ==	56
@@ -3742,7 +3738,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(42) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	40
@@ -3753,8 +3749,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',39)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(52) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(52) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFh	52
@@ -3763,7 +3759,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(39) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	39
@@ -3774,8 +3770,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',38)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(52) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(52) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=	52
@@ -3784,7 +3780,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(39) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	38
@@ -3795,8 +3791,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',37)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(52) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(52) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYQ==	52
@@ -3805,7 +3801,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(39) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	37
@@ -3816,8 +3812,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',36)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(48) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(48) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFh	48
@@ -3826,7 +3822,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(36) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	36
@@ -3837,8 +3833,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',35)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(48) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(48) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=	48
@@ -3847,7 +3843,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(36) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	35
@@ -3858,8 +3854,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',34)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(48) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(48) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYQ==	48
@@ -3868,7 +3864,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(36) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	34
@@ -3879,8 +3875,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',33)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(44) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(44) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFh	44
@@ -3889,7 +3885,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(33) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	33
@@ -3900,8 +3896,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',32)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(44) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(44) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=	44
@@ -3910,7 +3906,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(33) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	32
@@ -3921,8 +3917,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',31)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(44) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(44) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYQ==	44
@@ -3931,7 +3927,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(33) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	31
@@ -3942,8 +3938,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',30)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(40) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(40) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFh	40
@@ -3952,7 +3948,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(30) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	30
@@ -3963,8 +3959,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',29)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(40) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(40) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=	40
@@ -3973,7 +3969,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(30) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaa	29
@@ -3984,8 +3980,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',28)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(40) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(40) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYQ==	40
@@ -3994,7 +3990,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(30) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaaa	28
@@ -4005,8 +4001,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',27)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(36) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(36) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFh	36
@@ -4015,7 +4011,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(27) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaaa	27
@@ -4026,8 +4022,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',26)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(36) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(36) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=	36
@@ -4036,7 +4032,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(27) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaaa	26
@@ -4047,8 +4043,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',25)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(36) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(36) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYQ==	36
@@ -4057,7 +4053,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(27) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaaa	25
@@ -4068,8 +4064,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',24)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(32) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(32) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFh	32
@@ -4078,7 +4074,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(24) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaaa	24
@@ -4089,8 +4085,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',23)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(32) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(32) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=	32
@@ -4099,7 +4095,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(24) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaaa	23
@@ -4110,8 +4106,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',22)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(32) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(32) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFhYQ==	32
@@ -4120,7 +4116,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(24) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaaa	22
@@ -4131,8 +4127,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',21)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(28) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(28) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWFh	28
@@ -4141,7 +4137,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(21) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaaa	21
@@ -4152,8 +4148,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',20)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(28) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(28) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYWE=	28
@@ -4162,7 +4158,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(21) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaaa	20
@@ -4173,8 +4169,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',19)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(28) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(28) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFhYQ==	28
@@ -4183,7 +4179,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(21) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaaa	19
@@ -4194,8 +4190,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',18)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(24) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(24) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWFh	24
@@ -4204,7 +4200,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(18) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaaa	18
@@ -4215,8 +4211,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',17)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(24) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(24) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYWE=	24
@@ -4225,7 +4221,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(18) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaaa	17
@@ -4236,8 +4232,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',16)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(24) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(24) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFhYQ==	24
@@ -4246,7 +4242,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(18) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaaa	16
@@ -4257,8 +4253,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',15)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(20) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(20) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWFh	20
@@ -4267,7 +4263,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(15) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaaa	15
@@ -4278,8 +4274,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',14)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(20) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(20) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYWE=	20
@@ -4288,7 +4284,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(15) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaaa	14
@@ -4299,8 +4295,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',13)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(20) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(20) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFhYQ==	20
@@ -4309,7 +4305,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(15) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaaa	13
@@ -4320,8 +4316,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',12)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(16) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(16) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWFh	16
@@ -4330,7 +4326,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(12) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaaa	12
@@ -4341,8 +4337,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',11)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(16) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(16) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYWE=	16
@@ -4351,7 +4347,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(12) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaaa	11
@@ -4362,8 +4358,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',10)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(16) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(16) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFhYQ==	16
@@ -4372,7 +4368,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(12) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaaa	10
@@ -4383,8 +4379,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',9)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(12) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(12) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWFh	12
@@ -4393,7 +4389,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(9) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaaa	9
@@ -4404,8 +4400,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',8)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(12) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(12) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYWE=	12
@@ -4414,7 +4410,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(9) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaaa	8
@@ -4425,8 +4421,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',7)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(12) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(12) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFhYQ==	12
@@ -4435,7 +4431,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(9) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaaa	7
@@ -4446,8 +4442,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',6)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(8) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(8) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWFh	8
@@ -4456,7 +4452,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(6) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaaa	6
@@ -4467,8 +4463,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',5)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(8) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(8) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYWE=	8
@@ -4477,7 +4473,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(6) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaaa	5
@@ -4488,8 +4484,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',4)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(8) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(8) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFhYQ==	8
@@ -4498,7 +4494,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(6) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaaa	4
@@ -4509,8 +4505,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',3)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(4) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(4) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWFh	4
@@ -4519,7 +4515,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(3) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aaa	3
@@ -4530,8 +4526,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',2)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(4) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(4) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YWE=	4
@@ -4540,7 +4536,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(3) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 aa	2
@@ -4551,8 +4547,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',1)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` varchar(4) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` varchar(4) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 YQ==	4
@@ -4561,7 +4557,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` varbinary(3) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 a	1
@@ -4572,8 +4568,8 @@ CREATE TABLE t1 AS SELECT TO_BASE64(REPEAT('a',0)) AS to_base64;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `to_base64` char(0) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `to_base64` char(0) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT to_base64, LENGTH(to_base64) FROM t1;
 to_base64	LENGTH(to_base64)
 	0
@@ -4582,7 +4578,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `from_base64` binary(0) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT from_base64, LENGTH(from_base64) FROM t2;
 from_base64	LENGTH(from_base64)
 	0
@@ -4788,7 +4784,7 @@ SET NAMES latin1;
 PREPARE stmt FROM "SELECT COLLATION(space(2))";
 EXECUTE stmt;
 COLLATION(space(2))
-latin1_bin
+latin1_swedish_ci
 SET NAMES latin2;
 EXECUTE stmt;
 COLLATION(space(2))
@@ -5078,10 +5074,10 @@ FROM t1;
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `cn` char(0) CHARACTER SET utf8mb3 DEFAULT NULL,
-  `c0` char(0) CHARACTER SET utf8mb3 DEFAULT NULL,
-  `c1` char(0) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `cn` char(0) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
+  `c0` char(0) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
+  `c1` char(0) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1, t2;
 #
 # MDEV-20303 SPACE(-1) returns a wrong data type
@@ -5096,10 +5092,10 @@ FROM t1;
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `cn` char(0) CHARACTER SET utf8mb3 DEFAULT NULL,
-  `c0` char(0) CHARACTER SET utf8mb3 DEFAULT NULL,
-  `c1` char(0) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `cn` char(0) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
+  `c0` char(0) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
+  `c1` char(0) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1, t2;
 CREATE TABLE t1 (i BIGINT);
 INSERT INTO t1 VALUES (42);
@@ -5111,10 +5107,10 @@ FROM t1;
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `cn` char(0) CHARACTER SET utf8mb3 DEFAULT NULL,
-  `c0` char(0) CHARACTER SET utf8mb3 DEFAULT NULL,
-  `c1` char(0) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `cn` char(0) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
+  `c0` char(0) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
+  `c1` char(0) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1, t2;
 CREATE TABLE t1 (i BIGINT);
 INSERT INTO t1 VALUES (42);
@@ -5126,10 +5122,10 @@ FROM t1;
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `cn` char(0) CHARACTER SET utf8mb3 DEFAULT NULL,
-  `c0` char(0) CHARACTER SET utf8mb3 DEFAULT NULL,
-  `c1` char(0) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `cn` char(0) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
+  `c0` char(0) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
+  `c1` char(0) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1, t2;
 CREATE TABLE t1 (i BIGINT);
 INSERT INTO t1 VALUES (42);
@@ -5141,10 +5137,10 @@ FROM t1;
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `cn` char(0) CHARACTER SET utf8mb3 DEFAULT NULL,
-  `c0` char(0) CHARACTER SET utf8mb3 DEFAULT NULL,
-  `c1` varchar(20) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `cn` char(0) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
+  `c0` char(0) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
+  `c1` varchar(20) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT c1 FROM t2;
 c1
 42
@@ -5180,8 +5176,8 @@ conv(i,16,2)
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `conv(i,16,2)` varchar(64) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `conv(i,16,2)` varchar(65) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1,t2;
 #
 # MDEV-18205 Assertion `str_length < len' failed in Binary_string::realloc_raw

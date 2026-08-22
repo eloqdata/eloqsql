@@ -172,7 +172,8 @@ ctype_errors                         : no support pass
 ctype_eucjpms                        : no support pass
 ctype_euckr                          : no support pass
 ctype_filename                       : no support pass
-ctype_filesystem                     : no support pass
+# re-enabled: passes against 12.3.2 (was: no support pass)
+#ctype_filesystem                     : no support pass
 ctype_gb2312                         : no support pass
 ctype_gbk                            : no support pass
 ctype_gbk_binlog                     : no support
@@ -197,17 +198,20 @@ ctype_uca_innodb                     : no support pass
 ctype_uca_partitions                 : no support
 ctype_ucs                            : no support crash
 ctype_ucs2_def                       : no support pass
-ctype_ucs2_query_cache               : no support pass
+# re-enabled: passes against 12.3.2 (was: no support pass)
+#ctype_ucs2_query_cache               : no support pass
 ctype_ucs2_uca                       : no support crash
 ctype_ujis                           : no support crash
 ctype_ujis_ucs2                      : no support result mismatch
 ctype_upgrade                        : no support skipped Need performance schema compiled in
 ctype_utf16                          : no support crash
-ctype_utf16_def                      : no support pass
+# re-enabled: passes against 12.3.2 (was: no support pass)
+#ctype_utf16_def                      : no support pass
 ctype_utf16_uca                      : no support crash
 ctype_utf16le                        : no support crash
 ctype_utf32                          : no support crash
-ctype_utf32_def                      : no support pass
+# re-enabled: passes against 12.3.2 (was: no support pass)
+#ctype_utf32_def                      : no support pass
 ctype_utf32_uca                      : no support crash
 #ctype_utf8                           : 0 pass | alter table | unique
 ctype_utf8_def_upgrade               : no support delete  frm no support
@@ -431,8 +435,10 @@ information_schema_part              : no support partition
 #information_schema_routines          : 2 pass
 information_schema_stats             : no support alter table
 #init_connect                         : 1 pass
-init_connection_query_cache          : deleted no support query cache
-init_file                            : 1 pass --init-file option
+# re-enabled: passes against 12.3.2 (was: deleted no support query cache)
+#init_connection_query_cache          : deleted no support query cache
+# re-enabled: passes against 12.3.2 (was: 1 pass --init-file option)
+#init_file                            : 1 pass --init-file option
 #init_file_longline_3816              : 1 pass
 #init_file_set_password-7656          : 1 pass
 innodb_bug878769                     : deleted
@@ -765,6 +771,15 @@ ps_3innodb                            : deleted
 ps_4heap                              : deleted
 ps_5merge                             : deleted
 ps_change_master                      : deleted no support binlog
+ps_ddl                                : DROP TRIGGER does not invalidate prepared statements on 12.3.2 - see below
+#  TABLE_LIST::is_the_same_definition() (sql/table.cc) spots a trigger change by
+#  walking the triggers the table still has and comparing hr_create_time against
+#  the statement's prepare time. A dropped trigger leaves nothing newer to find,
+#  so the statement is not re-prepared and p_verify_reprepare_count(1) reports
+#  "Expected: 1, actual: 0" in the five DROP TRIGGER cases. Reproduces equally
+#  with engine=Aria, and that function is untouched by this port, so it is not
+#  the eloq engine. Do not re-record this result: the committed .result matches
+#  upstream and is the correct expectation.
 #ps_ddl                                : 1 pass | alter table | unique
 #ps_ddl1                               : 1 pass | alter table | unique
 #ps_error                              : 1 pass

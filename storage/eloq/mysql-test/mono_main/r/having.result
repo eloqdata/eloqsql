@@ -201,7 +201,7 @@ select count(*) from t1 group by col2 having col2 = 'hello';
 count(*)
 3
 select count(*) from t1 group by col2 having col1 = 10;
-ERROR 42S22: Unknown column 'col1' in 'having clause'
+ERROR 42S22: Unknown column 'col1' in 'HAVING'
 select col1 as count_col1 from t1 as tmp1 group by col1 having col1 = 10;
 count_col1
 10
@@ -242,7 +242,7 @@ select sum(col1) as co2, count(col2) as cc from t1 group by col1 having col1 =10
 co2	cc
 40	4
 select t2.col2 from t2 group by t2.col1, t2.col2 having t1.col1 <= 10;
-ERROR 42S22: Unknown column 't1.col1' in 'having clause'
+ERROR 42S22: Unknown column 't1.col1' in 'HAVING'
 select t1.col1 from t1
 where t1.col2 in 
 (select t2.col2 from t2 
@@ -280,7 +280,7 @@ select t1.col1 as tmp_col from t1
 where t1.col2 in 
 (select t2.col2 from t2 
 group by t2.col1, t2.col2 having tmp_col <= 10);
-ERROR 42S22: Unknown column 'tmp_col' in 'having clause'
+ERROR 42S22: Unknown column 'tmp_col' in 'HAVING'
 select t1.col1 from t1
 where t1.col2 in 
 (select t2.col2 from t2 
@@ -302,7 +302,7 @@ where t1.col2 in
 (select t2.col2 from t2 
 group by t2.col1, t2.col2 having col_t1 <= 10)
 having col_t1 <= 20;
-ERROR 42S22: Unknown column 'col_t1' in 'having clause'
+ERROR 42S22: Unknown column 'col_t1' in 'HAVING'
 select t1.col1 from t1
 where t1.col2 in 
 (select t2.col2 from t2 
@@ -323,7 +323,7 @@ select sum(col1) from t1
 group by col_t1
 having col_t1 in (select sum(t2.col1) from t2
 group by t2.col2, t2.col1 having t2.col1 = t1.col1);
-ERROR 42S22: Unknown column 't1.col1' in 'having clause'
+ERROR 42S22: Unknown column 't1.col1' in 'HAVING'
 select sum(col1) from t1
 group by col_t1
 having col_t1 in (select sum(t2.col1) from t2
@@ -334,10 +334,10 @@ sum(col1)
 30
 select t1.col1, t2.col1 from t1, t2 where t1.col1 = t2.col1
 group by t1.col1, t2.col1 having col1 = 2;
-ERROR 23000: Column 'col1' in having clause is ambiguous
+ERROR 23000: Column 'col1' in HAVING is ambiguous
 select t1.col1*10+t2.col1 from t1,t2 where t1.col1=t2.col1
 group by t1.col1, t2.col1 having col1 = 2;
-ERROR 23000: Column 'col1' in having clause is ambiguous
+ERROR 23000: Column 'col1' in HAVING is ambiguous
 drop table t1, t2, t3;
 create table t1 (s1 int);
 insert into t1 values (1),(2),(3);
@@ -349,8 +349,8 @@ s1
 0
 0
 Warnings:
-Warning	1052	Column 's1' in group statement is ambiguous
-Warning	1052	Column 's1' in having clause is ambiguous
+Warning	1052	Column 's1' in GROUP BY is ambiguous
+Warning	1052	Column 's1' in HAVING is ambiguous
 select s1*0 from t1 group by s1 having s1 = 0;
 s1*0
 select s1 from t1 group by 1 having 1 = 0;
@@ -363,7 +363,7 @@ count(s1)
 1
 1
 select * from t1 a, t1 b group by a.s1 having s1 is null;
-ERROR 23000: Column 's1' in having clause is ambiguous
+ERROR 23000: Column 's1' in HAVING is ambiguous
 drop table t1;
 create table t1 (s1 char character set latin1 collate latin1_bin);
 insert ignore into t1 values ('ü'),('y');
@@ -527,7 +527,7 @@ ORDER BY t1.f2;
 MAX(t2.f2)
 NULL
 Warnings:
-Warning	1292	Truncated incorrect DECIMAL value: 'd'
+Warning	1292	Truncated incorrect BOOLEAN value: 'd'
 DROP TABLE t1,t2;
 End of 5.0 tests
 #
@@ -718,7 +718,7 @@ select * from mysql.help_topic where example = 'foo' having description is null;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible HAVING
 Warnings:
-Note	1003	select `mysql`.`help_topic`.`help_topic_id` AS `help_topic_id`,`mysql`.`help_topic`.`name` AS `name`,`mysql`.`help_topic`.`help_category_id` AS `help_category_id`,`mysql`.`help_topic`.`description` AS `description`,`mysql`.`help_topic`.`example` AS `example`,`mysql`.`help_topic`.`url` AS `url` from `mysql`.`help_topic` where multiple equal('foo', `mysql`.`help_topic`.`example`) having 0
+Note	1003	select `mysql`.`help_topic`.`help_topic_id` AS `help_topic_id`,`mysql`.`help_topic`.`name` AS `name`,`mysql`.`help_topic`.`help_category_id` AS `help_category_id`,`mysql`.`help_topic`.`description` AS `description`,`mysql`.`help_topic`.`example` AS `example`,`mysql`.`help_topic`.`url` AS `url` from `mysql`.`help_topic` where `mysql`.`help_topic`.`example` = 'foo' having 0
 select * from mysql.help_topic where example = 'foo' having description is null;
 help_topic_id	name	help_category_id	description	example	url
 #
@@ -839,13 +839,13 @@ test.t1	analyze	status	Engine-independent statistics collected
 test.t1	analyze	status	OK
 explain SELECT t, next_seq_value() r FROM t1 FORCE INDEX(t) GROUP BY t HAVING r = 1  ORDER BY t1.u;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	8	Using temporary; Using filesort
+1	SIMPLE	t1	index	NULL	t	5	NULL	8	Using temporary; Using filesort
 SELECT t, next_seq_value() r FROM t1 FORCE INDEX(t) GROUP BY t HAVING r = 1  ORDER BY t1.u;
 t	r
 10	1
 12	1
-14	1
-16	1
+15	1
+17	1
 DROP TABLE t1;
 DROP FUNCTION next_seq_value;
 DROP TABLE series;

@@ -309,8 +309,6 @@ insert into t3 select a from t3;
 select count(*)*255 from t3 into table_size;
 until table_size > max_table_size*2 end repeat;
 end|
-Warnings:
-Warning	1287	'<select expression> INTO <destination>;' is deprecated and will be removed in a future release. Please use 'SELECT <select list> INTO <destination> FROM...' instead
 call bug14210_fill_table()|
 drop procedure bug14210_fill_table|
 create table t4 like t3|
@@ -384,11 +382,11 @@ default_storage_engine	ELOQ
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `id` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `id` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SHOW GLOBAL VARIABLES LIKE 'default_storage_engine'|
 Variable_name	Value
 default_storage_engine	ELOQ

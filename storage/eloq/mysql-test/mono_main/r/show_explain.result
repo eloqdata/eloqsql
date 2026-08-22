@@ -16,9 +16,9 @@ connection con1;
 SET @old_debug= @@session.debug;
 connection default;
 show explain for $thr2;
-ERROR HY000: Target is not running an EXPLAINable command
+ERROR HY000: Target is not executing an operation with a query plan
 show explain for $thr1;
-ERROR HY000: Target is not running an EXPLAINable command
+ERROR HY000: Target is not executing an operation with a query plan
 connection con1;
 set @show_explain_probe_select_id=1;
 SET debug_dbug='+d,show_explain_probe_join_exec_start';
@@ -207,7 +207,7 @@ SET debug_dbug='+d,show_explain_probe_join_exec_start';
 set @foo= (select max(a) from t0 where sin(a) >0);
 connection default;
 show explain for $thr2;
-ERROR HY000: Target is not running an EXPLAINable command
+ERROR HY000: Target is not executing an operation with a query plan
 kill query $thr2;
 connection con1;
 ERROR 70100: Query execution was interrupted
@@ -949,6 +949,8 @@ a
 SET debug_dbug=@old_debug;
 revoke all privileges on test.* from test2@localhost;
 drop user test2@localhost;
+Warnings:
+Note	4227	Dropped users 'test2'@'localhost' have active connections. Use KILL CONNECTION if they should not be used anymore.
 disconnect con2;
 # 
 # Check that the I_S table is invisible
@@ -974,7 +976,7 @@ SELECT a+SLEEP(0.01) FROM t1
 WHERE a IN ( 255, 0 ) OR b BETWEEN 6 AND 129
 ORDER BY b;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index_merge	a,b	a,b	5,5	NULL	7	Using sort_union(a,b); Using where; Using temporary; Using filesort
+1	SIMPLE	t1	index_merge	a,b	a,b	5,5	NULL	7	Using sort_union(a,b); Using where; Using filesort
 set @show_explain_probe_select_id=1;
 SET debug_dbug='+d,show_explain_probe_join_exec_start';
 SELECT a+SLEEP(0.01) FROM t1
@@ -983,7 +985,7 @@ ORDER BY b;
 connection default;
 show explain for $thr2;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index_merge	a,b	a,b	5,5	NULL	7	Using sort_union(a,b); Using where; Using temporary; Using filesort
+1	SIMPLE	t1	index_merge	a,b	a,b	5,5	NULL	7	Using sort_union(a,b); Using where; Using filesort
 Warnings:
 Note	1003	SELECT a+SLEEP(0.01) FROM t1
 WHERE a IN ( 255, 0 ) OR b BETWEEN 6 AND 129
@@ -1006,7 +1008,7 @@ ORDER BY b;
 connection default;
 show explain for $thr2;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index_merge	a,b	a,b	5,5	NULL	7	Using sort_union(a,b); Using where; Using temporary; Using filesort
+1	SIMPLE	t1	index_merge	a,b	a,b	5,5	NULL	7	Using sort_union(a,b); Using where; Using filesort
 Warnings:
 Note	1003	SELECT a+SLEEP(0.01) FROM t1
 WHERE a IN ( 255, 0 ) OR b BETWEEN 6 AND 129

@@ -429,12 +429,10 @@ create table t1 (col1 int);
 create table t2 (col1 int);
 update t1,t2 set t1.col1 = (select max(col1) from t1) where t1.col1 = t2.col1;
 delete t1 from t1,t2 where t1.col1 < (select max(col1) from t1) and t1.col1 = t2.col1;
-ERROR HY000: Table 't1' is specified twice, both as a target for 'DELETE' and as a separate source for data
 drop table t1,t2;
 create table t1(a int);
 create table t2(a int);
 delete from t1,t2 using t1,t2 where t1.a=(select a from t1);
-ERROR HY000: Table 't1' is specified twice, both as a target for 'DELETE' and as a separate source for data
 drop table t1, t2;
 create table t1 (i1 int, i2 int, i3 int);
 create table t2 (id int, c1 varchar(20), c2 varchar(20));
@@ -920,6 +918,8 @@ triggered
 triggered
 drop table t1,t2, t3;
 drop user foo;
+Warnings:
+Note	4227	Dropped users 'foo'@'%' have active connections. Use KILL CONNECTION if they should not be used anymore.
 create table t1 (a int, b int);
 create table t2 (c int, d int);
 insert t1 values (1,2),(3,4);
@@ -954,19 +954,19 @@ create view v2 as select * from t2;
 create view v3 as select * from t2 where c0 < 3;
 create  procedure sp0() update t1, v2 set v2.pk = 1 where v2.c0 = t1.c1;
 call sp0();
-ERROR 42S22: Unknown column 't1.c1' in 'where clause'
+ERROR 42S22: Unknown column 't1.c1' in 'WHERE'
 call sp0();
-ERROR 42S22: Unknown column 't1.c1' in 'where clause'
+ERROR 42S22: Unknown column 't1.c1' in 'WHERE'
 create  procedure sp1() update (t1 join v2 on v2.c0 = t1.c1) set v2.pk = 1;
 call sp1();
-ERROR 42S22: Unknown column 't1.c1' in 'on clause'
+ERROR 42S22: Unknown column 't1.c1' in 'ON'
 call sp1();
-ERROR 42S22: Unknown column 't1.c1' in 'on clause'
+ERROR 42S22: Unknown column 't1.c1' in 'ON'
 create  procedure sp2() update (t1 join v3 on v3.c0 = t1.c1) set v3.pk = 1;
 call sp2();
-ERROR 42S22: Unknown column 't1.c1' in 'on clause'
+ERROR 42S22: Unknown column 't1.c1' in 'ON'
 call sp2();
-ERROR 42S22: Unknown column 't1.c1' in 'on clause'
+ERROR 42S22: Unknown column 't1.c1' in 'ON'
 create  procedure sp3()
 update (t1 join v2 on v2.c0 = t1.id) set v2.c0 = v2.c0+1;
 select * from t2;
@@ -985,9 +985,9 @@ pk	c0
 2	3
 create  procedure sp4() delete t1 from t1 join v2 on v2.c0 = t1.c1;
 call sp4();
-ERROR 42S22: Unknown column 't1.c1' in 'on clause'
+ERROR 42S22: Unknown column 't1.c1' in 'ON'
 call sp4();
-ERROR 42S22: Unknown column 't1.c1' in 'on clause'
+ERROR 42S22: Unknown column 't1.c1' in 'ON'
 drop procedure sp0;
 drop procedure sp1;
 drop procedure sp2;
@@ -1053,8 +1053,8 @@ a	b	c	a	b	c
 set optimizer_switch='firstmatch=off';
 explain update t1, t2 set t2.c=1 where t1.a=t2.a and t1.b in (select b from t3 where t3.c< t2.c) order by t2.c, t1.c limit 10;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	PRIMARY	t1	ALL	a	NULL	NULL	NULL	10	Using temporary; Using filesort
-1	PRIMARY	t2	ALL	NULL	NULL	NULL	NULL	10	Using where
+1	PRIMARY	t2	ALL	NULL	NULL	NULL	NULL	10	Using temporary; Using filesort
+1	PRIMARY	t1	ALL	a	NULL	NULL	NULL	10	Using where
 1	PRIMARY	t3	ALL	NULL	NULL	NULL	NULL	10	Using where; Start temporary; End temporary
 update t1, t2 set t2.c=1 where t1.a=t2.a and t1.b in (select b from t3 where t3.c<=t2.c) order by t2.c, t1.c limit 5;
 select * from t2;

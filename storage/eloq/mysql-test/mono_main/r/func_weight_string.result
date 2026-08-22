@@ -9,20 +9,20 @@ hex(weight_string(0x010203))
 010203
 select hex(weight_string('aa' as char(3)));
 hex(weight_string('aa' as char(3)))
-616120
+414120
 select hex(weight_string('a' as char(-1)));
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '-1)))' at line 1
 select hex(weight_string('a' as char(0)));
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '0)))' at line 1
 select hex(weight_string('a' as char(1)));
 hex(weight_string('a' as char(1)))
-61
+41
 select hex(weight_string('ab' as char(1)));
 hex(weight_string('ab' as char(1)))
-61
+41
 select hex(weight_string('ab'));
 hex(weight_string('ab'))
-6162
+4142
 select hex(weight_string('aa' as binary(3)));
 hex(weight_string('aa' as binary(3)))
 616100
@@ -37,29 +37,29 @@ select hex(weight_string('ab' level 1-1 REVERSE));
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'REVERSE))' at line 1
 select hex(weight_string('ab' level 1 ASC));
 hex(weight_string('ab' level 1 ASC))
-6162
+4142
 select hex(weight_string('ab' level 1 DESC));
 hex(weight_string('ab' level 1 DESC))
-9E9D
+BEBD
 select hex(weight_string('ab' level 1 REVERSE));
 hex(weight_string('ab' level 1 REVERSE))
-6261
+4241
 select hex(weight_string('ab' level 1 DESC REVERSE));
 hex(weight_string('ab' level 1 DESC REVERSE))
-9D9E
+BDBE
 create table t1 select weight_string('test') as w;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `w` varbinary(4) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1 select weight_string(repeat('t',66000)) as w;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `w` mediumblob DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select weight_string(NULL);
 weight_string(NULL)
@@ -69,7 +69,7 @@ weight_string	reverse
 1	2
 select coercibility(weight_string('test'));
 coercibility(weight_string('test'))
-4
+6
 select coercibility(weight_string('test' collate latin1_swedish_ci));
 coercibility(weight_string('test' collate latin1_swedish_ci))
 0
@@ -161,7 +161,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` varchar(10) DEFAULT NULL,
   `b` varbinary(10) DEFAULT weight_string(`a`,0,10,65)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 INSERT INTO t1 (a) VALUES ('a');
 SELECT a, HEX(b) FROM t1;
 a	HEX(b)

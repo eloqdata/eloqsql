@@ -321,12 +321,12 @@ show full columns from t2;
 Field	Type	Collation	Null	Key	Default	Extra	Privileges	Comment
 auto	bigint(11) unsigned	NULL	NO	PRI	NULL		#	
 t1	int(1)	NULL	NO		NULL		#	
-t2	varchar(1)	utf8mb3_bin	NO		NULL		#	
-t3	varchar(256)	utf8mb3_bin	YES		NULL		#	
+t2	varchar(1)	utf8mb3_uca1400_ai_ci	NO		NULL		#	
+t3	varchar(256)	utf8mb3_uca1400_ai_ci	YES		NULL		#	
 t4	varbinary(256)	NULL	YES		NULL		#	
-t5	text	utf8mb3_bin	YES		NULL		#	
+t5	text	utf8mb3_uca1400_ai_ci	YES		NULL		#	
 t6	blob	NULL	YES		NULL		#	
-t7	char(0)	utf8mb3_bin	NO		NULL		#	
+t7	char(0)	utf8mb3_uca1400_ai_ci	NO		NULL		#	
 t8	binary(0)	NULL	YES		NULL		#	
 select t1,t2,length(t3),length(t4),length(t5),length(t6),t7,t8 from t2;
 t1	t2	length(t3)	length(t4)	length(t5)	length(t6)	t7	t8

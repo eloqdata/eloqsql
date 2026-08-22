@@ -1627,14 +1627,14 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` enum('','a','b') NOT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1 (a enum (' ','a','b ') not null default 'b ');
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` enum('','a','b') NOT NULL DEFAULT 'b'
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1 (a enum ('0','1'));
 insert ignore into t1 set a='foobar';
@@ -1659,7 +1659,7 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` enum('‰','1','2') NOT NULL DEFAULT '‰'
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 set names latin1;
 CREATE TABLE t1 (
@@ -1670,8 +1670,8 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT 1,
-  `b` enum('value','ˆ‰¸_value',' √’') NOT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `b` enum('value','ˆ‰¸_value',' √’') CHARACTER SET latin1 COLLATE latin1_swedish_ci NOT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 show columns from t1;
 Field	Type	Null	Key	Default	Extra
 a	int(11)	YES		1	
@@ -1699,8 +1699,8 @@ a ENUM('‰','ˆ','¸') character set utf8 default '¸'
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` enum('‰','ˆ','¸') CHARACTER SET utf8mb3 DEFAULT '¸'
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `a` enum('‰','ˆ','¸') CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT '¸'
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 insert into t1 values ('‰'), ('ˆ'), ('¸');
 select a from t1 order by a;
 a
@@ -1717,8 +1717,8 @@ set names latin1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` enum('‰','ˆ','¸') DEFAULT '¸'
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `a` enum('‰','ˆ','¸') CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT '¸'
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 select a from t1 order by a;
 a
 ‰
@@ -1729,9 +1729,9 @@ create table t1 (a enum ('Y','N') CHARACTER SET utf8 COLLATE utf8_bin, b set ('Y
 insert into t1 (a) values ('Y');
 select * from t1;
 Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
-def	test	t1	t1	a	a	254	1	1	Y	384	0	47
-def	test	t1	t1	b	b	254	3	0	Y	2176	0	47
-def	test	t1	t1	c	c	254	1	0	Y	384	0	47
+def	test	t1	t1	a	a	254	1	1	Y	384	0	8
+def	test	t1	t1	b	b	254	3	0	Y	2176	0	8
+def	test	t1	t1	c	c	254	1	0	Y	384	0	8
 a	b	c
 Y	NULL	NULL
 drop table t1;
@@ -1745,28 +1745,28 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `f1` int(11) DEFAULT NULL,
   `f2` enum('ˇˇ') DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1(russian enum('E','F','EˇF','FˇE') NOT NULL DEFAULT'E');
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `russian` enum('E','F','EˇF','FˇE') NOT NULL DEFAULT 'E'
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1(denormal enum('E','F','E,F','F,E') NOT NULL DEFAULT'E');
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `denormal` enum('E','F','E,F','F,E') NOT NULL DEFAULT 'E'
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1(russian_deviant enum('E','F','EˇF','F,E') NOT NULL DEFAULT'E');
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `russian_deviant` enum('E','F','EˇF','F,E') NOT NULL DEFAULT 'E'
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1(exhausting_charset enum('ABCDEFGHIJKLMNOPQRSTUVWXYZ','	
  !"','#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~','xx\','yy\Ä','zzÅÇÉÑÖÜáàâäãåçéèêëíìîïñóòôöõúùûü†°¢£§•¶ß®©™´¨≠ÆØ∞±≤≥¥µ∂∑∏π∫ªºΩæø¿¡¬√ƒ≈∆«»… ÀÃÕŒœ–—“”‘’÷◊ÿŸ⁄€‹›ﬁﬂ‡·‚„‰ÂÊÁËÈÍÎÏÌÓÔÒÚÛÙıˆ˜¯˘˙˚¸˝˛ˇ'));
@@ -2180,7 +2180,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `(SELECT a FROM t1)` varchar(1) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t2;
 # UNION + table column
 CREATE TABLE t2 AS SELECT (SELECT a FROM t1 UNION SELECT NULL);
@@ -2188,7 +2188,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `(SELECT a FROM t1 UNION SELECT NULL)` varchar(1) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t2;
 # UNION + SP variable
 CREATE PROCEDURE p1()
@@ -2203,7 +2203,7 @@ CALL p1();
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `(SELECT va FROM t1 UNION SELECT NULL)` varchar(1) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP PROCEDURE p1;
 # UNION + anchored SP variable
 CREATE PROCEDURE p1()
@@ -2218,7 +2218,7 @@ CALL p1();
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `(SELECT va FROM t1 UNION SELECT NULL)` varchar(1) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP PROCEDURE p1;
 DROP TABLE t1;
 #
@@ -2236,7 +2236,7 @@ t2	CREATE TABLE `t2` (
   `CEILING(a)` int(5) unsigned DEFAULT NULL,
   `TRUNCATE(a,0)` int(5) unsigned DEFAULT NULL,
   `ROUND(a)` int(5) unsigned DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t2;
 a	FLOOR(a)	CEILING(a)	TRUNCATE(a,0)	ROUND(a)
 999999999999999999999999999999999999999999999999999999999999	1	1	1	1

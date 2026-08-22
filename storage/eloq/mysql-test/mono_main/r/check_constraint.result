@@ -7,7 +7,7 @@ t1	CREATE TABLE `t1` (
   `b` int(11) DEFAULT NULL CHECK (`b` > 20),
   CONSTRAINT `min` CHECK (`a` + `b` > 100),
   CONSTRAINT `max` CHECK (`a` + `b` < 500)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 insert into t1 values (100,100);
 insert into t1 values (1,1);
 ERROR 23000: CONSTRAINT `t1.a` failed for `test`.`t1`
@@ -49,7 +49,7 @@ t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL,
   `b` int(11) DEFAULT NULL,
   CONSTRAINT `CONSTRAINT_1` CHECK (`a` > `b`)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 create or replace table t1 (a int, b int,
 constraint CONSTRAINT_1 check (a>1),
 constraint check (b>1));
@@ -60,7 +60,7 @@ t1	CREATE TABLE `t1` (
   `b` int(11) DEFAULT NULL,
   CONSTRAINT `CONSTRAINT_1` CHECK (`a` > 1),
   CONSTRAINT `CONSTRAINT_2` CHECK (`b` > 1)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 create or replace table t1 (a int, b int,
 constraint CONSTRAINT_1 check (a>1),
 constraint check (b>1),
@@ -73,7 +73,7 @@ t1	CREATE TABLE `t1` (
   CONSTRAINT `CONSTRAINT_1` CHECK (`a` > 1),
   CONSTRAINT `CONSTRAINT_3` CHECK (`b` > 1),
   CONSTRAINT `CONSTRAINT_2` CHECK (`a` > `b`)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1(c1 int, c2 int as (c1 + 1), check (c2 > 2));
 insert into t1(c1) values(1);
@@ -83,7 +83,7 @@ drop table t1;
 create or replace table t1( c1 int auto_increment primary key, check( c1 > 0 or c1 is null ) );
 ERROR HY000: Function or expression 'AUTO_INCREMENT' cannot be used in the CHECK clause of `c1`
 create table t1 (a int check (@b in (select user from mysql.user)));
-ERROR HY000: Function or expression 'select ...' cannot be used in the CHECK clause of `a`
+ERROR 42000: CHECK does not support subqueries or stored functions
 create table t1 (a int check (a > @b));
 ERROR HY000: Function or expression '@b' cannot be used in the CHECK clause of `a`
 create table t1 (a int check (a = 1));
@@ -158,7 +158,7 @@ t	CREATE TABLE `t` (
   CONSTRAINT `b` CHECK (`a` < `b`),
   CONSTRAINT `a` CHECK (`a` > 0),
   CONSTRAINT `x` CHECK (`a` > 10)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 # Field constraint 'b' will fail
 insert into t values (-1, 0);
 ERROR 23000: CONSTRAINT `t.b` failed for `test`.`t`

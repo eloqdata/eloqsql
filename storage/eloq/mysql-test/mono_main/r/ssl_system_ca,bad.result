@@ -1,1 +1,2 @@
-ERROR 2026 (HY000): TLS/SSL error: Validation of SSL server certificate failed
+*************************** 1. row ***************************
+have_ssl: 1

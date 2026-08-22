@@ -119,7 +119,7 @@ t1	CREATE TABLE `t1` (
   `c10` double NOT NULL,
   `c11` double NOT NULL,
   `c12` varchar(5) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1;
 SELECT CASE 
 WHEN 1 
@@ -150,7 +150,7 @@ CASE _latin1'a' WHEN _latin1'A' COLLATE latin1_bin        THEN '1' ELSE 2 END
 CASE _latin1'a' COLLATE latin1_bin  WHEN _latin1'A' THEN '1' ELSE 2 END	CASE _latin1'a' COLLATE latin1_bin         WHEN _latin1'A' THEN '1' ELSE 2 END	CASE _latin1'a' WHEN _latin1'A' COLLATE latin1_bin THEN '1' ELSE 2 END	CASE _latin1'a' WHEN _latin1'A' COLLATE latin1_bin        THEN '1' ELSE 2 END
 2	2	2	2
 CREATE TABLE t1 SELECT COALESCE(_latin1'a',_latin2'a');
-ERROR HY000: Illegal mix of collations (latin1_bin,COERCIBLE) and (latin2_general_ci,COERCIBLE) for operation 'coalesce'
+ERROR HY000: Illegal mix of collations (latin1_swedish_ci,COERCIBLE) and (latin2_general_ci,COERCIBLE) for operation 'coalesce'
 CREATE TABLE t1 SELECT COALESCE('a' COLLATE latin1_bin,'b' COLLATE latin1_bin);
 DROP TABLE t1;
 CREATE TABLE t1 SELECT 
@@ -168,14 +168,14 @@ Note	1003	select coalesce(1) AS `COALESCE(1)`,coalesce(1.0) AS `COALESCE(1.0)`,c
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `COALESCE(1)` int(1) NOT NULL,
+  `COALESCE(1)` int(2) NOT NULL,
   `COALESCE(1.0)` decimal(2,1) NOT NULL,
   `COALESCE('a' collate latin1_bin)` varchar(1) DEFAULT NULL,
   `COALESCE(1,1.0)` decimal(2,1) NOT NULL,
   `COALESCE(1,'1')collate latin1_bin` varchar(1) DEFAULT NULL,
   `COALESCE(1.1,'1')collate latin1_bin` varchar(4) DEFAULT NULL,
-  `COALESCE('a' COLLATE latin1_bin,'b')` varchar(1) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `COALESCE('a' COLLATE latin1_bin,'b')` varchar(1) NOT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1;
 CREATE TABLE t1 SELECT IFNULL('a' COLLATE latin1_bin, 'b' COLLATE latin1_bin);
 DROP TABLE t1;

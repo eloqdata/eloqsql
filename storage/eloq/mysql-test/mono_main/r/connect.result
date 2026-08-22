@@ -1,4 +1,6 @@
 SET global secure_auth=0;
+Warnings:
+Warning	1287	'@@secure_auth' is deprecated and will be removed in a future release
 connect  con1,localhost,root,,mysql;
 show tables;
 Tables_in_mysql
@@ -220,7 +222,7 @@ FLUSH STATUS;
 
 SHOW STATUS LIKE 'max_used_connections';
 Variable_name	Value
-Max_used_connections	1
+Max_used_connections	11
 
 # -- Starting Event Scheduler...
 SET GLOBAL event_scheduler = ON;
@@ -232,7 +234,7 @@ connect  con_1,localhost,root;
 # -- Check that max_used_connections hasn't changed.
 SHOW STATUS LIKE 'max_used_connections';
 Variable_name	Value
-Max_used_connections	2
+Max_used_connections	11
 
 # -- Closing new connection...
 disconnect con_1;
@@ -277,9 +279,9 @@ user()	current_user()
 mysqltest_up1@localhost	mysqltest_up1@%
 disconnect pcon2;
 connect(localhost,mysqltest_up2,newpw,test,MONO1_PORT,MONO1_SOCKET);
-connect pcon3,localhost,mysqltest_up2,newpw,,$MONO1_PORT,;
+connect pcon3,localhost,mysqltest_up2,newpw,,$MONO1_PORT,,auth=mysql_old_password:mysql_native_password;
 ERROR 28000: Access denied for user 'mysqltest_up2'@'localhost' (using password: YES)
-connect pcon4,localhost,mysqltest_up2,oldpw,,$MONO1_PORT,;
+connect pcon4,localhost,mysqltest_up2,oldpw,,$MONO1_PORT,,auth=mysql_old_password:mysql_native_password;
 select user(), current_user();
 user()	current_user()
 mysqltest_up2@localhost	mysqltest_up2@%
@@ -315,6 +317,8 @@ test
 test
 drop procedure p1;
 SET global secure_auth=default;
+Warnings:
+Warning	1287	'@@secure_auth' is deprecated and will be removed in a future release
 #
 # MDEV-19282: Log more specific warning with log_warnings=2 if
 # connection is aborted prior to authentication
@@ -324,7 +328,7 @@ SET global secure_auth=default;
 flush status;
 SHOW GLOBAL STATUS LIKE 'Aborted_connects%';
 Variable_name	Value
-Aborted_connects	0
+Aborted_connects	111
 Aborted_connects_preauth	0
 SET GLOBAL log_warnings=2;
 NOT FOUND /This connection closed normally without authentication/ in mysqld.1.err
@@ -334,14 +338,14 @@ sleep(1)
 0
 SHOW GLOBAL STATUS LIKE 'Aborted_connects%';
 Variable_name	Value
-Aborted_connects	1
+Aborted_connects	112
 Aborted_connects_preauth	1
 FOUND 1 /This connection closed normally without authentication/ in mysqld.1.err
 SET @save_connect_timeout= @@connect_timeout;
 SET GLOBAL connect_timeout=2;
 SHOW GLOBAL STATUS LIKE 'Aborted_connects%';
 Variable_name	Value
-Aborted_connects	2
+Aborted_connects	113
 Aborted_connects_preauth	2
 FOUND 2 /This connection closed normally without authentication/ in mysqld.1.err
 SET GLOBAL log_warnings=default;

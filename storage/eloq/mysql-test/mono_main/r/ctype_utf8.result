@@ -20,13 +20,13 @@ locate('lo','hello',2)
 4
 select locate('HE','hello');
 locate('HE','hello')
-0
+1
 select locate('HE','hello',2);
 locate('HE','hello',2)
 0
 select locate('LO','hello',2);
 locate('LO','hello',2)
-0
+4
 select locate('HE','hello' collate utf8_bin);
 locate('HE','hello' collate utf8_bin)
 0
@@ -41,10 +41,10 @@ locate(_utf8 0xD0B1, _utf8 0xD0B0D0B1D0B2)
 2
 select locate(_utf8 0xD091, _utf8 0xD0B0D0B1D0B2);
 locate(_utf8 0xD091, _utf8 0xD0B0D0B1D0B2)
-0
+2
 select locate(_utf8 0xD0B1, _utf8 0xD0B0D091D0B2);
 locate(_utf8 0xD0B1, _utf8 0xD0B0D091D0B2)
-0
+2
 select locate(_utf8 0xD091, _utf8 0xD0B0D0B1D0B2 collate utf8_bin);
 locate(_utf8 0xD091, _utf8 0xD0B0D0B1D0B2 collate utf8_bin)
 0
@@ -59,7 +59,7 @@ select 'a' like 'a';
 1
 select 'A' like 'a';
 'A' like 'a'
-0
+1
 select 'A' like 'a' collate utf8_bin;
 'A' like 'a' collate utf8_bin
 0
@@ -68,7 +68,7 @@ _utf8 0xD0B0D0B1D0B2 like concat(_utf8'%',_utf8 0xD0B1,_utf8 '%')
 1
 select convert(_latin1'G�nter Andr�' using utf8) like CONVERT(_latin1'G�NTER%' USING utf8);
 convert(_latin1'G�nter Andr�' using utf8) like CONVERT(_latin1'G�NTER%' USING utf8)
-0
+1
 select CONVERT(_koi8r'����' USING utf8) LIKE CONVERT(_koi8r'����' USING utf8);
 CONVERT(_koi8r'����' USING utf8) LIKE CONVERT(_koi8r'����' USING utf8)
 1
@@ -80,10 +80,10 @@ SELECT 'a' = 'a ';
 1
 SELECT 'a\0' < 'a';
 'a\0' < 'a'
-1
+0
 SELECT 'a\0' < 'a ';
 'a\0' < 'a '
-1
+0
 SELECT 'a\t' < 'a';
 'a\t' < 'a'
 1
@@ -110,7 +110,7 @@ INSERT INTO t1 VALUES ('a'),('a\0'),('a\t'),('a ');
 SELECT hex(a),STRCMP(a,'a'), STRCMP(a,'a ') FROM t1;
 hex(a)	STRCMP(a,'a')	STRCMP(a,'a ')
 61	0	0
-6100	-1	-1
+6100	0	0
 6109	-1	-1
 61	0	0
 DROP TABLE t1;
@@ -181,6 +181,9 @@ select * from t1 where a = 'b' and a != 'b';
 a
 drop table t1;
 set names utf8;
+#
+# Bug#31081 server crash in regexp function
+#
 drop table if exists t1;
 create table t1 as
 select repeat(' ', 64) as s1, repeat(' ',64) as s2
@@ -189,9 +192,9 @@ select null, null;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `s1` varchar(64) CHARACTER SET utf8mb3 DEFAULT NULL,
-  `s2` varchar(64) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `s1` varchar(64) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
+  `s2` varchar(64) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 delete from t1;
 insert into t1 values('aaa','aaa');
 insert into t1 values('aaa|qqq','qqq');
@@ -224,9 +227,13 @@ NULL
 NULL
 NULL
 drop table t1;
+#
+# Bug #3928 regexp [[:>:]] and UTF-8
+#
 SELECT @@character_set_client, @@collation_connection;
 @@character_set_client	@@collation_connection
-utf8mb3	utf8mb3_bin
+utf8mb3	utf8mb3_uca1400_ai_ci
+# This should return TRUE
 select  'вася'  rlike '\\bвася\\b';
 'вася'  rlike '\\bвася\\b'
 1
@@ -251,6 +258,7 @@ select ' вася'  rlike '[[:<:]]вася[[:>:]]';
 select ' вася ' rlike '[[:<:]]вася[[:>:]]';
 ' вася ' rlike '[[:<:]]вася[[:>:]]'
 1
+# This should return FALSE
 select  'васяz' rlike '\\bвася\\b';
 'васяz' rlike '\\bвася\\b'
 0
@@ -274,8 +282,8 @@ create table t1 (a enum('aaaa','проба') character set utf8);
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` enum('aaaa','проба') CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `a` enum('aaaa','проба') CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 insert into t1 values ('проба');
 select * from t1;
 a
@@ -284,14 +292,14 @@ create table t2 select ifnull(a,a) from t1;
 show create table t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `ifnull(a,a)` varchar(5) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `ifnull(a,a)` varchar(5) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 select * from t2;
 ifnull(a,a)
 проба
 drop table t1;
 drop table t2;
-create table t1 (c varchar(30) character set utf8, key(c(10)));
+create table t1 (c varchar(30) character set utf8 collate utf8_bin, key(c(10)));
 insert into t1 values ('1'),('2'),('3'),('x'),('y'),('z');
 insert into t1 values ('aaaaaaaaaa');
 insert into t1 values (repeat('b',20));
@@ -320,7 +328,7 @@ select c cb20 from t1 where c=repeat('b',20);
 cb20
 bbbbbbbbbbbbbbbbbbbb
 drop table t1;
-create table t1 (c varchar(30) character set utf8, key(c(10))) engine=eloq;
+create table t1 (c varchar(30) character set utf8 collate utf8_bin, key(c(10))) engine=eloq;
 insert into t1 values ('1'),('2'),('3'),('x'),('y'),('z');
 insert into t1 values ('aaaaaaaaaa');
 insert into t1 values (repeat('b',20));
@@ -349,58 +357,82 @@ select c cb20 from t1 where c=repeat('b',20);
 cb20
 bbbbbbbbbbbbbbbbbbbb
 drop table t1;
-create table t1 (c char(3) character set utf8, key (c(2)));
+create table t1 (c char(3) character set utf8 collate utf8_bin, key (c(2)));
 insert into t1 values ('1'),('2'),('3'),('4'),('x'),('y'),('z');
 insert into t1 values ('a');
 insert into t1 values ('aa');
 insert into t1 values ('aaa');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 insert into t1 values ('b');
 insert into t1 values ('bb');
 insert into t1 values ('bbb');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 insert into t1 values ('а');
 insert into t1 values ('аа');
 insert into t1 values ('ааа');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 insert into t1 values ('б');
 insert into t1 values ('бб');
 insert into t1 values ('ббб');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 insert into t1 values ('ꪪ');
 insert into t1 values ('ꪪꪪ');
 insert into t1 values ('ꪪꪪꪪ');
 drop table t1;
-create table t1 (c char(3) character set utf8, key (c(2))) engine=eloq;
+create table t1 (c char(3) character set utf8 collate utf8_bin, key (c(2))) engine=eloq;
 insert into t1 values ('1'),('2'),('3'),('4'),('x'),('y'),('z');
 insert into t1 values ('a');
 insert into t1 values ('aa');
 insert into t1 values ('aaa');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 insert into t1 values ('b');
 insert into t1 values ('bb');
 insert into t1 values ('bbb');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 insert into t1 values ('а');
 insert into t1 values ('аа');
 insert into t1 values ('ааа');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 insert into t1 values ('б');
 insert into t1 values ('бб');
 insert into t1 values ('ббб');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 insert into t1 values ('ꪪ');
 insert into t1 values ('ꪪꪪ');
 insert into t1 values ('ꪪꪪꪪ');
 drop table t1;
 create table t1 (
-c char(10) character set utf8,
+c char(10) character set utf8 collate utf8_bin,
 key a using hash (c(1))
 ) engine=eloq;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c` char(10) CHARACTER SET utf8mb3 DEFAULT NULL,
+  `c` char(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_bin DEFAULT NULL,
   KEY `a` (`c`(1)) USING HASH
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 insert into t1 values ('a'),('b'),('c'),('d'),('e'),('f');
 insert into t1 values ('aa');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 insert into t1 values ('aaa');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 insert into t1 values ('б');
 insert into t1 values ('бб');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 insert into t1 values ('ббб');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 select c as c_all from t1 order by c;
 c_all
 a
@@ -422,21 +454,29 @@ c_a
 б
 drop table t1;
 create table t1 (
-c char(10) character set utf8,
+c char(10) character set utf8 collate utf8_bin,
 key a using btree (c(1))
 ) engine=eloq;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c` char(10) CHARACTER SET utf8mb3 DEFAULT NULL,
+  `c` char(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_bin DEFAULT NULL,
   KEY `a` (`c`(1)) USING BTREE
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 insert into t1 values ('a'),('b'),('c'),('d'),('e'),('f');
 insert into t1 values ('aa');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 insert into t1 values ('aaa');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 insert into t1 values ('б');
 insert into t1 values ('бб');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 insert into t1 values ('ббб');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 select c as c_all from t1 order by c;
 c_all
 a
@@ -458,15 +498,23 @@ c_a
 б
 drop table t1;
 create table t1 (
-c char(10) character set utf8,
+c char(10) character set utf8 collate utf8_bin,
 key a (c(1))
 ) engine=eloq;
 insert into t1 values ('a'),('b'),('c'),('d'),('e'),('f');
 insert into t1 values ('aa');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 insert into t1 values ('aaa');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 insert into t1 values ('б');
 insert into t1 values ('бб');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 insert into t1 values ('ббб');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 select c as c_all from t1 order by c;
 c_all
 a
@@ -523,15 +571,23 @@ insert into t1 values ('1'),('2'),('3'),('4'),('x'),('y'),('z');
 insert into t1 values ('a');
 insert into t1 values ('aa');
 insert into t1 values ('aaa');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 insert into t1 values ('b');
 insert into t1 values ('bb');
 insert into t1 values ('bbb');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 insert into t1 values ('а');
 insert into t1 values ('аа');
 insert into t1 values ('ааа');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 insert into t1 values ('б');
 insert into t1 values ('бб');
 insert into t1 values ('ббб');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 insert into t1 values ('ꪪ');
 insert into t1 values ('ꪪꪪ');
 insert into t1 values ('ꪪꪪꪪ');
@@ -543,15 +599,23 @@ key a using hash (c(1))
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c` char(10) CHARACTER SET utf8mb3 DEFAULT NULL,
+  `c` char(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_bin DEFAULT NULL,
   KEY `a` (`c`(1)) USING HASH
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 insert into t1 values ('a'),('b'),('c'),('d'),('e'),('f');
 insert into t1 values ('aa');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 insert into t1 values ('aaa');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 insert into t1 values ('б');
 insert into t1 values ('бб');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 insert into t1 values ('ббб');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 select c as c_all from t1 order by c;
 c_all
 a
@@ -579,15 +643,23 @@ key a using btree (c(1))
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c` char(10) CHARACTER SET utf8mb3 DEFAULT NULL,
+  `c` char(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_bin DEFAULT NULL,
   KEY `a` (`c`(1)) USING BTREE
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 insert into t1 values ('a'),('b'),('c'),('d'),('e'),('f');
 insert into t1 values ('aa');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 insert into t1 values ('aaa');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 insert into t1 values ('б');
 insert into t1 values ('бб');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 insert into t1 values ('ббб');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 select c as c_all from t1 order by c;
 c_all
 a
@@ -614,10 +686,18 @@ key a (c(1))
 ) engine=eloq;
 insert into t1 values ('a'),('b'),('c'),('d'),('e'),('f');
 insert into t1 values ('aa');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 insert into t1 values ('aaa');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 insert into t1 values ('б');
 insert into t1 values ('бб');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 insert into t1 values ('ббб');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 select c as c_all from t1 order by c;
 c_all
 a
@@ -639,7 +719,7 @@ c_a
 б
 drop table t1;
 create table t1 (
-str varchar(255) character set utf8 not null,
+str varchar(255) character set utf8 collate utf8_bin not null,
 key str  (str(2))
 ) engine=eloq;
 INSERT INTO t1 VALUES ('str');
@@ -649,7 +729,7 @@ str
 str
 drop table t1;
 create table t1 (
-str varchar(255) character set utf8 not null,
+str varchar(255) character set utf8 collate utf8_bin not null,
 key str  (str(2))
 ) engine=eloq;
 INSERT INTO t1 VALUES ('str');
@@ -659,7 +739,7 @@ str
 str
 drop table t1;
 create table t1 (
-str varchar(255) character set utf8 not null,
+str varchar(255) character set utf8 collate utf8_bin not null,
 key str using btree (str(2))
 ) engine=eloq;
 INSERT INTO t1 VALUES ('str');
@@ -669,7 +749,7 @@ str
 str
 drop table t1;
 create table t1 (
-str varchar(255) character set utf8 not null,
+str varchar(255) character set utf8 collate utf8_bin not null,
 key str using hash (str(2))
 ) engine=eloq;
 INSERT INTO t1 VALUES ('str');
@@ -679,7 +759,7 @@ str
 str
 drop table t1;
 create table t1 (
-str varchar(255) character set utf8 not null,
+str varchar(255) character set utf8 collate utf8_bin not null,
 key str (str(2))
 ) engine=eloq;
 INSERT INTO t1 VALUES ('str');
@@ -715,7 +795,7 @@ list_id  smallint unsigned NOT NULL,
 term     TEXT NOT NULL,
 PRIMARY KEY(id),
 INDEX(list_id, term(4))
-) ENGINE=eloq CHARSET=utf8;
+) ENGINE=eloq CHARSET=utf8 COLLATE=utf8_bin;
 INSERT INTO t1 SET list_id = 1, term = "letterc";
 INSERT INTO t1 SET list_id = 1, term = "letterb";
 INSERT INTO t1 SET list_id = 1, term = "lettera";
@@ -740,7 +820,7 @@ list_id smallint unsigned NOT NULL,
 term text NOT NULL,
 PRIMARY KEY(id),
 INDEX(list_id, term(19))
-) ENGINE=eloq CHARSET=utf8;
+) ENGINE=eloq CHARSET=utf8 COLLATE=utf8_bin;
 INSERT INTO t1 set list_id = 1, term = "test�test";
 INSERT INTO t1 set list_id = 1, term = "testetest";
 INSERT INTO t1 set list_id = 1, term = "test�test";
@@ -761,7 +841,7 @@ create table t1 (
 a int primary key,
 b varchar(6),
 index b3(b(3))
-) engine=eloq character set=utf8;
+) engine=eloq character set=utf8 collate=utf8_bin;
 insert into t1 values(1,'foo'),(2,'foobar');
 select * from t1 where b like 'foob%';
 a	b
@@ -778,9 +858,9 @@ create table t2 select concat(a,_utf8'') as a, concat(b,_utf8'')as b from t1;
 show create table t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `a` varchar(5) CHARACTER SET utf8mb3 DEFAULT NULL,
-  `b` varchar(15) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `a` varchar(5) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
+  `b` varchar(15) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t2;
 drop table t1;
 select 'c' like '\_' as want0;
@@ -979,7 +1059,7 @@ create table t1 (
 id int not null,
 city varchar(20) not null,
 key (city(7),id)
-) character set=utf8;
+) character set=utf8 collate=utf8_bin;
 insert into t1 values (1,'Durban North');
 insert into t1 values (2,'Durban');
 select * from t1 where city = 'Durban';
@@ -1011,7 +1091,7 @@ KEY `MSCCSPK_20030521130957121` (`momid`),
 KEY `IX_mobile_originated_message_keyword` (`keyword`),
 KEY `IX_mobile_originated_message_created` (`created`),
 KEY `IX_mobile_originated_message_support` (`msisdn`,`momid`,`keyword`,`gateway_id`,`created`)
-) ENGINE=eloq DEFAULT CHARSET=utf8;
+) ENGINE=eloq DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 INSERT INTO t1 VALUES 
 (1,'blah','464','aaa','fkc1c9ilc20x0hgae7lx6j09','ERR','ERR Имри.Афимим.Аеимимримдмримрмрирор имримримримр имридм ирбднримрфмририримрфмфмим.Ад.Д имдимримрад.Адимримримрмдиримримримр м.Дадимфшьмримд им.Адимимрн имадми','ИМРИ.АФИМИМ.АЕИМИМРИМДМРИМРМРИРОР',3,'2005-06-01 17:30:43','1234567890'),
 (2,'blah','464','aaa','haxpl2ilc20x00bj4tt2m5ti','11','11 g','G',3,'2005-06-02 22:43:10','1234567890');
@@ -1020,7 +1100,7 @@ CREATE TABLE t2 (
 `operator_id` int(11) NOT NULL default '0',
 `created` datetime NOT NULL default '0000-00-00 00:00:00',
 KEY `PK_user` (`msisdn`)
-) ENGINE=eloq DEFAULT CHARSET=utf8;
+) ENGINE=eloq DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 INSERT INTO t2 VALUES ('1234567890',2,'2005-05-24 13:53:25');
 SELECT content, t2.msisdn FROM t1, t2 WHERE t1.msisdn = '1234567890';
 content	msisdn
@@ -1033,7 +1113,7 @@ drop table t1;
 set names utf8;
 select 'andre%' like 'andreñ%' escape 'ñ';
 'andre%' like 'andreñ%' escape 'ñ'
-0
+1
 set names utf8;
 select 'a\\' like 'a\\';
 'a\\' like 'a\\'
@@ -1041,24 +1121,34 @@ select 'a\\' like 'a\\';
 select 'aa\\' like 'a%\\';
 'aa\\' like 'a%\\'
 1
-create table t1 (a char(10), key(a)) character set utf8;
+create table t1 (a char(10) collate utf8_bin, key(a)) character set utf8;
 insert into t1 values ("a"),("abc"),("abcd"),("hello"),("test");
 select * from t1 where a like "abc%";
 a
 abc
 abcd
+Warnings:
+Warning	4202	4 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 select * from t1 where a like concat("abc","%");
 a
 abc
 abcd
+Warnings:
+Warning	4202	4 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 select * from t1 where a like "ABC%";
 a
+Warnings:
+Warning	4202	4 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 select * from t1 where a like "test%";
 a
 test
+Warnings:
+Warning	4202	4 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 select * from t1 where a like "te_t";
 a
 test
+Warnings:
+Warning	4202	4 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 select * from t1 where a like "%a%";
 a
 a
@@ -1111,16 +1201,16 @@ INSERT INTO t1 VALUES (N'Cote d\'Ivoire');
 INSERT INTO t1 VALUES (_utf8'Cote d\'Ivoire');
 SELECT item FROM t1 ORDER BY item;
 item
-Cote d'Ivoire
-Cote d'Ivoire
 \
 \
+Cote d'Ivoire
+Cote d'Ivoire
 DROP TABLE t1;
 SET NAMES utf8;
 DROP TABLE IF EXISTS t1;
 Warnings:
 Note	1051	Unknown table 'test.t1'
-CREATE TABLE t1(a VARCHAR(255),b int, KEY(a)) ENGINE=eloq DEFAULT CHARSET=utf8;
+CREATE TABLE t1(a VARCHAR(255),b int, KEY(a)) ENGINE=eloq DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 INSERT INTO t1(a) VALUES('uuABCDEFGHIGKLMNOPRSTUVWXYZ̈bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb');
 INSERT INTO t1(a) VALUES('uu');
 INSERT INTO t1(a) VALUES('uU');
@@ -1138,16 +1228,20 @@ delete from t1 where b=3;
 INSERT INTO t1 VALUES('uUABCDEFGHIGKLMNOPRSTUVWXYZ̈bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',3);
 drop table t1;
 set names utf8;
-create table t1 (s1 char(5) character set utf8,index it1(s1));
+create table t1 (s1 char(5) character set utf8 collate utf8_bin,index it1(s1));
 insert into t1 values
 ('a'),('b'),(null),('ペテルグル'),('ü'),('Y');
 select s1 as before_delete_general_ci from t1 where s1 like 'ペテ%';
 before_delete_general_ci
 ペテルグル
+Warnings:
+Warning	4202	2 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 delete from t1 where s1 = 'Y';
 select s1 as after_delete_general_ci from t1 where s1 like 'ペテ%';
 after_delete_general_ci
 ペテルグル
+Warnings:
+Warning	4202	2 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 drop table t1;
 set names utf8;
 create table t1 (s1 char(5) character set utf8 collate utf8_bin,index it1(s1));
@@ -1156,10 +1250,14 @@ insert into t1 values
 select s1 as before_delete_unicode_ci from t1 where s1 like 'ペテ%';
 before_delete_unicode_ci
 ペテルグル
+Warnings:
+Warning	4202	2 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 delete from t1 where s1 = 'Y';
 select s1 as after_delete_unicode_ci from t1 where s1 like 'ペテ%';
 after_delete_unicode_ci
 ペテルグル
+Warnings:
+Warning	4202	2 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 drop table t1;
 set names utf8;
 create table t1 (s1 char(5) character set utf8 collate utf8_bin,index it1(s1));
@@ -1168,10 +1266,14 @@ insert into t1 values
 select s1 as before_delete_bin from t1 where s1 like 'ペテ%';
 before_delete_bin
 ペテルグル
+Warnings:
+Warning	4202	2 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 delete from t1 where s1 = 'Y';
 select s1 as after_delete_bin from t1 where s1 like 'ペテ%';
 after_delete_bin
 ペテルグル
+Warnings:
+Warning	4202	2 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 drop table t1;
 set names utf8;
 create table t1 (a varchar(30) not null primary key)
@@ -1282,10 +1384,14 @@ a char(255) DEFAULT '',
 KEY(a(10))
 ) ENGINE=eloq DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 INSERT INTO t1 VALUES ('Käli Käli 2-4');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 SELECT * FROM t1 WHERE a LIKE 'Käli Käli 2%';
 a
 Käli Käli 2-4
 INSERT INTO t1 VALUES ('Käli Käli 2-4');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 SELECT * FROM t1 WHERE a LIKE 'Käli Käli 2%';
 a
 Käli Käli 2-4
@@ -1296,7 +1402,11 @@ a char(255) DEFAULT '',
 KEY (a(10))
 ) ENGINE=eloq DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 INSERT INTO t1 VALUES ('Käli Käli 2-4');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 INSERT INTO t1 VALUES ('Käli Käli 2-4');
+Warnings:
+Warning	4202	1 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 SELECT * FROM t1 WHERE a LIKE 'Käli Käli 2%';
 a
 Käli Käli 2-4
@@ -1340,6 +1450,7 @@ SET CHARACTER SET utf8;
 SHOW VARIABLES LIKE 'character\_set\_%';
 Variable_name	Value
 character_set_client	utf8mb3
+character_set_collations	utf8mb3=utf8mb3_uca1400_ai_ci,ucs2=ucs2_uca1400_ai_ci,utf8mb4=utf8mb4_uca1400_ai_ci,utf16=utf16_uca1400_ai_ci,utf32=utf32_uca1400_ai_ci
 character_set_connection	latin1
 character_set_database	latin1
 character_set_filesystem	binary
@@ -1353,8 +1464,8 @@ INSERT INTO crashtest VALUES ('35'), ('36'), ('37');
 SELECT * FROM crashtest ORDER BY CHAR(crash USING utf8);
 crash
 35
-36
 37
+36
 INSERT INTO crashtest VALUES ('-1000');
 EXPLAIN SELECT * FROM crashtest ORDER BY CHAR(crash USING utf8);
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
@@ -1363,8 +1474,8 @@ SELECT * FROM crashtest ORDER BY CHAR(crash USING utf8);
 crash
 -1000
 35
-36
 37
+36
 Warnings:
 Warning	1300	Invalid utf8mb3 character string: 'FFFFFC'
 DROP TABLE crashtest;
@@ -1488,7 +1599,7 @@ insert into t1 values('t1_val');
 create view v1 as select 'v1_val' as col1;
 select coercibility(col1), collation(col1) from v1;
 coercibility(col1)	collation(col1)
-4	utf8mb3_bin
+6	utf8mb3_uca1400_ai_ci
 create view v2 as select col1 from v1 union select col1 from t1;
 select coercibility(col1), collation(col1)from v2;
 coercibility(col1)	collation(col1)
@@ -1513,7 +1624,7 @@ select concat(a, if(b>10, N'x', N'y')) from t1;
 concat(a, if(b>10, N'x', N'y'))
 ay
 select concat(a, if(b>10, N'æ', N'ß')) from t1;
-ERROR HY000: Illegal mix of collations (latin1_bin,IMPLICIT) and (utf8mb3_bin,COERCIBLE) for operation 'concat'
+ERROR HY000: Illegal mix of collations (latin1_swedish_ci,IMPLICIT) and (utf8mb3_bin,COERCIBLE) for operation 'concat'
 drop table t1;
 set names utf8;
 create table t1 (a varchar(10) character set latin1, b int);
@@ -1522,7 +1633,7 @@ select concat(a, if(b>10, _utf8'x', _utf8'y')) from t1;
 concat(a, if(b>10, _utf8'x', _utf8'y'))
 ay
 select concat(a, if(b>10, _utf8'æ', _utf8'ß')) from t1;
-ERROR HY000: Illegal mix of collations (latin1_bin,IMPLICIT) and (utf8mb3_bin,COERCIBLE) for operation 'concat'
+ERROR HY000: Illegal mix of collations (latin1_swedish_ci,IMPLICIT) and (utf8mb3_uca1400_ai_ci,COERCIBLE) for operation 'concat'
 drop table t1;
 set names utf8;
 create table t1 (a varchar(10) character set latin1, b int);
@@ -1531,7 +1642,7 @@ select concat(a, if(b>10, _utf8 0x78, _utf8 0x79)) from t1;
 concat(a, if(b>10, _utf8 0x78, _utf8 0x79))
 ay
 select concat(a, if(b>10, _utf8 0xC3A6, _utf8 0xC3AF)) from t1;
-ERROR HY000: Illegal mix of collations (latin1_bin,IMPLICIT) and (utf8mb3_bin,COERCIBLE) for operation 'concat'
+ERROR HY000: Illegal mix of collations (latin1_swedish_ci,IMPLICIT) and (utf8mb3_uca1400_ai_ci,COERCIBLE) for operation 'concat'
 drop table t1;
 set names utf8;
 create table t1 (a varchar(10) character set latin1, b int);
@@ -1540,17 +1651,17 @@ select concat(a, if(b>10, 'x' 'x', 'y' 'y')) from t1;
 concat(a, if(b>10, 'x' 'x', 'y' 'y'))
 ayy
 select concat(a, if(b>10, 'x' 'æ', 'y' 'ß')) from t1;
-ERROR HY000: Illegal mix of collations (latin1_bin,IMPLICIT) and (utf8mb3_bin,COERCIBLE) for operation 'concat'
+ERROR HY000: Illegal mix of collations (latin1_swedish_ci,IMPLICIT) and (utf8mb3_uca1400_ai_ci,COERCIBLE) for operation 'concat'
 drop table t1;
 CREATE TABLE t1 (
 colA int(11) NOT NULL,
-colB varchar(255) character set utf8 NOT NULL,
+colB varchar(255) character set utf8 collate utf8_bin NOT NULL,
 PRIMARY KEY  (colA)
 ) ENGINE=eloq DEFAULT CHARSET=latin1;
 INSERT INTO t1 (colA, colB) VALUES (1, 'foo'), (2, 'foo bar');
 CREATE TABLE t2 (
 colA int(11) NOT NULL,
-colB varchar(255) character set utf8 NOT NULL,
+colB varchar(255) character set utf8 collate utf8_bin NOT NULL,
 KEY bad  (colA,colB(3))
 ) ENGINE=eloq DEFAULT CHARSET=latin1;
 INSERT INTO t2 (colA, colB) VALUES (1, 'foo'),(2, 'foo bar');
@@ -1718,8 +1829,8 @@ CREATE TABLE t1 (a CHAR CHARACTER SET utf8mb3 COLLATE utf8mb3_bin);
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` char(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `a` char(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_bin DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1;
 SELECT _utf8mb3'test';
 test
@@ -1730,7 +1841,7 @@ mos TINYINT DEFAULT 0,
 Tape TINYTEXT,
 PRIMARY KEY (clipid),
 KEY tape(Tape(255))
-) CHARACTER SET=utf8;
+) CHARACTER SET=utf8 COLLATE=utf8_bin;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
@@ -1739,7 +1850,7 @@ t1	CREATE TABLE `t1` (
   `Tape` tinytext DEFAULT NULL,
   PRIMARY KEY (`clipid`),
   KEY `tape` (`Tape`(255))
-) ENGINE=ELOQ DEFAULT CHARSET=utf8mb3
+) ENGINE=ELOQ DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_bin
 DROP TABLE t1;
 DROP TABLE IF EXISTS t1;
 CREATE TABLE t1 (
@@ -1881,36 +1992,36 @@ s4 LONGTEXT CHARACTER SET utf8
 SET NAMES utf8, @@character_set_results=NULL;
 SELECT *, HEX(s1) FROM t1;
 Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
-def	test	t1	t1	s1	s1	252	255	0	Y	144	0	83
-def	test	t1	t1	s2	s2	252	65535	0	Y	144	0	83
-def	test	t1	t1	s3	s3	252	16777215	0	Y	144	0	83
-def	test	t1	t1	s4	s4	252	4294967295	0	Y	144	0	83
-def					HEX(s1)	253	4590	0	Y	128	0	83
+def	test	t1	t1	s1	s1	252	255	0	Y	16	0	192
+def	test	t1	t1	s2	s2	252	65535	0	Y	16	0	192
+def	test	t1	t1	s3	s3	252	16777215	0	Y	16	0	192
+def	test	t1	t1	s4	s4	252	4294967295	0	Y	16	0	192
+def					HEX(s1)	253	4590	0	Y	0	0	192
 s1	s2	s3	s4	HEX(s1)
 SET NAMES latin1;
 SELECT *, HEX(s1) FROM t1;
 Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
-def	test	t1	t1	s1	s1	252	255	0	Y	144	0	47
-def	test	t1	t1	s2	s2	252	65535	0	Y	144	0	47
-def	test	t1	t1	s3	s3	252	16777215	0	Y	144	0	47
-def	test	t1	t1	s4	s4	252	4294967295	0	Y	144	0	47
-def					HEX(s1)	253	1530	0	Y	128	0	47
+def	test	t1	t1	s1	s1	252	255	0	Y	16	0	8
+def	test	t1	t1	s2	s2	252	65535	0	Y	16	0	8
+def	test	t1	t1	s3	s3	252	16777215	0	Y	16	0	8
+def	test	t1	t1	s4	s4	252	4294967295	0	Y	16	0	8
+def					HEX(s1)	253	1530	0	Y	0	0	8
 s1	s2	s3	s4	HEX(s1)
 SET NAMES utf8;
 SELECT *, HEX(s1) FROM t1;
 Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
-def	test	t1	t1	s1	s1	252	765	0	Y	144	0	83
-def	test	t1	t1	s2	s2	252	196605	0	Y	144	0	83
-def	test	t1	t1	s3	s3	252	50331645	0	Y	144	0	83
-def	test	t1	t1	s4	s4	252	4294967295	0	Y	144	0	83
-def					HEX(s1)	253	4590	0	Y	128	0	83
+def	test	t1	t1	s1	s1	252	765	0	Y	16	0	192
+def	test	t1	t1	s2	s2	252	196605	0	Y	16	0	192
+def	test	t1	t1	s3	s3	252	50331645	0	Y	16	0	192
+def	test	t1	t1	s4	s4	252	4294967295	0	Y	16	0	192
+def					HEX(s1)	253	4590	0	Y	0	0	192
 s1	s2	s3	s4	HEX(s1)
 CREATE TABLE t2 AS SELECT CONCAT(s1) FROM t1;
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `CONCAT(s1)` varchar(255) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `CONCAT(s1)` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1, t2;
 SET NAMES utf8;
 SET TIME_ZONE = _latin1 '+03:00';
@@ -1924,8 +2035,8 @@ create table t1 as select concat(1) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 select hex(c1) from t1;
 hex(c1)
 31
@@ -1937,8 +2048,8 @@ create table t1 as select concat(18446744073709551615) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(20) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(20) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 select hex(c1) from t1;
 hex(c1)
 3138343436373434303733373039353531363135
@@ -1950,8 +2061,8 @@ create table t1 as select concat(1.1) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(4) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(4) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 select hex(c1) from t1;
 hex(c1)
 312E31
@@ -1963,8 +2074,8 @@ create table t1 as select concat(1+2) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(3) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(3) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(1-2));
 hex(concat(1-2))
@@ -1973,8 +2084,8 @@ create table t1 as select concat(1-2) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(3) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(3) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(1*2));
 hex(concat(1*2))
@@ -1983,8 +2094,8 @@ create table t1 as select concat(1*2) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(3) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(3) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(1/2));
 hex(concat(1/2))
@@ -1993,8 +2104,8 @@ create table t1 as select concat(1/2) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(7) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(7) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(1 div 2));
 hex(concat(1 div 2))
@@ -2003,8 +2114,8 @@ create table t1 as select concat(1 div 2) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(1 % 2));
 hex(concat(1 % 2))
@@ -2013,8 +2124,8 @@ create table t1 as select concat(1 % 2) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(-1));
 hex(concat(-1))
@@ -2023,8 +2134,8 @@ create table t1 as select concat(-1) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(-(1+2)));
 hex(concat(-(1+2)))
@@ -2033,8 +2144,8 @@ create table t1 as select concat(-(1+2)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(4) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(4) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(1|2));
 hex(concat(1|2))
@@ -2043,8 +2154,8 @@ create table t1 as select concat(1|2) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(21) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(21) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(1&2));
 hex(concat(1&2))
@@ -2053,8 +2164,8 @@ create table t1 as select concat(1&2) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(21) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(21) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(bit_count(12)));
 hex(concat(bit_count(12)))
@@ -2063,8 +2174,8 @@ create table t1 as select concat(bit_count(12)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(2<<1));
 hex(concat(2<<1))
@@ -2073,8 +2184,8 @@ create table t1 as select concat(2<<1) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(21) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(21) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(2>>1));
 hex(concat(2>>1))
@@ -2083,8 +2194,8 @@ create table t1 as select concat(2>>1) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(21) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(21) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(~0));
 hex(concat(~0))
@@ -2093,8 +2204,8 @@ create table t1 as select concat(~0) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(21) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(21) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(3^2));
 hex(concat(3^2))
@@ -2103,8 +2214,8 @@ create table t1 as select concat(3^2) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(21) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(21) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(abs(-2)));
 hex(concat(abs(-2)))
@@ -2113,8 +2224,8 @@ create table t1 as select concat(abs(-2)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(left(concat(exp(2)),1));
 hex(left(concat(exp(2)),1))
@@ -2123,8 +2234,8 @@ create table t1 as select concat(exp(2)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(23) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(23) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(left(concat(log(2)),1));
 hex(left(concat(log(2)),1))
@@ -2133,8 +2244,8 @@ create table t1 as select concat(log(2)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(23) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(23) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(left(concat(log2(2)),1));
 hex(left(concat(log2(2)),1))
@@ -2143,8 +2254,8 @@ create table t1 as select concat(log2(2)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(23) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(23) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(left(concat(log10(2)),1));
 hex(left(concat(log10(2)),1))
@@ -2153,8 +2264,8 @@ create table t1 as select concat(log10(2)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(23) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(23) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(left(concat(sqrt(2)),1));
 hex(left(concat(sqrt(2)),1))
@@ -2163,8 +2274,8 @@ create table t1 as select concat(sqrt(2)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(23) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(23) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(left(concat(pow(2,2)),1));
 hex(left(concat(pow(2,2)),1))
@@ -2173,8 +2284,8 @@ create table t1 as select concat(pow(2,2)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(23) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(23) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(left(concat(acos(0.5)),1));
 hex(left(concat(acos(0.5)),1))
@@ -2183,8 +2294,8 @@ create table t1 as select concat(acos(0.5)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(23) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(23) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(left(concat(asin(0.5)),1));
 hex(left(concat(asin(0.5)),1))
@@ -2193,8 +2304,8 @@ create table t1 as select concat(asin(0.5)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(23) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(23) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(left(concat(atan(0.5)),1));
 hex(left(concat(atan(0.5)),1))
@@ -2203,8 +2314,8 @@ create table t1 as select concat(atan(0.5)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(23) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(23) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(left(concat(cos(0.5)),1));
 hex(left(concat(cos(0.5)),1))
@@ -2213,8 +2324,8 @@ create table t1 as select concat(cos(0.5)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(23) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(23) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(left(concat(sin(0.5)),1));
 hex(left(concat(sin(0.5)),1))
@@ -2223,8 +2334,8 @@ create table t1 as select concat(sin(0.5)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(23) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(23) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(left(concat(tan(0.5)),1));
 hex(left(concat(tan(0.5)),1))
@@ -2233,8 +2344,8 @@ create table t1 as select concat(tan(0.5)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(23) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(23) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(degrees(0)));
 hex(concat(degrees(0)))
@@ -2243,8 +2354,8 @@ create table t1 as select concat(degrees(0)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(23) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(23) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(radians(0)));
 hex(concat(radians(0)))
@@ -2253,8 +2364,8 @@ create table t1 as select concat(radians(0)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(23) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(23) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(ceiling(0.5)));
 hex(concat(ceiling(0.5)))
@@ -2264,8 +2375,8 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `c0` int(3) NOT NULL,
-  `c1` varchar(3) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(3) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(floor(0.5)));
 hex(concat(floor(0.5)))
@@ -2275,8 +2386,8 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `c0` int(3) NOT NULL,
-  `c1` varchar(3) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(3) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(round(0.5)));
 hex(concat(round(0.5)))
@@ -2285,8 +2396,8 @@ create table t1 as select concat(round(0.5)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(3) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(3) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(sign(0.5)));
 hex(concat(sign(0.5)))
@@ -2295,15 +2406,15 @@ create table t1 as select concat(sign(0.5)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1 as select concat(rand()) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(23) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(23) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(length('a')));
 hex(concat(length('a')))
@@ -2312,8 +2423,8 @@ create table t1 as select concat(length('a')) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(char_length('a')));
 hex(concat(char_length('a')))
@@ -2322,8 +2433,8 @@ create table t1 as select concat(char_length('a')) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(bit_length('a')));
 hex(concat(bit_length('a')))
@@ -2332,18 +2443,18 @@ create table t1 as select concat(bit_length('a')) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(11) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(11) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(coercibility('a')));
 hex(concat(coercibility('a')))
-34
+36
 create table t1 as select concat(coercibility('a')) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(locate('a','a')));
 hex(concat(locate('a','a')))
@@ -2352,8 +2463,8 @@ create table t1 as select concat(locate('a','a')) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(11) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(11) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(field('c','a','b','c')));
 hex(concat(field('c','a','b','c')))
@@ -2362,8 +2473,8 @@ create table t1 as select concat(field('c','a','b','c')) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(3) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(3) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(ascii(61)));
 hex(concat(ascii(61)))
@@ -2372,8 +2483,8 @@ create table t1 as select concat(ascii(61)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(3) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(3) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(ord(61)));
 hex(concat(ord(61)))
@@ -2382,8 +2493,8 @@ create table t1 as select concat(ord(61)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(7) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(7) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(find_in_set('b','a,b,c,d')));
 hex(concat(find_in_set('b','a,b,c,d')))
@@ -2392,8 +2503,8 @@ create table t1 as select concat(find_in_set('b','a,b,c,d')) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(3) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(3) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select md5('a'), hex(md5('a'));
 md5('a')	hex(md5('a'))
@@ -2402,8 +2513,8 @@ create table t1 as select md5('a') as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(32) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(32) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select old_password('a'), hex(old_password('a'));
 old_password('a')	hex(old_password('a'))
@@ -2412,8 +2523,8 @@ create table t1 as select old_password('a') as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(16) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(16) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select password('a'), hex(password('a'));
 password('a')	hex(password('a'))
@@ -2422,8 +2533,8 @@ create table t1 as select password('a') as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(41) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(41) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select sha('a'), hex(sha('a'));
 sha('a')	hex(sha('a'))
@@ -2432,8 +2543,8 @@ create table t1 as select sha('a') as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(40) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(40) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select sha1('a'), hex(sha1('a'));
 sha1('a')	hex(sha1('a'))
@@ -2442,8 +2553,8 @@ create table t1 as select sha1('a') as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(40) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(40) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(cast('-1' as signed)));
 hex(concat(cast('-1' as signed)))
@@ -2452,8 +2563,8 @@ create table t1 as select concat(cast('-1' as signed)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(cast('1' as unsigned)));
 hex(concat(cast('1' as unsigned)))
@@ -2462,8 +2573,8 @@ create table t1 as select concat(cast('1' as unsigned)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(cast(1/2 as decimal(5,5))));
 hex(concat(cast(1/2 as decimal(5,5))))
@@ -2472,8 +2583,8 @@ create table t1 as select concat(cast(1/2 as decimal(5,5))) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(7) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(7) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(cast('2001-01-02 03:04:05' as date)));
 hex(concat(cast('2001-01-02 03:04:05' as date)))
@@ -2482,8 +2593,8 @@ create table t1 as select concat(cast('2001-01-02 03:04:05' as date)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 select * from t1;
 c1
 2001-01-02
@@ -2495,8 +2606,8 @@ create table t1 as select concat(cast('2001-01-02 03:04:05' as time)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 select * from t1;
 c1
 03:04:05
@@ -2508,8 +2619,8 @@ create table t1 as select concat(cast('2001-01-02' as datetime)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(19) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(19) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 select * from t1;
 c1
 2001-01-02 00:00:00
@@ -2521,8 +2632,8 @@ create table t1 as select concat(least(1,2)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(greatest(1,2)));
 hex(concat(greatest(1,2)))
@@ -2531,8 +2642,8 @@ create table t1 as select concat(greatest(1,2)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(case when 11 then 22 else 33 end));
 hex(concat(case when 11 then 22 else 33 end))
@@ -2541,8 +2652,8 @@ create table t1 as select concat(case when 11 then 22 else 33 end) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(3) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(coalesce(1,2)));
 hex(concat(coalesce(1,2)))
@@ -2551,8 +2662,8 @@ create table t1 as select concat(coalesce(1,2)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat_ws(1,2,3));
 hex(concat_ws(1,2,3))
@@ -2561,8 +2672,8 @@ create table t1 as select concat_ws(1,2,3) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(3) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(3) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(group_concat(1,2,3));
 hex(group_concat(1,2,3))
@@ -2571,15 +2682,15 @@ create table t1 as select group_concat(1,2,3) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` mediumtext CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` mediumtext CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1 as select 1 as c1 union select 'a';
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 NOT NULL DEFAULT ''
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci NOT NULL DEFAULT ''
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 select hex(c1) from t1 order by c1;
 hex(c1)
 31
@@ -2589,8 +2700,8 @@ create table t1 as select concat(last_insert_id()) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(21) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(21) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(benchmark(0,0)));
 hex(concat(benchmark(0,0)))
@@ -2599,8 +2710,8 @@ create table t1 as select concat(benchmark(0,0)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(sleep(0)));
 hex(concat(sleep(0)))
@@ -2609,8 +2720,8 @@ create table t1 as select concat(sleep(0)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(is_free_lock('xxxx')));
 hex(concat(is_free_lock('xxxx')))
@@ -2619,22 +2730,22 @@ create table t1 as select concat(is_free_lock('xxxx')) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1 as select concat(is_used_lock('a')) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1 as select concat(release_lock('a')) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(crc32('')));
 hex(concat(crc32('')))
@@ -2643,8 +2754,8 @@ create table t1 as select concat(crc32('')) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(uncompressed_length('')));
 hex(concat(uncompressed_length('')))
@@ -2653,15 +2764,15 @@ create table t1 as select concat(uncompressed_length('')) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1 as select concat(connection_id()) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(inet_aton('127.1.1.1')));
 hex(concat(inet_aton('127.1.1.1')))
@@ -2670,8 +2781,8 @@ create table t1 as select concat(inet_aton('127.1.1.1')) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(21) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(21) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(inet_ntoa(2130772225)));
 hex(concat(inet_ntoa(2130772225)))
@@ -2683,8 +2794,8 @@ c1
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(31) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(31) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select 1;
 1
@@ -2696,8 +2807,8 @@ create table t1 as select concat(row_count()) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(21) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(21) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(found_rows()));
 hex(concat(found_rows()))
@@ -2706,26 +2817,26 @@ create table t1 as select concat(found_rows()) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(21) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(21) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1 as select concat(uuid_short()) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(21) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(21) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1 as select concat(uuid()) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(36) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(36) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select coercibility(uuid()), coercibility(cast('a' as char character set latin1));
 coercibility(uuid())	coercibility(cast('a' as char character set latin1))
-5	2
+7	4
 select charset(concat(uuid(), cast('a' as char character set latin1)));
 charset(concat(uuid(), cast('a' as char character set latin1)))
 latin1
@@ -2733,15 +2844,15 @@ create table t1 as select concat(uuid(), cast('a' as char character set latin1))
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(37) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(37) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1 as select concat(master_pos_wait('non-existent',0,2)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(21) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(21) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(@a1:=1));
 hex(concat(@a1:=1))
@@ -2753,9 +2864,9 @@ hex(c1)
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL,
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
   `c2` int(1) NOT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 set @a2=1;
 select hex(concat(@a2));
@@ -2768,9 +2879,9 @@ hex(c1)
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(20) CHARACTER SET utf8mb3 DEFAULT NULL,
+  `c1` varchar(20) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
   `c2` bigint(20) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(@a1:=sqrt(1)));
 hex(concat(@a1:=sqrt(1)))
@@ -2782,9 +2893,9 @@ hex(c1)
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(23) CHARACTER SET utf8mb3 DEFAULT NULL,
+  `c1` varchar(23) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
   `c2` double DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 set @a2=sqrt(1);
 select hex(concat(@a2));
@@ -2797,9 +2908,9 @@ hex(c1)
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(23) CHARACTER SET utf8mb3 DEFAULT NULL,
+  `c1` varchar(23) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
   `c2` double DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(@a1:=1.1));
 hex(concat(@a1:=1.1))
@@ -2811,9 +2922,9 @@ hex(c1)
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(4) CHARACTER SET utf8mb3 DEFAULT NULL,
+  `c1` varchar(4) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
   `c2` decimal(2,1) NOT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 set @a2=1.1;
 select hex(concat(@a2));
@@ -2826,9 +2937,9 @@ hex(c1)
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(83) CHARACTER SET utf8mb3 DEFAULT NULL,
+  `c1` varchar(83) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
   `c2` decimal(65,38) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(@@ft_max_word_len));
 hex(concat(@@ft_max_word_len))
@@ -2840,8 +2951,8 @@ hex(c1)
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(21) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(21) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat('a'='a' IS TRUE));
 hex(concat('a'='a' IS TRUE))
@@ -2850,8 +2961,8 @@ create table t1 as select concat('a'='a' IS TRUE) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat('a'='a' IS NOT TRUE));
 hex(concat('a'='a' IS NOT TRUE))
@@ -2860,8 +2971,8 @@ create table t1 as select concat('a'='a' IS NOT TRUE) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(NOT 'a'='a'));
 hex(concat(NOT 'a'='a'))
@@ -2870,8 +2981,8 @@ create table t1 as select concat(NOT 'a'='a') as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat('a' IS NULL));
 hex(concat('a' IS NULL))
@@ -2880,8 +2991,8 @@ create table t1 as select concat('a' IS NULL) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat('a' IS NOT NULL));
 hex(concat('a' IS NOT NULL))
@@ -2890,8 +3001,8 @@ create table t1 as select concat('a' IS NOT NULL) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat('a' rlike 'a'));
 hex(concat('a' rlike 'a'))
@@ -2900,8 +3011,8 @@ create table t1 as select concat('a' IS NOT NULL) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(strcmp('a','b')));
 hex(concat(strcmp('a','b')))
@@ -2910,8 +3021,8 @@ create table t1 as select concat(strcmp('a','b')) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat('a' like 'a'));
 hex(concat('a' like 'a'))
@@ -2920,8 +3031,8 @@ create table t1 as select concat('a' like 'b') as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat('a' between 'b' and 'c'));
 hex(concat('a' between 'b' and 'c'))
@@ -2930,8 +3041,8 @@ create table t1 as select concat('a' between 'b' and 'c') as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat('a' in ('a','b')));
 hex(concat('a' in ('a','b')))
@@ -2940,8 +3051,8 @@ create table t1 as select concat('a' in ('a','b')) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(interval(23, 1, 15, 17, 30, 44, 200)));
 hex(concat(interval(23, 1, 15, 17, 30, 44, 200)))
@@ -2950,8 +3061,8 @@ create table t1 as select concat(interval(23, 1, 15, 17, 30, 44, 200)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(ifnull(1,'a'));
 hex(ifnull(1,'a'))
@@ -2960,8 +3071,8 @@ create table t1 as select ifnull(1,'a') as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 NOT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci NOT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(ifnull(1,1)));
 hex(concat(ifnull(1,1)))
@@ -2970,8 +3081,8 @@ create table t1 as select concat(ifnull(1,1)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(ifnull(1.1,1.1)));
 hex(concat(ifnull(1.1,1.1)))
@@ -2980,8 +3091,8 @@ create table t1 as select concat(ifnull(1.1,1.1)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(4) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(4) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(if(1,'b',1));
 hex(if(1,'b',1))
@@ -2990,8 +3101,8 @@ create table t1 as select if(1,'b',1) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 NOT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci NOT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(if(1,1,'b'));
 hex(if(1,1,'b'))
@@ -3000,8 +3111,8 @@ create table t1 as select if(1,1,'b') as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 NOT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci NOT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(if(1,1,1)));
 hex(concat(if(1,1,1)))
@@ -3010,8 +3121,8 @@ create table t1 as select concat(if(1,1,1)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(nullif(1,2)));
 hex(concat(nullif(1,2)))
@@ -3020,8 +3131,8 @@ create table t1 as select concat(nullif(1,2)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(Dimension(GeomFromText('LINESTRING(0 0,10 10)'))));
 hex(concat(Dimension(GeomFromText('LINESTRING(0 0,10 10)'))))
@@ -3030,8 +3141,8 @@ create table t1 as select concat(Dimension(GeomFromText('LINSTRING(0 0,10 10)'))
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(NumGeometries(MultiPointFromText('MULTIPOINT(0 0,10 10)'))));
 hex(concat(NumGeometries(MultiPointFromText('MULTIPOINT(0 0,10 10)'))))
@@ -3040,8 +3151,8 @@ create table t1 as select concat(NumGeometries(MultiPointFromText('MULTIPOINT(0 
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(NumPoints(MultiPointFromText('LINESTRING(0 0,10 10)'))));
 hex(concat(NumPoints(MultiPointFromText('LINESTRING(0 0,10 10)'))))
@@ -3050,8 +3161,8 @@ create table t1 as select concat(NumPoints(MultiPointFromText('LINESTRING(0 0,10
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(SRID(MultiPointFromText('MULTIPOINT(0 0,10 10)'))));
 hex(concat(SRID(MultiPointFromText('MULTIPOINT(0 0,10 10)'))))
@@ -3060,8 +3171,8 @@ create table t1 as select concat(SRID(MultiPointFromText('MULTIPOINT(0 0,10 10)'
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(NumInteriorRings(PolygonFromText('POLYGON((0 0,50 0,50 50,0 50,0 0), (10 10,20 10,20 20,10 20,10 10))'))));
 hex(concat(NumInteriorRings(PolygonFromText('POLYGON((0 0,50 0,50 50,0 50,0 0), (10 10,20 10,20 20,10 20,10 10))'))))
@@ -3070,8 +3181,8 @@ create table t1 as select concat(NumInteriorRings(PolygonFromText('POLYGON((0 0,
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(IsEmpty(GeomFromText('POINT(1 1)'))));
 hex(concat(IsEmpty(GeomFromText('POINT(1 1)'))))
@@ -3080,8 +3191,8 @@ create table t1 as select concat(IsEmpty(GeomFromText('Point(1 1)'))) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(21) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(21) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(IsSimple(GeomFromText('POINT(1 1)'))));
 hex(concat(IsSimple(GeomFromText('POINT(1 1)'))))
@@ -3090,8 +3201,8 @@ create table t1 as select concat(IsSimple(GeomFromText('Point(1 1)'))) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(IsClosed(GeomFromText('LineString(1 1,2 2)'))));
 hex(concat(IsClosed(GeomFromText('LineString(1 1,2 2)'))))
@@ -3100,8 +3211,8 @@ create table t1 as select concat(IsClosed(GeomFromText('LineString(1 1,2 2)'))) 
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(Equals(GeomFromText('Point(1 1)'),GeomFromText('Point(1 1)'))));
 hex(concat(Equals(GeomFromText('Point(1 1)'),GeomFromText('Point(1 1)'))))
@@ -3115,8 +3226,8 @@ create table t1 as select concat(x(GeomFromText('Point(1 2)'))) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(23) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(23) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(y(GeomFromText('Point(1 2)'))));
 hex(concat(y(GeomFromText('Point(1 2)'))))
@@ -3125,8 +3236,8 @@ create table t1 as select concat(x(GeomFromText('Point(1 2)'))) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(23) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(23) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(GLength(GeomFromText('LineString(1 2,2 2)'))));
 hex(concat(GLength(GeomFromText('LineString(1 2,2 2)'))))
@@ -3135,8 +3246,8 @@ create table t1 as select concat(GLength(GeomFromText('LineString(1 2, 2 2)'))) 
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(23) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(23) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(Area(GeomFromText('Polygon((0 0,1 0,1 1,0 1,0 0))'))));
 hex(concat(Area(GeomFromText('Polygon((0 0,1 0,1 1,0 1,0 0))'))))
@@ -3145,8 +3256,8 @@ create table t1 as select concat(Area(GeomFromText('Polygon((0 0,1 0,1 1,0 1,0 0
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(23) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(23) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(GeometryType(GeomFromText('Point(1 2)'))));
 hex(concat(GeometryType(GeomFromText('Point(1 2)'))))
@@ -3155,8 +3266,8 @@ create table t1 as select concat(GeometryType(GeomFromText('Point(1 2)'))) as c1
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(20) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(20) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(AsText(GeomFromText('Point(1 2)'))));
 hex(concat(AsText(GeomFromText('Point(1 2)'))))
@@ -3165,8 +3276,8 @@ create table t1 as select concat(AsText(GeomFromText('Point(1 2)'))) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` longtext CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` longtext CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(period_add(200902, 2)));
 hex(concat(period_add(200902, 2)))
@@ -3175,8 +3286,8 @@ create table t1 as select concat(period_add(200902, 2)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(6) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(6) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(period_diff(200902, 200802)));
 hex(concat(period_diff(200902, 200802)))
@@ -3188,8 +3299,8 @@ Warning	1265	Data truncated for column 'c1' at row 1
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(6) CHARACTER SET utf8mb3 NOT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(6) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci NOT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(to_days(20090224)));
 hex(concat(to_days(20090224)))
@@ -3198,8 +3309,8 @@ create table t1 as select concat(to_days(20090224)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(6) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(6) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(dayofmonth(20090224)));
 hex(concat(dayofmonth(20090224)))
@@ -3208,8 +3319,8 @@ create table t1 as select concat(dayofmonth(20090224)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(dayofyear(20090224)));
 hex(concat(dayofyear(20090224)))
@@ -3218,8 +3329,8 @@ create table t1 as select concat(dayofyear(20090224)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(3) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(3) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(hour('10:11:12')));
 hex(concat(hour('10:11:12')))
@@ -3228,8 +3339,8 @@ create table t1 as select concat(hour('10:11:12')) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(minute('10:11:12')));
 hex(concat(minute('10:11:12')))
@@ -3238,8 +3349,8 @@ create table t1 as select concat(minute('10:11:12')) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(second('10:11:12')));
 hex(concat(second('10:11:12')))
@@ -3248,8 +3359,8 @@ create table t1 as select concat(second('10:11:12')) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(quarter(20090224)));
 hex(concat(quarter(20090224)))
@@ -3258,8 +3369,8 @@ create table t1 as select concat(quarter(20090224)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(week(20090224)));
 hex(concat(week(20090224)))
@@ -3268,8 +3379,8 @@ create table t1 as select concat(week(20090224)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(yearweek(20090224)));
 hex(concat(yearweek(20090224)))
@@ -3278,8 +3389,8 @@ create table t1 as select concat(yearweek(20090224)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(6) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(6) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(year(20090224)));
 hex(concat(year(20090224)))
@@ -3288,8 +3399,8 @@ create table t1 as select concat(year(20090224)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(4) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(4) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(weekday(20090224)));
 hex(concat(weekday(20090224)))
@@ -3298,8 +3409,8 @@ create table t1 as select concat(weekday(20090224)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(dayofweek(20090224)));
 hex(concat(dayofweek(20090224)))
@@ -3308,8 +3419,8 @@ create table t1 as select concat(dayofweek(20090224)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(unix_timestamp(20090224)));
 hex(concat(unix_timestamp(20090224)))
@@ -3318,8 +3429,8 @@ create table t1 as select concat(unix_timestamp(20090224)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(17) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(17) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(time_to_sec('10:11:12')));
 hex(concat(time_to_sec('10:11:12')))
@@ -3328,8 +3439,8 @@ create table t1 as select concat(time_to_sec('10:11:12')) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(17) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(17) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(extract(year from 20090702)));
 hex(concat(extract(year from 20090702)))
@@ -3338,8 +3449,8 @@ create table t1 as select concat(extract(year from 20090702)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(4) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(4) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(microsecond('12:00:00.123456')));
 hex(concat(microsecond('12:00:00.123456')))
@@ -3348,8 +3459,8 @@ create table t1 as select concat(microsecond('12:00:00.123456')) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(6) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(6) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(month(20090224)));
 hex(concat(month(20090224)))
@@ -3358,15 +3469,15 @@ create table t1 as select concat(month(20090224)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1 as select concat(last_day('2003-02-05')) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 select c1, hex(c1) from t1;
 c1	hex(c1)
 2003-02-28	323030332D30322D3238
@@ -3375,8 +3486,8 @@ create table t1 as select concat(from_days(730669)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 select c1, hex(c1) from t1;
 c1	hex(c1)
 2000-07-03	323030302D30372D3033
@@ -3385,22 +3496,22 @@ create table t1 as select concat(curdate()) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1 as select concat(utc_date()) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1 as select concat(curtime()) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1 as select repeat('a',20) as c1 limit 0;
 set timestamp=1216359724;
@@ -3415,8 +3526,8 @@ create table t1 as select concat(utc_time()) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(sec_to_time(2378)));
 hex(concat(sec_to_time(2378)))
@@ -3425,8 +3536,8 @@ create table t1 as select concat(sec_to_time(2378)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(timediff('2001-01-02 00:00:00', '2001-01-01 00:00:00')));
 hex(concat(timediff('2001-01-02 00:00:00', '2001-01-01 00:00:00')))
@@ -3435,8 +3546,8 @@ create table t1 as select concat(timediff('2001-01-02 00:00:00', '2001-01-01 00:
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(maketime(10,11,12)));
 hex(concat(maketime(10,11,12)))
@@ -3445,8 +3556,8 @@ create table t1 as select concat(maketime(10,11,12)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(get_format(DATE,'USA'));
 hex(get_format(DATE,'USA'))
@@ -3455,8 +3566,8 @@ create table t1 as select get_format(DATE,'USA') as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(17) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(17) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(left(concat(from_unixtime(1111885200)),4));
 hex(left(concat(from_unixtime(1111885200)),4))
@@ -3465,8 +3576,8 @@ create table t1 as select concat(from_unixtime(1111885200)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(19) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(19) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(convert_tz('2004-01-01 12:00:00','+10:00','-6:00')));
 hex(concat(convert_tz('2004-01-01 12:00:00','+10:00','-6:00')))
@@ -3475,8 +3586,8 @@ create table t1 as select concat(convert_tz('2004-01-01 12:00:00','+10:00','-6:0
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(19) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(19) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(date_add('2004-01-01 12:00:00', interval 1 day)));
 hex(concat(date_add('2004-01-01 12:00:00', interval 1 day)))
@@ -3485,8 +3596,8 @@ create table t1 as select concat(date_add('2004-01-01 12:00:00', interval 1 day)
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(19) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(19) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 select * from t1;
 c1
 2004-01-02 12:00:00
@@ -3498,8 +3609,8 @@ create table t1 as select concat(makedate(2009,1)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 select * from t1;
 c1
 2009-01-01
@@ -3508,22 +3619,22 @@ create table t1 as select concat(now()) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(19) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(19) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1 as select concat(utc_timestamp()) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(19) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(19) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1 as select concat(sysdate()) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(19) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(19) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(addtime('00:00:00','11:22:33')));
 hex(concat(addtime('00:00:00','11:22:33')))
@@ -3532,8 +3643,8 @@ create table t1 as select concat(addtime('00:00:00','11:22:33')) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(26) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(26) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(concat(subtime('23:59:59','11:22:33')));
 hex(concat(subtime('23:59:59','11:22:33')))
@@ -3542,8 +3653,8 @@ create table t1 as select concat(subtime('23:59:59','11:22:33')) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(26) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(26) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(elt(1,2,3));
 hex(elt(1,2,3))
@@ -3552,8 +3663,8 @@ create table t1 as select elt(1,2,3) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(export_set(1,2,3,4,2));
 hex(export_set(1,2,3,4,2))
@@ -3562,8 +3673,8 @@ create table t1 as select export_set(1,2,3,4,2) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(127) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(127) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(insert(1133,3,0,22));
 hex(insert(1133,3,0,22))
@@ -3572,8 +3683,8 @@ create table t1 as select insert(1133,3,0,22) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(6) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(6) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(lcase(123));
 hex(lcase(123))
@@ -3582,8 +3693,8 @@ create table t1 as select lcase(123) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(3) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(6) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(left(123,1));
 hex(left(123,1))
@@ -3592,8 +3703,8 @@ create table t1 as select left(123,1) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(lower(123));
 hex(lower(123))
@@ -3602,8 +3713,8 @@ create table t1 as select lower(123) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(3) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(6) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(lpad(1,2,0));
 hex(lpad(1,2,0))
@@ -3612,8 +3723,8 @@ create table t1 as select lpad(1,2,0) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(ltrim(1));
 hex(ltrim(1))
@@ -3622,8 +3733,8 @@ create table t1 as select ltrim(1) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(mid(1,1,1));
 hex(mid(1,1,1))
@@ -3632,8 +3743,8 @@ create table t1 as select mid(1,1,1) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(repeat(1,2));
 hex(repeat(1,2))
@@ -3642,8 +3753,8 @@ create table t1 as select repeat(1,2) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(replace(1,1,2));
 hex(replace(1,1,2))
@@ -3652,8 +3763,8 @@ create table t1 as select replace(1,1,2) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(reverse(12));
 hex(reverse(12))
@@ -3662,8 +3773,8 @@ create table t1 as select reverse(12) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(right(123,1));
 hex(right(123,1))
@@ -3672,8 +3783,8 @@ create table t1 as select right(123,1) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(rpad(1,2,0));
 hex(rpad(1,2,0))
@@ -3682,8 +3793,8 @@ create table t1 as select rpad(1,2,0) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(2) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(rtrim(1));
 hex(rtrim(1))
@@ -3692,8 +3803,8 @@ create table t1 as select rtrim(1) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(soundex(1));
 hex(soundex(1))
@@ -3702,8 +3813,8 @@ create table t1 as select soundex(1) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(4) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(4) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(substring(1,1,1));
 hex(substring(1,1,1))
@@ -3712,8 +3823,8 @@ create table t1 as select substring(1,1,1) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(trim(1));
 hex(trim(1))
@@ -3722,8 +3833,8 @@ create table t1 as select trim(1) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(ucase(1));
 hex(ucase(1))
@@ -3732,8 +3843,8 @@ create table t1 as select ucase(1) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 select hex(upper(1));
 hex(upper(1))
@@ -3742,15 +3853,15 @@ create table t1 as select upper(1) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(1) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1 as select repeat(' ', 64) as a limit 0;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` varchar(64) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `a` varchar(64) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 insert into t1 values ("1.1"), ("2.1");
 select a, hex(a) from t1;
 a	hex(a)
@@ -3771,8 +3882,8 @@ create table t2 as select concat(a) from t1;
 show create table t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `concat(a)` varchar(4) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `concat(a)` varchar(4) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1, t2;
 create table t1 (a tinyint zerofill);
 insert into t1 values (1), (10), (100);
@@ -3799,8 +3910,8 @@ create table t2 as select concat(a) from t1;
 show create table t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `concat(a)` varchar(12) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `concat(a)` varchar(12) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1, t2;
 create table t1 (a smallint);
 insert into t1 values (1);
@@ -3811,8 +3922,8 @@ create table t2 as select concat(a) from t1;
 show create table t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `concat(a)` varchar(6) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `concat(a)` varchar(6) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1, t2;
 create table t1 (a smallint zerofill);
 insert into t1 values (1), (10), (100), (1000), (10000);
@@ -3833,8 +3944,8 @@ create table t2 as select concat(a) from t1;
 show create table t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `concat(a)` varchar(9) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `concat(a)` varchar(9) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1, t2;
 create table t1 (a mediumint zerofill);
 insert into t1 values (1), (10), (100), (1000), (10000);
@@ -3855,8 +3966,8 @@ create table t2 as select concat(a) from t1;
 show create table t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `concat(a)` varchar(11) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `concat(a)` varchar(11) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1, t2;
 create table t1 (a int zerofill);
 insert into t1 values (1), (10), (100), (1000), (10000);
@@ -3877,8 +3988,8 @@ create table t2 as select concat(a) from t1;
 show create table t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `concat(a)` varchar(20) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `concat(a)` varchar(20) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1, t2;
 create table t1 (a bigint zerofill);
 insert into t1 values (1), (10), (100), (1000), (10000);
@@ -3902,8 +4013,8 @@ create table t2 as select concat(a) from t1;
 show create table t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `concat(a)` varchar(12) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `concat(a)` varchar(12) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1, t2;
 create table t1 (a float zerofill);
 insert into t1 values (1.1), (10.1), (100.1), (1000.1), (10000.1);
@@ -3927,8 +4038,8 @@ create table t2 as select concat(a) from t1;
 show create table t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `concat(a)` varchar(22) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `concat(a)` varchar(22) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1, t2;
 create table t1 (a double zerofill);
 insert into t1 values (1.1), (10.1), (100.1), (1000.1), (10000.1);
@@ -3942,7 +4053,7 @@ hex(concat(a))	a
 drop table t1;
 create table t1 (a year(2));
 Warnings:
-Note	1287	'YEAR(2)' is deprecated and will be removed in a future release. Please use YEAR(4) instead
+Warning	1287	'YEAR(2)' is deprecated and will be removed in a future release. Please use 'YEAR(4)' instead
 insert into t1 values (1);
 select hex(concat(a)) from t1;
 hex(concat(a))
@@ -3951,8 +4062,8 @@ create table t2 as select concat(a) from t1;
 show create table t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `concat(a)` varchar(2) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `concat(a)` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1, t2;
 create table t1 (a year);
 insert into t1 values (1);
@@ -3963,8 +4074,8 @@ create table t2 as select concat(a) from t1;
 show create table t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `concat(a)` varchar(4) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `concat(a)` varchar(4) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1, t2;
 create table t1 (a bit(64));
 insert into t1 values (1);
@@ -3976,7 +4087,7 @@ show create table t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `concat(a)` varbinary(64) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1, t2;
 create table t1 (a timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP);
 insert into t1 values (0);
@@ -3999,8 +4110,8 @@ create table t2 as select concat(a) from t1;
 show create table t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `concat(a)` varchar(19) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `concat(a)` varchar(19) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1, t2;
 create table t1 (a date);
 insert into t1 values ('2001-02-03');
@@ -4013,8 +4124,8 @@ create table t2 as select concat(a) from t1;
 show create table t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `concat(a)` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `concat(a)` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1, t2;
 create table t1 (a time);
 insert into t1 values (1);
@@ -4031,8 +4142,8 @@ create table t2 as select concat(a) from t1;
 show create table t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `concat(a)` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `concat(a)` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1, t2;
 create table t1 (a datetime);
 insert into t1 values ('2001-02-03 04:05:06');
@@ -4045,8 +4156,8 @@ create table t2 as select concat(a) from t1;
 show create table t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `concat(a)` varchar(19) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `concat(a)` varchar(19) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1, t2;
 create table t1 (a tinyint);
 insert into t1 values (1);
@@ -4257,7 +4368,7 @@ drop table t1;
 drop view v1;
 create table t1 (a year(2));
 Warnings:
-Note	1287	'YEAR(2)' is deprecated and will be removed in a future release. Please use YEAR(4) instead
+Warning	1287	'YEAR(2)' is deprecated and will be removed in a future release. Please use 'YEAR(4)' instead
 insert into t1 values (1);
 create view v1(a) as select concat(a) from t1;
 show columns from v1;
@@ -4362,14 +4473,14 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `c1` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1 (c1 varchar(11) collate latin1_bin) as select concat(f1(1)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `c1` varchar(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 create view v1 as select concat(f1(1)) as c1;
 show columns from v1;
 Field	Type	Null	Key	Default	Extra
@@ -4393,14 +4504,14 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `c1` decimal(18,2) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1 (c1 varchar(20) collate latin1_bin) as select concat(f1(123.45)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `c1` varchar(20) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 create view v1 as select concat(f1(123.45)) as c1;
 show columns from v1;
 Field	Type	Null	Key	Default	Extra
@@ -4424,14 +4535,14 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `c1` float DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1 (c1 varchar(12) collate latin1_bin) as select concat(f1(123.45)) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `c1` varchar(12) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 create view v1 as select concat(f1(123.45)) as c1;
 show columns from v1;
 Field	Type	Null	Key	Default	Extra
@@ -4455,14 +4566,14 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `c1` date DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 create table t1 (c1 varchar(10) collate latin1_bin) as select concat(f1(cast('2001-01-02' as date))) as c1;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `c1` varchar(10) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 create view v1 as select concat(f1(cast('2001-01-02' as date))) as c1;
 show columns from v1;
 Field	Type	Null	Key	Default	Extra
@@ -4479,37 +4590,37 @@ drop function f1;
 SET @x=md5('a');
 SELECT charset(@x), collation(@x);
 charset(@x)	collation(@x)
-utf8mb3	utf8mb3_bin
+utf8mb3	utf8mb3_uca1400_ai_ci
 SET @x=old_password('a');
 SELECT charset(@x), collation(@x);
 charset(@x)	collation(@x)
-utf8mb3	utf8mb3_bin
+utf8mb3	utf8mb3_uca1400_ai_ci
 SET @x=password('a');
 SELECT charset(@x), collation(@x);
 charset(@x)	collation(@x)
-utf8mb3	utf8mb3_bin
+utf8mb3	utf8mb3_uca1400_ai_ci
 SET @x=sha('a');
 SELECT charset(@x), collation(@x);
 charset(@x)	collation(@x)
-utf8mb3	utf8mb3_bin
+utf8mb3	utf8mb3_uca1400_ai_ci
 SET @x=sha1('a');
 SELECT charset(@x), collation(@x);
 charset(@x)	collation(@x)
-utf8mb3	utf8mb3_bin
+utf8mb3	utf8mb3_uca1400_ai_ci
 SET @x=astext(point(1,2));
 SELECT charset(@x), collation(@x);
 charset(@x)	collation(@x)
-utf8mb3	utf8mb3_bin
+utf8mb3	utf8mb3_uca1400_ai_ci
 SET @x=aswkt(point(1,2));
 SELECT charset(@x), collation(@x);
 charset(@x)	collation(@x)
-utf8mb3	utf8mb3_bin
+utf8mb3	utf8mb3_uca1400_ai_ci
 #
 # Bug#54916 GROUP_CONCAT + IFNULL truncates output
 #
 SELECT @@collation_connection;
 @@collation_connection
-utf8mb3_bin
+utf8mb3_uca1400_ai_ci
 CREATE TABLE t1 (a MEDIUMINT NULL) ENGINE=ELOQ;
 INSERT INTO t1 VALUES (1234567);
 SELECT GROUP_CONCAT(IFNULL(a,'')) FROM t1;
@@ -4536,117 +4647,117 @@ FROM t1;
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `CONCAT(a)` varchar(9) CHARACTER SET utf8mb3 DEFAULT NULL,
-  `IFNULL(a,'')` varchar(9) CHARACTER SET utf8mb3 NOT NULL,
-  `IF(a,a,'')` varchar(9) CHARACTER SET utf8mb3 DEFAULT NULL,
-  `CASE WHEN a THEN a ELSE '' END` varchar(9) CHARACTER SET utf8mb3 DEFAULT NULL,
-  `COALESCE(a,'')` varchar(9) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `CONCAT(a)` varchar(9) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
+  `IFNULL(a,'')` varchar(9) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci NOT NULL,
+  `IF(a,a,'')` varchar(9) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
+  `CASE WHEN a THEN a ELSE '' END` varchar(9) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
+  `COALESCE(a,'')` varchar(9) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci NOT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t2;
 CREATE TABLE t2 AS SELECT CONCAT_WS(1,2,3) FROM t1;
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `CONCAT_WS(1,2,3)` varchar(3) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `CONCAT_WS(1,2,3)` varchar(3) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t2;
 CREATE TABLE t2 AS SELECT INSERT(1133,3,0,22) FROM t1;
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `INSERT(1133,3,0,22)` varchar(6) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `INSERT(1133,3,0,22)` varchar(6) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t2;
 CREATE TABLE t2 AS SELECT LCASE(a) FROM t1;
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `LCASE(a)` varchar(9) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `LCASE(a)` varchar(18) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t2;
 CREATE TABLE t2 AS SELECT UCASE(a) FROM t1;
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `UCASE(a)` varchar(9) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `UCASE(a)` varchar(18) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t2;
 CREATE TABLE t2 AS SELECT REPEAT(1,2) FROM t1;
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `REPEAT(1,2)` varchar(2) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `REPEAT(1,2)` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t2;
 CREATE TABLE t2 AS SELECT LEFT(123,2) FROM t1;
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `LEFT(123,2)` varchar(2) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `LEFT(123,2)` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t2;
 CREATE TABLE t2 AS SELECT RIGHT(123,2) FROM t1;
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `RIGHT(123,2)` varchar(2) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `RIGHT(123,2)` varchar(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t2;
 CREATE TABLE t2 AS SELECT LTRIM(123) FROM t1;
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `LTRIM(123)` varchar(3) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `LTRIM(123)` varchar(3) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t2;
 CREATE TABLE t2 AS SELECT RTRIM(123) FROM t1;
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `RTRIM(123)` varchar(3) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `RTRIM(123)` varchar(3) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t2;
 CREATE TABLE t2 AS SELECT ELT(1,111,222,333) FROM t1;
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `ELT(1,111,222,333)` varchar(3) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `ELT(1,111,222,333)` varchar(3) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t2;
 CREATE TABLE t2 AS SELECT REPLACE(111,2,3) FROM t1;
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `REPLACE(111,2,3)` varchar(3) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `REPLACE(111,2,3)` varchar(3) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t2;
 CREATE TABLE t2 AS SELECT SUBSTRING_INDEX(111,111,1) FROM t1;
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `SUBSTRING_INDEX(111,111,1)` varchar(3) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `SUBSTRING_INDEX(111,111,1)` varchar(3) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t2;
 CREATE TABLE t2 AS SELECT MAKE_SET(111,222,3) FROM t1;
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `MAKE_SET(111,222,3)` varchar(5) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `MAKE_SET(111,222,3)` varchar(5) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t2;
 CREATE TABLE t2 AS SELECT SOUNDEX(1) FROM t1;
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `SOUNDEX(1)` varchar(4) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `SOUNDEX(1)` varchar(4) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t2;
 CREATE TABLE t2 AS SELECT EXPORT_SET(1,'Y','N','',8);
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `EXPORT_SET(1,'Y','N','',8)` varchar(64) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `EXPORT_SET(1,'Y','N','',8)` varchar(64) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t2;
 DROP TABLE t1;
 #
@@ -4657,7 +4768,7 @@ DROP TABLE t1;
 #
 SELECT @@collation_connection;
 @@collation_connection
-utf8mb3_bin
+utf8mb3_uca1400_ai_ci
 CREATE TABLE t1 (
 id INT(11) DEFAULT NULL,
 date_column DATE DEFAULT NULL,
@@ -4681,7 +4792,7 @@ DROP TABLE t1;
 #
 SELECT @@collation_connection, @@character_set_results;
 @@collation_connection	@@character_set_results
-utf8mb3_bin	utf8mb3
+utf8mb3_uca1400_ai_ci	utf8mb3
 SELECT
 CHARSET(DATE_SUB('2007-08-03', INTERVAL 1 MINUTE)) AS field_str1,
 CHARSET(DATE_SUB('2007-08-03 17:33:00', INTERVAL 1 MINUTE)) AS field_str2,
@@ -4698,11 +4809,11 @@ DATE_SUB(CAST('2007-08-03 17:33:00' AS DATETIME), INTERVAL 1 MINUTE) AS field_da
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `field_str1` varchar(19) CHARACTER SET utf8mb3 DEFAULT NULL,
-  `field1_str2` varchar(19) CHARACTER SET utf8mb3 DEFAULT NULL,
+  `field_str1` varchar(19) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
+  `field1_str2` varchar(19) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
   `field_date` date DEFAULT NULL,
   `field_datetime` datetime DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1;
 SELECT
 DATE_SUB('2007-08-03', INTERVAL 1 DAY) AS field_str1,
@@ -4710,8 +4821,8 @@ DATE_SUB('2007-08-03 17:33:00', INTERVAL 1 MINUTE) AS field1_str2,
 DATE_SUB(DATE('2007-08-03'), INTERVAL 1 DAY) AS field_date,
 DATE_SUB(CAST('2007-08-03 17:33:00' AS DATETIME), INTERVAL 1 MINUTE) AS field_datetime;
 Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
-def					field_str1	254	57	10	Y	128	0	83
-def					field1_str2	254	57	19	Y	128	0	83
+def					field_str1	254	57	10	Y	0	0	192
+def					field1_str2	254	57	19	Y	0	0	192
 def					field_date	10	10	10	Y	128	0	63
 def					field_datetime	12	19	19	Y	128	0	63
 field_str1	field1_str2	field_date	field_datetime
@@ -4728,7 +4839,7 @@ field_str1	field1_str2	field_date	field_datetime
 #
 SELECT @@collation_connection, @@character_set_results;
 @@collation_connection	@@character_set_results
-utf8mb3_bin	utf8mb3
+utf8mb3_uca1400_ai_ci	utf8mb3
 SELECT
 CHARSET(ADDTIME(_latin1'10:01:01',_latin1'10:00:00')) AS addtime1,
 CHARSET(ADDTIME('10:01:01','10:00:00')) AS addtime2,
@@ -4745,11 +4856,11 @@ DATE_ADD('2001-01-01 10:01:01',interval 10 second) AS date_add2;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `addtime1` varchar(26) CHARACTER SET utf8mb3 DEFAULT NULL,
-  `addtime2` varchar(26) CHARACTER SET utf8mb3 DEFAULT NULL,
-  `date_add1` varchar(19) CHARACTER SET utf8mb3 DEFAULT NULL,
-  `date_add2` varchar(19) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `addtime1` varchar(26) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
+  `addtime2` varchar(26) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
+  `date_add1` varchar(19) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
+  `date_add2` varchar(19) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t1;
 addtime1	addtime2	date_add1	date_add2
 20:01:01	20:01:01	2001-01-01 10:01:11	2001-01-01 10:01:11
@@ -4759,7 +4870,7 @@ DROP TABLE t1;
 #
 SELECT @@collation_connection;
 @@collation_connection
-utf8mb3_bin
+utf8mb3_uca1400_ai_ci
 CREATE PROCEDURE p1()
 BEGIN
 DECLARE v_LastPaymentDate DATETIME DEFAULT NULL;
@@ -4796,7 +4907,7 @@ DROP TABLE t1;
 #
 SELECT @@collation_connection;
 @@collation_connection
-utf8mb3_bin
+utf8mb3_uca1400_ai_ci
 SELECT CASE 1 WHEN 2 THEN ( - '3' ) END;
 CASE 1 WHEN 2 THEN ( - '3' ) END
 NULL
@@ -4815,7 +4926,7 @@ Table	Create Table
 t2	CREATE TABLE `t2` (
   `d` date DEFAULT NULL,
   `bad` date DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1, t2;
 SET NAMES latin1;
 SET sql_mode='';
@@ -4895,10 +5006,10 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `ch` varchar(60) CHARACTER SET utf8mb3 DEFAULT NULL,
+  `ch` varchar(60) CHARACTER SET utf8mb3 COLLATE utf8mb3_bin DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `ch` (`ch`)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 INSERT INTO t1 (ch) VALUES ('admin'),('admin1');
 SELECT ch FROM t1 WHERE ch='admin𝌆';
 ch
@@ -5110,10 +5221,10 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `ch` varchar(60) CHARACTER SET utf8mb3 DEFAULT NULL,
+  `ch` varchar(60) CHARACTER SET utf8mb3 COLLATE utf8mb3_bin DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `ch` (`ch`)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 INSERT INTO t1 (ch) VALUES ('admin'),('admin1');
 SELECT ch FROM t1 WHERE ch='admin𝌆';
 ch
@@ -5325,10 +5436,10 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `ch` varchar(60) CHARACTER SET utf8mb3 DEFAULT NULL,
+  `ch` varchar(60) CHARACTER SET utf8mb3 COLLATE utf8mb3_bin DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `ch` (`ch`)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 INSERT INTO t1 (ch) VALUES ('admin'),('admin1');
 SELECT ch FROM t1 WHERE ch='admin𝌆';
 ch
@@ -5563,12 +5674,12 @@ FROM t1;
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `c0` varchar(19) CHARACTER SET utf8mb3 NOT NULL,
-  `c1` varchar(19) CHARACTER SET utf8mb3 NOT NULL,
-  `c2` varchar(19) CHARACTER SET utf8mb3 NOT NULL,
-  `c3` varchar(19) CHARACTER SET utf8mb3 NOT NULL,
-  `c4` varchar(19) CHARACTER SET utf8mb3 NOT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c0` varchar(19) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci NOT NULL,
+  `c1` varchar(19) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci NOT NULL,
+  `c2` varchar(19) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL,
+  `c3` varchar(19) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci NOT NULL,
+  `c4` varchar(19) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t2;
 c0	c1	c2	c3	c4
 2012-06-11 15:17:34	2012-06-11 15:17:34	2012-06-11 15:17:34	2012-06-11 15:17:34	2012-06-11 15:17:34
@@ -5685,247 +5796,247 @@ SET sql_mode=default;
 set names utf8;
 select @@collation_connection;
 @@collation_connection
-utf8mb3_bin
+utf8mb3_uca1400_ai_ci
 CREATE TABLE t1 AS SELECT 'a' AS a;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` varchar(1) CHARACTER SET utf8mb3 NOT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `a` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci NOT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 CREATE TABLE t2 AS SELECT WEIGHT_STRING(a) AS ws FROM t1;
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `ws` varbinary(2) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `ws` varbinary(16) DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT HEX(WEIGHT_STRING(a)) FROM t1;
 HEX(WEIGHT_STRING(a))
-0061
+2075
 SELECT HEX(ws) FROM t2;
 HEX(ws)
-0061
+2075
 DROP TABLE t2;
 DROP TABLE t1;
 CREATE TABLE t1 AS SELECT REPEAT('a',5) AS a;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` varchar(5) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `a` varchar(5) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 CREATE TABLE t2 AS SELECT WEIGHT_STRING(a) AS ws FROM t1;
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `ws` varbinary(10) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `ws` varbinary(80) DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT HEX(WEIGHT_STRING(a)) FROM t1;
 HEX(WEIGHT_STRING(a))
-00610061006100610061
+20752075207520752075
 SELECT HEX(ws) FROM t2;
 HEX(ws)
-00610061006100610061
+20752075207520752075
 DROP TABLE t2;
 CREATE TABLE t2 AS SELECT WEIGHT_STRING(a AS CHAR(3)) AS ws FROM t1;
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `ws` varbinary(6) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `ws` varbinary(48) DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT HEX(WEIGHT_STRING(a AS CHAR(3))) FROM t1;
 HEX(WEIGHT_STRING(a AS CHAR(3)))
-006100610061
+207520752075
 SELECT HEX(ws) FROM t2;
 HEX(ws)
-006100610061
+207520752075
 DROP TABLE t2;
 CREATE TABLE t2 AS SELECT WEIGHT_STRING(a AS CHAR(10)) AS ws FROM t1;
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
-  `ws` varbinary(20) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `ws` varbinary(160) DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT HEX(WEIGHT_STRING(a AS CHAR(10))) FROM t1;
 HEX(WEIGHT_STRING(a AS CHAR(10)))
-0061006100610061006100200020002000200020
+2075207520752075207502090209020902090209
 SELECT HEX(ws) FROM t2;
 HEX(ws)
-0061006100610061006100200020002000200020
+2075207520752075207502090209020902090209
 DROP TABLE t2;
 DROP TABLE t1;
 select hex(weight_string('a'));
 hex(weight_string('a'))
-0061
+2075
 select hex(weight_string('A'));
 hex(weight_string('A'))
-0041
+2075
 select hex(weight_string('abc'));
 hex(weight_string('abc'))
-006100620063
+2075208F20A9
 select hex(weight_string('abc' as char(2)));
 hex(weight_string('abc' as char(2)))
-00610062
+2075208F
 select hex(weight_string('abc' as char(3)));
 hex(weight_string('abc' as char(3)))
-006100620063
+2075208F20A9
 select hex(weight_string('abc' as char(5)));
 hex(weight_string('abc' as char(5)))
-00610062006300200020
+2075208F20A902090209
 select hex(weight_string('abc', 1, 2, 0xC0));
 hex(weight_string('abc', 1, 2, 0xC0))
-00
+20
 select hex(weight_string('abc', 2, 2, 0xC0));
 hex(weight_string('abc', 2, 2, 0xC0))
-0061
+2075
 select hex(weight_string('abc', 3, 2, 0xC0));
 hex(weight_string('abc', 3, 2, 0xC0))
-006100
+207520
 select hex(weight_string('abc', 4, 2, 0xC0));
 hex(weight_string('abc', 4, 2, 0xC0))
-00610062
+2075208F
 select hex(weight_string('abc', 5, 2, 0xC0));
 hex(weight_string('abc', 5, 2, 0xC0))
-0061006200
+2075208F02
 select hex(weight_string('abc',25, 2, 0xC0));
 hex(weight_string('abc',25, 2, 0xC0))
-00610062002000200020002000200020002000200020002000
+2075208F020902090209020902090209020902090209020902
 select hex(weight_string('abc', 1, 3, 0xC0));
 hex(weight_string('abc', 1, 3, 0xC0))
-00
+20
 select hex(weight_string('abc', 2, 3, 0xC0));
 hex(weight_string('abc', 2, 3, 0xC0))
-0061
+2075
 select hex(weight_string('abc', 3, 3, 0xC0));
 hex(weight_string('abc', 3, 3, 0xC0))
-006100
+207520
 select hex(weight_string('abc', 4, 3, 0xC0));
 hex(weight_string('abc', 4, 3, 0xC0))
-00610062
+2075208F
 select hex(weight_string('abc', 5, 3, 0xC0));
 hex(weight_string('abc', 5, 3, 0xC0))
-0061006200
+2075208F20
 select hex(weight_string('abc',25, 3, 0xC0));
 hex(weight_string('abc',25, 3, 0xC0))
-00610062006300200020002000200020002000200020002000
+2075208F20A902090209020902090209020902090209020902
 select hex(weight_string('abc', 1, 4, 0xC0));
 hex(weight_string('abc', 1, 4, 0xC0))
-00
+20
 select hex(weight_string('abc', 2, 4, 0xC0));
 hex(weight_string('abc', 2, 4, 0xC0))
-0061
+2075
 select hex(weight_string('abc', 3, 4, 0xC0));
 hex(weight_string('abc', 3, 4, 0xC0))
-006100
+207520
 select hex(weight_string('abc', 4, 4, 0xC0));
 hex(weight_string('abc', 4, 4, 0xC0))
-00610062
+2075208F
 select hex(weight_string('abc', 5, 4, 0xC0));
 hex(weight_string('abc', 5, 4, 0xC0))
-0061006200
+2075208F20
 select hex(weight_string('abc',25, 4, 0xC0));
 hex(weight_string('abc',25, 4, 0xC0))
-00610062006300200020002000200020002000200020002000
+2075208F20A902090209020902090209020902090209020902
 select @@collation_connection;
 @@collation_connection
-utf8mb3_bin
+utf8mb3_uca1400_ai_ci
 select hex(weight_string(cast(_latin1 0x80 as char)));
 hex(weight_string(cast(_latin1 0x80 as char)))
-20AC
+2055
 select hex(weight_string(cast(_latin1 0x808080 as char)));
 hex(weight_string(cast(_latin1 0x808080 as char)))
-20AC20AC20AC
+205520552055
 select hex(weight_string(cast(_latin1 0x808080 as char) as char(2)));
 hex(weight_string(cast(_latin1 0x808080 as char) as char(2)))
-20AC20AC
+20552055
 select hex(weight_string(cast(_latin1 0x808080 as char) as char(3)));
 hex(weight_string(cast(_latin1 0x808080 as char) as char(3)))
-20AC20AC20AC
+205520552055
 select hex(weight_string(cast(_latin1 0x808080 as char) as char(5)));
 hex(weight_string(cast(_latin1 0x808080 as char) as char(5)))
-20AC20AC20AC00200020
+20552055205502090209
 select hex(weight_string(cast(_latin1 0x808080 as char), 1, 2, 0xC0));
 hex(weight_string(cast(_latin1 0x808080 as char), 1, 2, 0xC0))
 20
 select hex(weight_string(cast(_latin1 0x808080 as char), 2, 2, 0xC0));
 hex(weight_string(cast(_latin1 0x808080 as char), 2, 2, 0xC0))
-20AC
+2055
 select hex(weight_string(cast(_latin1 0x808080 as char), 3, 2, 0xC0));
 hex(weight_string(cast(_latin1 0x808080 as char), 3, 2, 0xC0))
-20AC20
+205520
 select hex(weight_string(cast(_latin1 0x808080 as char), 4, 2, 0xC0));
 hex(weight_string(cast(_latin1 0x808080 as char), 4, 2, 0xC0))
-20AC20AC
+20552055
 select hex(weight_string(cast(_latin1 0x808080 as char), 5, 2, 0xC0));
 hex(weight_string(cast(_latin1 0x808080 as char), 5, 2, 0xC0))
-20AC20AC00
+2055205502
 select hex(weight_string(cast(_latin1 0x808080 as char),25, 2, 0xC0));
 hex(weight_string(cast(_latin1 0x808080 as char),25, 2, 0xC0))
-20AC20AC002000200020002000200020002000200020002000
+20552055020902090209020902090209020902090209020902
 select hex(weight_string(cast(_latin1 0x808080 as char), 1, 3, 0xC0));
 hex(weight_string(cast(_latin1 0x808080 as char), 1, 3, 0xC0))
 20
 select hex(weight_string(cast(_latin1 0x808080 as char), 2, 3, 0xC0));
 hex(weight_string(cast(_latin1 0x808080 as char), 2, 3, 0xC0))
-20AC
+2055
 select hex(weight_string(cast(_latin1 0x808080 as char), 3, 3, 0xC0));
 hex(weight_string(cast(_latin1 0x808080 as char), 3, 3, 0xC0))
-20AC20
+205520
 select hex(weight_string(cast(_latin1 0x808080 as char), 4, 3, 0xC0));
 hex(weight_string(cast(_latin1 0x808080 as char), 4, 3, 0xC0))
-20AC20AC
+20552055
 select hex(weight_string(cast(_latin1 0x808080 as char), 5, 3, 0xC0));
 hex(weight_string(cast(_latin1 0x808080 as char), 5, 3, 0xC0))
-20AC20AC20
+2055205520
 select hex(weight_string(cast(_latin1 0x808080 as char),25, 3, 0xC0));
 hex(weight_string(cast(_latin1 0x808080 as char),25, 3, 0xC0))
-20AC20AC20AC00200020002000200020002000200020002000
+20552055205502090209020902090209020902090209020902
 select hex(weight_string(cast(_latin1 0x808080 as char), 1, 4, 0xC0));
 hex(weight_string(cast(_latin1 0x808080 as char), 1, 4, 0xC0))
 20
 select hex(weight_string(cast(_latin1 0x808080 as char), 2, 4, 0xC0));
 hex(weight_string(cast(_latin1 0x808080 as char), 2, 4, 0xC0))
-20AC
+2055
 select hex(weight_string(cast(_latin1 0x808080 as char), 3, 4, 0xC0));
 hex(weight_string(cast(_latin1 0x808080 as char), 3, 4, 0xC0))
-20AC20
+205520
 select hex(weight_string(cast(_latin1 0x808080 as char), 4, 4, 0xC0));
 hex(weight_string(cast(_latin1 0x808080 as char), 4, 4, 0xC0))
-20AC20AC
+20552055
 select hex(weight_string(cast(_latin1 0x808080 as char), 5, 4, 0xC0));
 hex(weight_string(cast(_latin1 0x808080 as char), 5, 4, 0xC0))
-20AC20AC20
+2055205520
 select hex(weight_string(cast(_latin1 0x808080 as char),25, 4, 0xC0));
 hex(weight_string(cast(_latin1 0x808080 as char),25, 4, 0xC0))
-20AC20AC20AC00200020002000200020002000200020002000
+20552055205502090209020902090209020902090209020902
 select @@collation_connection;
 @@collation_connection
-utf8mb3_bin
+utf8mb3_uca1400_ai_ci
 select hex(weight_string('a' LEVEL 1));
 hex(weight_string('a' LEVEL 1))
-0061
+2075
 select hex(weight_string('A' LEVEL 1));
 hex(weight_string('A' LEVEL 1))
-0041
+2075
 select hex(weight_string('abc' LEVEL 1));
 hex(weight_string('abc' LEVEL 1))
-006100620063
+2075208F20A9
 select hex(weight_string('abc' as char(2) LEVEL 1));
 hex(weight_string('abc' as char(2) LEVEL 1))
-00610062
+2075208F
 select hex(weight_string('abc' as char(3) LEVEL 1));
 hex(weight_string('abc' as char(3) LEVEL 1))
-006100620063
+2075208F20A9
 select hex(weight_string('abc' as char(5) LEVEL 1));
 hex(weight_string('abc' as char(5) LEVEL 1))
-00610062006300200020
+2075208F20A902090209
 select hex(weight_string('abc' as char(5) LEVEL 1 REVERSE));
 hex(weight_string('abc' as char(5) LEVEL 1 REVERSE))
-20002000630062006100
+09020902A9208F207520
 select hex(weight_string('abc' as char(5) LEVEL 1 DESC));
 hex(weight_string('abc' as char(5) LEVEL 1 DESC))
-FF9EFF9DFF9CFFDFFFDF
+DF8ADF70DF56FDF6FDF6
 select hex(weight_string('abc' as char(5) LEVEL 1 DESC REVERSE));
 hex(weight_string('abc' as char(5) LEVEL 1 DESC REVERSE))
-DFFFDFFF9CFF9DFF9EFF
+F6FDF6FD56DF70DF8ADF
 set @@collation_connection=utf8_bin;
 select @@collation_connection;
 @@collation_connection
@@ -5934,14 +6045,14 @@ CREATE TABLE t1 AS SELECT 'a' AS a;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` varchar(1) CHARACTER SET utf8mb3 NOT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `a` varchar(1) CHARACTER SET utf8mb3 COLLATE utf8mb3_bin NOT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 CREATE TABLE t2 AS SELECT WEIGHT_STRING(a) AS ws FROM t1;
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `ws` varbinary(2) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT HEX(WEIGHT_STRING(a)) FROM t1;
 HEX(WEIGHT_STRING(a))
 0061
@@ -5954,14 +6065,14 @@ CREATE TABLE t1 AS SELECT REPEAT('a',5) AS a;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` varchar(5) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `a` varchar(5) CHARACTER SET utf8mb3 COLLATE utf8mb3_bin DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 CREATE TABLE t2 AS SELECT WEIGHT_STRING(a) AS ws FROM t1;
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `ws` varbinary(10) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT HEX(WEIGHT_STRING(a)) FROM t1;
 HEX(WEIGHT_STRING(a))
 00610061006100610061
@@ -5974,7 +6085,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `ws` varbinary(6) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT HEX(WEIGHT_STRING(a AS CHAR(3))) FROM t1;
 HEX(WEIGHT_STRING(a AS CHAR(3)))
 006100610061
@@ -5987,7 +6098,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `ws` varbinary(20) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT HEX(WEIGHT_STRING(a AS CHAR(10))) FROM t1;
 HEX(WEIGHT_STRING(a AS CHAR(10)))
 0061006100610061006100200020002000200020
@@ -6202,8 +6313,8 @@ CREATE TABLE t1 AS SELECT REPEAT('a', 10) AS c1 LIMIT 0;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_bin DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 INSERT INTO t1 VALUES ('a'),('a ');
 SELECT * FROM t1 WHERE CONCAT(c1)='a';
 c1
@@ -6225,8 +6336,8 @@ CREATE TABLE t1 AS SELECT REPEAT('a', 10) AS c1 LIMIT 0;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_bin DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 INSERT INTO t1 VALUES ('a'),('a ');
 SELECT * FROM t1 WHERE 'a'=CONCAT(c1);
 c1
@@ -6248,8 +6359,8 @@ CREATE TABLE t1 AS SELECT REPEAT('a', 10) AS c1 LIMIT 0;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_bin DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 INSERT INTO t1 VALUES ('%'),('% ');
 SELECT * FROM t1 WHERE '% '=CONCAT(c1);
 c1
@@ -6271,8 +6382,8 @@ CREATE TABLE t1 AS SELECT REPEAT('a', 10) AS c1 LIMIT 0;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_bin DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 INSERT INTO t1 VALUES ('%'),('% ');
 SELECT * FROM t1 WHERE '%'=CONCAT(c1);
 c1
@@ -6297,8 +6408,8 @@ CREATE TABLE t1 AS SELECT SPACE(10) AS a LIMIT 0;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `a` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_bin DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 INSERT INTO t1 VALUES ('a'),('a ');
 SELECT a, LENGTH(a) FROM t1 WHERE a NOT LIKE 'a ';
 a	LENGTH(a)
@@ -6323,8 +6434,8 @@ CREATE TABLE t1 AS SELECT REPEAT('a', 10) AS c1 LIMIT 0;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 INSERT INTO t1 VALUES ('a'),('a ');
 SELECT * FROM t1 WHERE CONCAT(c1)='a';
 c1
@@ -6346,8 +6457,8 @@ CREATE TABLE t1 AS SELECT REPEAT('a', 10) AS c1 LIMIT 0;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 INSERT INTO t1 VALUES ('a'),('a ');
 SELECT * FROM t1 WHERE 'a'=CONCAT(c1);
 c1
@@ -6369,8 +6480,8 @@ CREATE TABLE t1 AS SELECT REPEAT('a', 10) AS c1 LIMIT 0;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 INSERT INTO t1 VALUES ('%'),('% ');
 SELECT * FROM t1 WHERE '% '=CONCAT(c1);
 c1
@@ -6392,8 +6503,8 @@ CREATE TABLE t1 AS SELECT REPEAT('a', 10) AS c1 LIMIT 0;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 INSERT INTO t1 VALUES ('%'),('% ');
 SELECT * FROM t1 WHERE '%'=CONCAT(c1);
 c1
@@ -6418,8 +6529,8 @@ CREATE TABLE t1 AS SELECT SPACE(10) AS a LIMIT 0;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `a` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 INSERT INTO t1 VALUES ('a'),('a ');
 SELECT a, LENGTH(a) FROM t1 WHERE a NOT LIKE 'a ';
 a	LENGTH(a)
@@ -6431,7 +6542,7 @@ EXPLAIN EXTENDED SELECT a, LENGTH(a) FROM t1 WHERE a NOT LIKE 'a ' AND a='a';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
 Warnings:
-Note	1003	select `test`.`t1`.`a` AS `a`,octet_length(`test`.`t1`.`a`) AS `LENGTH(a)` from `test`.`t1` where `test`.`t1`.`a` = 'a' and `test`.`t1`.`a`  not like 'a '
+Note	1003	select `test`.`t1`.`a` AS `a`,octet_length(`test`.`t1`.`a`) AS `LENGTH(a)` from `test`.`t1` where `test`.`t1`.`a`  not like 'a ' and `test`.`t1`.`a` = 'a'
 DROP TABLE t1;
 #
 # End of MDEV-8694
@@ -6443,8 +6554,8 @@ CREATE TABLE t1 AS SELECT REPEAT('a',10) AS c1 LIMIT 0;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c1` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 INSERT INTO t1 VALUES ('ae'),('ä');
 SELECT * FROM t1 WHERE c1='ä';
 c1
@@ -6502,17 +6613,17 @@ SET NAMES utf8;
 # MDEV-6679 Different optimizer plan for "a BETWEEN 'string' AND ?" and "a BETWEEN ? AND 'string'"
 #
 SET NAMES utf8, collation_connection=utf8_bin;
-CREATE TABLE t1 (a VARCHAR(10) CHARACTER SET utf8, b INT NOT NULL DEFAULT 0, key(a));
+CREATE TABLE t1 (a VARCHAR(10) CHARACTER SET utf8 COLLATE utf8_bin, b INT NOT NULL DEFAULT 0, key(a));
 INSERT INTO t1 (a) VALUES ('a'),('b'),('c'),('d'),('¢');
 SET @arg='¢';
 PREPARE stmt FROM "EXPLAIN SELECT * FROM t1 WHERE a BETWEEN _utf8'¢' and ?";
 EXECUTE stmt USING @arg;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	ref	a	a	33	const	1	Using index condition
+1	SIMPLE	t1	range	a	a	33	NULL	1	Using index condition
 PREPARE stmt FROM "EXPLAIN SELECT * FROM t1 WHERE a between ? and _utf8'¢'";
 EXECUTE stmt USING @arg;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	ref	a	a	33	const	1	Using index condition
+1	SIMPLE	t1	range	a	a	33	NULL	1	Using index condition
 DEALLOCATE PREPARE stmt;
 DROP TABLE t1;
 #
@@ -6564,7 +6675,7 @@ CONCAT(b,IF(a,?,?))
 a
 SET @b='я';
 EXECUTE stmt USING @b,@b;
-ERROR HY000: Illegal mix of collations (latin1_bin,IMPLICIT) and (utf8mb3_bin,COERCIBLE) for operation 'concat'
+ERROR HY000: Illegal mix of collations (latin1_swedish_ci,IMPLICIT) and (utf8mb3_uca1400_ai_ci,COERCIBLE) for operation 'concat'
 DEALLOCATE PREPARE stmt;
 DROP TABLE t1;
 #
@@ -9649,7 +9760,7 @@ CHAR(0xDF USING latin1)
 CREATE OR REPLACE VIEW v1 AS SELECT CHAR(0xDF USING latin1) AS c;
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select char(0xdf using latin1) AS `c`	utf8mb3	utf8mb3_bin
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select char(0xdf using latin1) AS `c`	utf8mb3	utf8mb3_uca1400_ai_ci
 SELECT * FROM v1;
 c
 ß
@@ -9664,8 +9775,8 @@ CREATE TABLE t1 AS SELECT REPEAT('a', 10) AS t LIMIT 0;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `t` varchar(10) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `t` varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 INSERT INTO t1 VALUES ('abcdefghi'),('ABCDEFGHI');
 SELECT CONCAT(t2,'-',t2) c2 FROM (SELECT LOWER(t) t2 FROM t1) sub;
 c2
@@ -9703,17 +9814,22 @@ Warning	1292	Truncated incorrect DECIMAL value: '1é1'
 SELECT * FROM t1 WHERE a='1e1';
 a
 1e1
+1é1
 SELECT * FROM t1 WHERE a=10 AND a='1e1';
 a
 1e1
+Warnings:
+Warning	1292	Truncated incorrect DECIMAL value: '1é1'
 SELECT * FROM t1 WHERE (a,a)=(10,'1e1');
 a
 1e1
+Warnings:
+Warning	1292	Truncated incorrect DECIMAL value: '1é1'
 EXPLAIN EXTENDED SELECT * FROM t1 WHERE (a,a)=(10,'1e1');
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	2	100.00	Using where
 Warnings:
-Note	1003	select `test`.`t1`.`a` AS `a` from `test`.`t1` where `test`.`t1`.`a` = '1e1' and `test`.`t1`.`a` = 10
+Note	1003	select `test`.`t1`.`a` AS `a` from `test`.`t1` where `test`.`t1`.`a` = 10 and `test`.`t1`.`a` = '1e1'
 DROP TABLE t1;
 #
 # MDEV-8688 Wrong result for SELECT..WHERE varchar_column IN (1,2,3) AND varchar_column=' 1';
@@ -10021,8 +10137,8 @@ SET NAMES utf8;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` varchar(30) DEFAULT concat('ÃŸ')
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `a` varchar(30) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT concat('ÃŸ')
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 INSERT INTO t1 VALUES (DEFAULT);
 SELECT HEX(a),a  FROM t1;
 HEX(a)	a
@@ -10032,8 +10148,8 @@ SET NAMES utf8;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` varchar(30) DEFAULT concat('ÃŸ')
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `a` varchar(30) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT concat('ÃŸ')
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DELETE FROM t1;
 INSERT INTO t1 VALUES();
 SELECT * FROM t1;
@@ -10053,8 +10169,8 @@ SET NAMES utf8;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` varchar(30) CHARACTER SET utf8mb3 DEFAULT concat('ÃŸ')
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `a` varchar(30) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT concat('ÃŸ')
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 INSERT INTO t1 VALUES (DEFAULT);
 SELECT HEX(a), a FROM t1;
 HEX(a)	a
@@ -10065,8 +10181,8 @@ CREATE TABLE t1 (a VARCHAR(30) CHARACTER SET latin1 DEFAULT CONCAT('ß'));
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` varchar(30) DEFAULT concat('ß')
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `a` varchar(30) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT concat('ß')
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 INSERT INTO t1 VALUES (DEFAULT);
 SELECT HEX(a) FROM t1;
 HEX(a)
@@ -10077,8 +10193,8 @@ CREATE TABLE t1 (a VARCHAR(30) CHARACTER SET utf8 DEFAULT CONCAT('ß'));
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` varchar(30) CHARACTER SET utf8mb3 DEFAULT concat('ß')
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `a` varchar(30) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT concat('ß')
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 INSERT INTO t1 VALUES (DEFAULT);
 SELECT HEX(a) FROM t1;
 HEX(a)
@@ -10115,7 +10231,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `COALESCE('ßa',_binary 'a')` varbinary(6) NOT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1;
 SET sql_mode=DEFAULT;
 #
@@ -10216,7 +10332,7 @@ t1	CREATE TABLE `t1` (
   `CAST(1 AS BINARY)` varbinary(1) DEFAULT NULL,
   `CAST(@a AS BINARY)` varbinary(20) DEFAULT NULL,
   `CAST(@b:=3 AS BINARY)` varbinary(1) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1;
 #
 # MDEV-20890 Illegal mix of collations with UUID()
@@ -10224,7 +10340,9 @@ DROP TABLE t1;
 SET NAMES utf8 COLLATE utf8_bin;
 SELECT uuid()>'';
 uuid()>''
-1
+NULL
+Warnings:
+Warning	1292	Incorrect uuid value: ''
 #
 # MDEV-8844 Unreadable control characters printed as is in warnings
 #

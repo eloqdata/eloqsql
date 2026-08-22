@@ -1,5 +1,6 @@
 # This test is to simulate the case that log service is unreachable and write log returns unknown error.
 --source include/have_eloq.inc
+--source include/eloq_errors.inc
 
 set @@default_storage_engine= eloq;
 
@@ -19,7 +20,7 @@ SET SESSION debug_dbug="+d,eloq;write_log_result_unknown;node_id=-1";
 SET SESSION debug_dbug="+d,eloq;recover_local_txn;node_id=-1";
 
 # log service unreachable
---error 199
+--error $HA_ERR_ELOQ_COMMIT_FAILED
 insert into t1 values(2,2);
 
 # verify write lock remains on (2,2)
@@ -27,7 +28,7 @@ insert into t1 values(2,2);
 --disable_result_log
 # Under OCC protocol, fails to acquirring write intent and return error;
 # Under OccRead/Locking protocol, tx fails to acquire lock first and block until other tx release write lock. But tx fails to commit because log-service is unreachable. 
---error 213
+--error $HA_ERR_ELOQ_WW_CONFLICT
 insert into t1 values(2,2);
 --enable_result_log
 

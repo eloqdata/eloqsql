@@ -12,8 +12,10 @@ thread_handling=pool-of-threads
 thread_pool_size=2
 thread_pool_oversubscribe=10
 thread_pool_dedicated_listener=1
+character-set-server=latin1
 collation-server=latin1_bin
-eloq_config = @ENV.MYSQLTEST_VARDIR/../../../storage/eloq/mysql-test/mono_main/data_substrate.cnf
+init-file=@ENV.MTR_SUITE_DIR/init_db.sql
+eloq_config = @ENV.MTR_SUITE_DIR/data_substrate.cnf
 
 [mysqld.1]
 extra-port=        @ENV.MASTER_EXTRA_PORT

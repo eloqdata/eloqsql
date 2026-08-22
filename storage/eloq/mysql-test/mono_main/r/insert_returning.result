@@ -63,6 +63,8 @@ id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 EXPLAIN EXTENDED INSERT INTO t1(id1,val1) VALUES(9,'j') RETURNING id1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	INSERT	t1	ALL	NULL	NULL	NULL	NULL	NULL	100.00	NULL
+Warnings:
+Note	1003	insert into `test`.`t1`(id1,val1) values (9,'j')
 EXPLAIN FORMAT="json" INSERT INTO t1(id1,val1) VALUES (10,'k') RETURNING id1;
 EXPLAIN
 {
@@ -152,6 +154,8 @@ id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 EXPLAIN EXTENDED INSERT INTO t1 VALUES (17,'s'),(18,'t') RETURNING *;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	INSERT	t1	ALL	NULL	NULL	NULL	NULL	NULL	100.00	NULL
+Warnings:
+Note	1003	insert into `test`.`t1` values (17,'s'),(18,'t')
 EXPLAIN FORMAT="json" INSERT INTO t1 VALUES(19,'u'),(20,'v') RETURNING id1;
 EXPLAIN
 {
@@ -243,6 +247,8 @@ id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 EXPLAIN EXTENDED INSERT INTO t1 SET id1=10, val1='j' RETURNING val1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	INSERT	t1	ALL	NULL	NULL	NULL	NULL	NULL	100.00	NULL
+Warnings:
+Note	1003	insert into `test`.`t1`(id1,val1) values (10,'j')
 EXPLAIN FORMAT="json" INSERT INTO t1 SET id1=11, val1='k' RETURNING val1;
 EXPLAIN
 {
@@ -326,26 +332,32 @@ f(id2)
 12
 EXPLAIN INSERT INTO t2 SELECT * FROM t1 WHERE id1=8 RETURNING id2;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	PRIMARY	t1	const	PRIMARY	PRIMARY	4	const	1	
+1	SIMPLE	t1	const	PRIMARY	PRIMARY	4	const	1	
 EXPLAIN EXTENDED INSERT INTO t1 SELECT * FROM t1 WHERE id1=9 RETURNING val1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	PRIMARY	t1	const	PRIMARY	PRIMARY	4	const	1	100.00	
+1	SIMPLE	t1	const	PRIMARY	PRIMARY	4	const	1	100.00	
+Warnings:
+Note	1003	insert into `test`.`t1` select sql_buffer_result 9 AS `id1`,'n' AS `val1` from `test`.`t1` where 1
 EXPLAIN FORMAT="json" INSERT INTO t1 SELECT * FROM t1 WHERE id1=10 RETURNING val1;
 EXPLAIN
 {
   "query_block": {
     "select_id": 1,
-    "table": {
-      "table_name": "t1",
-      "access_type": "const",
-      "possible_keys": ["PRIMARY"],
-      "key": "PRIMARY",
-      "key_length": "4",
-      "used_key_parts": ["id1"],
-      "ref": ["const"],
-      "rows": 1,
-      "filtered": 100
-    }
+    "nested_loop": [
+      {
+        "table": {
+          "table_name": "t1",
+          "access_type": "const",
+          "possible_keys": ["PRIMARY"],
+          "key": "PRIMARY",
+          "key_length": "4",
+          "used_key_parts": ["id1"],
+          "ref": ["const"],
+          "rows": 1,
+          "filtered": 100
+        }
+      }
+    ]
   }
 }
 INSERT IGNORE INTO t2 SELECT * FROM t1 WHERE id1=8 RETURNING *;
@@ -367,7 +379,7 @@ id2	val2
 19	m
 ANALYZE INSERT INTO t2 SELECT * FROM t1 WHERE id1=11 RETURNING *;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	r_rows	filtered	r_filtered	Extra
-1	PRIMARY	t1	const	PRIMARY	PRIMARY	4	const	1	NULL	100.00	NULL	
+1	SIMPLE	t1	const	PRIMARY	PRIMARY	4	const	1	NULL	100.00	NULL	
 SELECT * FROM t2 order by id2;
 id2	val2
 1	a
@@ -414,7 +426,7 @@ INSERT INTO t1 VALUES(1,'a'),(2,'b'),(3,'c');
 # SIMLPE INSERT STATEMENT
 #
 INSERT INTO t2(id2,val2) VALUES(1,'a') RETURNING id1;
-ERROR 42S22: Unknown column 'id1' in 'field list'
+ERROR 42S22: Unknown column 'id1' in 'RETURNING'
 INSERT INTO t2(id2,val2) values(2,'b') RETURNING SUM(id2);
 ERROR HY000: Invalid use of group function
 INSERT INTO t2(id2,val2) VALUES(3,'c') RETURNING (SELECT id1 FROM t1);
@@ -436,7 +448,7 @@ ERROR 42S02: Unknown table 'test.t1'
 # Multiple rows in single insert statement
 #
 INSERT INTO t2 VALUES(1,'a'),(2,'b') RETURNING id1;
-ERROR 42S22: Unknown column 'id1' in 'field list'
+ERROR 42S22: Unknown column 'id1' in 'RETURNING'
 INSERT INTO t2 VALUES(3,'c'),(4,'d') RETURNING MAX(id2);
 ERROR HY000: Invalid use of group function
 INSERT INTO t2 VALUES(5,'c'),(6,'f') RETURNING (SELECT id1 FROM t1);
@@ -459,7 +471,7 @@ ERROR 42S02: Unknown table 'test.t1'
 # INSERT ... SET
 #
 INSERT INTO t2 SET id2=1, val2='a' RETURNING id1;
-ERROR 42S22: Unknown column 'id1' in 'field list'
+ERROR 42S22: Unknown column 'id1' in 'RETURNING'
 INSERT INTO t2 SET id2=2, val2='b' RETURNING COUNT(id2);
 ERROR HY000: Invalid use of group function
 INSERT INTO t2 SET id2=3, val2='c' RETURNING (SELECT id1 FROM t1);
@@ -481,7 +493,7 @@ ERROR 42S02: Unknown table 'test.t1'
 # INSERT...SELECT
 #
 INSERT INTO t2(id2, val2) SELECT * FROM t1 WHERE id1=1 RETURNING id1;
-ERROR 42S22: Unknown column 'id1' in 'field list'
+ERROR 42S22: Unknown column 'id1' in 'RETURNING'
 INSERT INTO t2(id2, val2) SELECT * FROM t1 WHERE id1=2 RETURNING MAX(id2);
 ERROR HY000: Invalid use of group function
 INSERT INTO t2(id2, val2) SELECT * FROM t1 WHERE id1=2 RETURNING (SELECT

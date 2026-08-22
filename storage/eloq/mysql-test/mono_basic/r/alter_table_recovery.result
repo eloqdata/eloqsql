@@ -22,7 +22,7 @@ t1	CREATE TABLE `t1` (
   `c3` text DEFAULT NULL,
   `c4` int(11) DEFAULT NULL,
   PRIMARY KEY (`c0`)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 affected rows: 1
 Insert data...
 SELECT count(*) FROM t1;
@@ -45,7 +45,7 @@ t1	CREATE TABLE `t1` (
   `c4` int(11) DEFAULT NULL,
   PRIMARY KEY (`c0`),
   KEY `idx_c1` (`c1`)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 affected rows: 1
 INSERT INTO t1 VALUES (10001, 'char_after_index_c1', 'varchar_after_index_c1', 'text_after_index_c1', 10000),
 (10002, 'char_after_index_c1', 'varchar_after_index_c1', 'text_after_index_c1', 10001),
@@ -74,7 +74,7 @@ t1	CREATE TABLE `t1` (
   PRIMARY KEY (`c0`),
   KEY `idx_c1` (`c1`),
   KEY `idx_c4` (`c4`)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 affected rows: 1
 INSERT INTO t1 VALUES (10013, 'char_after_index_c4', 'varchar_after_index_c4', 'text_after_index_c4', 10012),
 (10014, 'char_after_index_c4', 'varchar_after_index_c4', 'text_after_index_c4', 10013),
@@ -104,7 +104,7 @@ t1	CREATE TABLE `t1` (
   KEY `idx_c1` (`c1`),
   KEY `idx_c4` (`c4`),
   KEY `idx_c4c1` (`c4`,`c1`)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 affected rows: 1
 INSERT INTO t1 VALUES (10017, 'char_after_index_c4c1', 'varchar_after_index_c4c1', 'text_after_index_c4c1', 10016),
 (10018, 'char_after_index_c4c1', 'varchar_after_index_c4c1', 'text_after_index_c4c1', 10017),
@@ -135,7 +135,7 @@ t1	CREATE TABLE `t1` (
   KEY `idx_c4` (`c4`),
   KEY `idx_c4c1` (`c4`,`c1`),
   KEY `idx_c3` (`c3`(128))
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 affected rows: 1
 INSERT INTO t1 VALUES (10009, 'char_after_index_c3', 'varchar_after_index_c3', 'text_after_index_c3', 10008),
 (10010, 'char_after_index_c3', 'varchar_after_index_c3', 'text_after_index_c3', 10009),
@@ -175,7 +175,7 @@ t1	CREATE TABLE `t1` (
   KEY `idx_c4c1` (`c4`,`c1`),
   KEY `idx_c3` (`c3`(128)),
   KEY `idx_c3c4` (`c3`(256),`c4`)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 affected rows: 1
 ###************************************************************###
 ###             Test logical update table
@@ -196,7 +196,7 @@ Table	Create Table
 t2	CREATE TABLE `t2` (
   `i` int(11) NOT NULL,
   PRIMARY KEY (`i`)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1 COMMENT='Test logical update table crash after prepare log'
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin COMMENT='Test logical update table crash after prepare log'
 affected rows: 1
 #
 # Test 4: test crash after commit log
@@ -212,7 +212,7 @@ Table	Create Table
 t2	CREATE TABLE `t2` (
   `i` int(11) NOT NULL COMMENT 'Test logical update table crash after commit log',
   PRIMARY KEY (`i`)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1 COMMENT='Test logical update table crash after prepare log'
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin COMMENT='Test logical update table crash after prepare log'
 affected rows: 1
 #
 # Test 5: test DROP INDEX recovery after commit log
@@ -231,7 +231,7 @@ t1	CREATE TABLE `t1` (
   KEY `idx_c4c1` (`c4`,`c1`),
   KEY `idx_c3` (`c3`(128)),
   KEY `idx_c3c4` (`c3`(256),`c4`)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 affected rows: 1
 SET SESSION debug_dbug="+d,eloq;term_AlterTableDropIndex_PostCommitAllWLOp;node_id=-1;action=panic";
 affected rows: 0
@@ -252,7 +252,7 @@ t1	CREATE TABLE `t1` (
   KEY `idx_c4` (`c4`),
   KEY `idx_c3` (`c3`(128)),
   KEY `idx_c3c4` (`c3`(256),`c4`)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 affected rows: 1
 # Clean up
 DROP DATABASE IF EXISTS mono_test;

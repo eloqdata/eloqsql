@@ -11,7 +11,7 @@ plugin-maturity=experimental
 skip-log-bin
 eloq_cc_protocol=LOCKING
 transaction-isolation=READ-COMMITTED
-eloq_config = @ENV.MYSQLTEST_VARDIR/../../../storage/eloq/mysql-test/mono_basic/data_substrate.cnf
+eloq_config = @ENV.MTR_SUITE_DIR/data_substrate.cnf
 
 [mysqld.1]
 

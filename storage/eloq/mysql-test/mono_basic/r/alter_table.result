@@ -21,7 +21,7 @@ t1	CREATE TABLE `t1` (
   `c` varchar(16) DEFAULT NULL,
   `d` char(16) DEFAULT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 affected rows: 1
 CREATE INDEX idx_b on t1(b);
 affected rows: 0
@@ -43,7 +43,7 @@ t1	CREATE TABLE `t1` (
   KEY `idx_b` (`b`),
   KEY `idx_c` (`c`),
   KEY `idx_d` (`d`)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 affected rows: 1
 #
 # test 2
@@ -185,7 +185,7 @@ t2	CREATE TABLE `t2` (
   KEY `idx_options` (`options`,`flags`),
   KEY `test2` (`ulonglong`,`ulong`),
   KEY `test3` (`medium`)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 select auto,string,tiny,short,medium,long_int,longlong,real_float,real_double,utiny,ushort,umedium,ulong,ulonglong,mod(floor(time_stamp/1000000),1000000)-mod(curdate(),1000000),time_field,blob_col,tinyblob_col,mediumblob_col,longblob_col from t2;
 auto	string	tiny	short	medium	long_int	longlong	real_float	real_double	utiny	ushort	umedium	ulong	ulonglong	mod(floor(time_stamp/1000000),1000000)-mod(curdate(),1000000)	time_field	blob_col	tinyblob_col	mediumblob_col	longblob_col
 1	1	1	1	1	1	1	1.0	1.0000	1	00001	1	1	1	0	00:00:00	1	1	1	1
@@ -214,7 +214,7 @@ CREATE INDEX idx_ne ON jemp (n, e);
 SHOW CREATE TABLE jemp;
 Table	Create Table
 jemp	CREATE TABLE `jemp` (
-  `c` longtext CHARACTER SET utf8mb4 DEFAULT NULL CHECK (json_valid(`c`)),
+  `c` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`c`)),
   `e` date NOT NULL,
   `g` int(11) GENERATED ALWAYS AS (json_unquote(json_extract(`c`,'$.id'))) VIRTUAL,
   `n` varchar(64) GENERATED ALWAYS AS (json_unquote(json_extract(`c`,'$.name'))) STORED,
@@ -222,7 +222,7 @@ jemp	CREATE TABLE `jemp` (
   KEY `idx_n` (`n`),
   KEY `idx_ge` (`g`,`e`),
   KEY `idx_ne` (`n`,`e`)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 INSERT INTO jemp (c, e) VALUES
 ('{"id": "5", "name": "John"}', 20220712), ('{"id": "6", "name": "Pop"}', 20221012),
 ('{"id": "7", "name": "James"}', 20221102), ('{"id": "8", "name": "Allen"}', 20221118);
@@ -281,7 +281,7 @@ t3	CREATE TABLE `t3` (
   KEY `idx_c4c1` (`c4`,`c1`),
   KEY `idx_c4c2` (`c4`,`c2`),
   KEY `idx_c4c3` (`c4`,`c3`(8))
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 insert into t3 values (10001, 'char value after add index', 'varchar value after add index', 'text value after add index', 10001);
 insert into t3 values (10002, 'char value after add index', 'varchar value after add index', 'text value after add index', 10002);
 insert into t3 values (10003, 'char value after add index', 'varchar value after add index', 'text value after add index', 10003);
@@ -370,7 +370,7 @@ t3	CREATE TABLE `t3` (
   KEY `idx_c4c1` (`c4`,`c1`),
   KEY `idx_c4c2` (`c4`,`c2`),
   KEY `idx_c4c3` (`c4`,`c3`(8))
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 alter table t3 comment 'Comment on table t3';
 alter table t3 modify column c0 int comment 'Comment on primary key c0';
 show create table t3;
@@ -385,7 +385,7 @@ t3	CREATE TABLE `t3` (
   KEY `idx_c4c1` (`c4`,`c1`),
   KEY `idx_c4c2` (`c4`,`c2`),
   KEY `idx_c4c3` (`c4`,`c3`(8))
-) ENGINE=ELOQ DEFAULT CHARSET=latin1 COMMENT='Comment on table t3'
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin COMMENT='Comment on table t3'
 #
 # Clean up
 DROP TABLE t1, t2, jemp, t3;

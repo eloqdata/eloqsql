@@ -1,4 +1,5 @@
 --source include/have_eloq.inc
+--source include/eloq_errors.inc
 #set @@default_storage_engine= eloq;
 #--source include/have_innodb.inc
 #set default_storage_engine=InnoDB;
@@ -55,7 +56,7 @@ update t1 set j=2;
 
 --connection con1
 select * from t1;
---error 213
+--error $HA_ERR_ELOQ_WW_CONFLICT
 update t1 set j=3;  # error, because ReadForWrite also acquire WriteIntent under OCC, but not blocked if fail.
 
 --connection default

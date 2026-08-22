@@ -2,6 +2,7 @@ drop table if exists t0, t1;
 select * from performance_schema.setup_instruments where name like '%show_explain%';
 NAME	ENABLED	TIMED
 wait/synch/cond/sql/show_explain	YES	YES
+stage/sql/Show explain	YES	YES
 statement/sql/show_explain	YES	YES
 # We've got no instances
 select * from performance_schema.cond_instances where name like '%show_explain%';
@@ -35,4 +36,5 @@ where
 event_name like '%show explain' and
 processlist_id=$thr1;
 event_name
+stage/sql/Show explain
 drop table t0;

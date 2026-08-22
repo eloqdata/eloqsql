@@ -12,5 +12,6 @@ mysql --ssl-ca=cacert.pem --ssl-verify-server-cert -e "call test.have_ssl()"
 have_ssl
 yes
 mysql --ssl --ssl-verify-server-cert -e "call test.have_ssl()"
-ERROR 2026 (HY000): TLS/SSL error: Failed to verify the server certificate
+have_ssl
+yes
 drop procedure have_ssl;

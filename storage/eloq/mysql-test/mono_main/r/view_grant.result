@@ -22,16 +22,16 @@ grant create view,select on test.* to mysqltest_1@localhost;
 connect  user1,localhost,mysqltest_1,,test;
 connection user1;
 create definer=root@localhost view v1 as select * from mysqltest.t1;
-ERROR 42000: Access denied; you need (at least one of) the SUPER, SET USER privilege(s) for this operation
+ERROR 42000: Access denied; you need (at least one of) the SET USER privilege(s) for this operation
 create view v1 as select * from mysqltest.t1;
 alter view v1 as select * from mysqltest.t1;
-ERROR 42000: DROP command denied to user 'mysqltest_1'@'localhost' for table 'v1'
+ERROR 42000: DROP command denied to user 'mysqltest_1'@'localhost' for table `test`.`v1`
 create or replace view v1 as select * from mysqltest.t1;
-ERROR 42000: DROP command denied to user 'mysqltest_1'@'localhost' for table 'v1'
+ERROR 42000: DROP command denied to user 'mysqltest_1'@'localhost' for table `test`.`v1`
 create view mysqltest.v2  as select * from mysqltest.t1;
-ERROR 42000: CREATE VIEW command denied to user 'mysqltest_1'@'localhost' for table 'v2'
+ERROR 42000: CREATE VIEW command denied to user 'mysqltest_1'@'localhost' for table `mysqltest`.`v2`
 create view v2 as select * from mysqltest.t2;
-ERROR 42000: ANY command denied to user 'mysqltest_1'@'localhost' for table 't2'
+ERROR 42000: ANY command denied to user 'mysqltest_1'@'localhost' for table `mysqltest`.`t2`
 connection root;
 show create view v1;
 View	Create View	character_set_client	collation_connection
@@ -58,6 +58,8 @@ ERROR 42000: SELECT command denied to user 'mysqltest_1'@'localhost' for column 
 connection root;
 revoke all privileges on mysqltest.v1 from mysqltest_1@localhost;
 drop user mysqltest_1@localhost;
+Warnings:
+Note	4227	Dropped users 'mysqltest_1'@'localhost' have active connections. Use KILL CONNECTION if they should not be used anymore.
 drop database mysqltest;
 create database mysqltest;
 create table mysqltest.t1 (a int, b int);
@@ -72,6 +74,8 @@ ERROR 42000: SELECT command denied to user 'mysqltest_1'@'localhost' for column 
 connection root;
 revoke all privileges on mysqltest.v1 from mysqltest_1@localhost;
 drop user mysqltest_1@localhost;
+Warnings:
+Note	4227	Dropped users 'mysqltest_1'@'localhost' have active connections. Use KILL CONNECTION if they should not be used anymore.
 drop database mysqltest;
 connection root;
 create database mysqltest;
@@ -98,7 +102,7 @@ c
 select c from mysqltest.v4;
 c
 select c from mysqltest.v5;
-ERROR 42000: SELECT command denied to user 'mysqltest_1'@'localhost' for table 'v5'
+ERROR 42000: SELECT command denied to user 'mysqltest_1'@'localhost' for table `mysqltest`.`v5`
 show columns from mysqltest.v1;
 Field	Type	Null	Key	Default	Extra
 c	bigint(12)	YES		NULL	
@@ -110,23 +114,23 @@ d	bigint(12)	YES		NULL
 explain select c from mysqltest.v1;
 ERROR HY000: ANALYZE/EXPLAIN/SHOW can not be issued; lacking privileges for underlying table
 show create view mysqltest.v1;
-ERROR 42000: SHOW VIEW command denied to user 'mysqltest_1'@'localhost' for table 'v1'
+ERROR 42000: SHOW VIEW command denied to user 'mysqltest_1'@'localhost' for table `mysqltest`.`v1`
 explain select c from mysqltest.v2;
 ERROR HY000: ANALYZE/EXPLAIN/SHOW can not be issued; lacking privileges for underlying table
 show create view mysqltest.v2;
-ERROR 42000: SHOW VIEW command denied to user 'mysqltest_1'@'localhost' for table 'v2'
+ERROR 42000: SHOW VIEW command denied to user 'mysqltest_1'@'localhost' for table `mysqltest`.`v2`
 explain select c from mysqltest.v3;
 ERROR HY000: ANALYZE/EXPLAIN/SHOW can not be issued; lacking privileges for underlying table
 show create view mysqltest.v3;
-ERROR 42000: SHOW VIEW command denied to user 'mysqltest_1'@'localhost' for table 'v3'
+ERROR 42000: SHOW VIEW command denied to user 'mysqltest_1'@'localhost' for table `mysqltest`.`v3`
 explain select c from mysqltest.v4;
 ERROR HY000: ANALYZE/EXPLAIN/SHOW can not be issued; lacking privileges for underlying table
 show create view mysqltest.v4;
-ERROR 42000: SHOW VIEW command denied to user 'mysqltest_1'@'localhost' for table 'v4'
+ERROR 42000: SHOW VIEW command denied to user 'mysqltest_1'@'localhost' for table `mysqltest`.`v4`
 explain select c from mysqltest.v5;
-ERROR 42000: SELECT command denied to user 'mysqltest_1'@'localhost' for table 'v5'
+ERROR 42000: SELECT command denied to user 'mysqltest_1'@'localhost' for table `mysqltest`.`v5`
 show create view mysqltest.v5;
-ERROR 42000: SELECT command denied to user 'mysqltest_1'@'localhost' for table 'v5'
+ERROR 42000: SELECT command denied to user 'mysqltest_1'@'localhost' for table `mysqltest`.`v5`
 connection root;
 grant select on mysqltest.v5 to mysqltest_1@localhost;
 connection user1;
@@ -136,7 +140,7 @@ v5	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VI
 explain select c from mysqltest.v1;
 ERROR HY000: ANALYZE/EXPLAIN/SHOW can not be issued; lacking privileges for underlying table
 show create view mysqltest.v1;
-ERROR 42000: SHOW VIEW command denied to user 'mysqltest_1'@'localhost' for table 'v1'
+ERROR 42000: SHOW VIEW command denied to user 'mysqltest_1'@'localhost' for table `mysqltest`.`v1`
 connection root;
 grant show view on mysqltest.v1 to mysqltest_1@localhost;
 grant select on mysqltest.t1 to mysqltest_1@localhost;
@@ -151,17 +155,17 @@ v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VI
 explain select c from mysqltest.v2;
 ERROR HY000: ANALYZE/EXPLAIN/SHOW can not be issued; lacking privileges for underlying table
 show create view mysqltest.v2;
-ERROR 42000: SHOW VIEW command denied to user 'mysqltest_1'@'localhost' for table 'v2'
+ERROR 42000: SHOW VIEW command denied to user 'mysqltest_1'@'localhost' for table `mysqltest`.`v2`
 explain select c from mysqltest.v3;
 ERROR HY000: ANALYZE/EXPLAIN/SHOW can not be issued; lacking privileges for underlying table
 show create view mysqltest.v3;
-ERROR 42000: SHOW VIEW command denied to user 'mysqltest_1'@'localhost' for table 'v3'
+ERROR 42000: SHOW VIEW command denied to user 'mysqltest_1'@'localhost' for table `mysqltest`.`v3`
 explain select c from mysqltest.v4;
 ERROR HY000: ANALYZE/EXPLAIN/SHOW can not be issued; lacking privileges for underlying table
 show create view mysqltest.v4;
-ERROR 42000: SHOW VIEW command denied to user 'mysqltest_1'@'localhost' for table 'v4'
+ERROR 42000: SHOW VIEW command denied to user 'mysqltest_1'@'localhost' for table `mysqltest`.`v4`
 explain select c from mysqltest.v5;
-ERROR 42000: SELECT command denied to user 'mysqltest_1'@'localhost' for table 'v5'
+ERROR 42000: SELECT command denied to user 'mysqltest_1'@'localhost' for table `mysqltest`.`v5`
 connection root;
 grant show view on mysqltest.* to mysqltest_1@localhost;
 connection user1;
@@ -191,6 +195,8 @@ v4	CREATE ALGORITHM=TEMPTABLE DEFINER=`root`@`localhost` SQL SECURITY DEFINER VI
 connection root;
 revoke all privileges on mysqltest.* from mysqltest_1@localhost;
 drop user mysqltest_1@localhost;
+Warnings:
+Note	4227	Dropped users 'mysqltest_1'@'localhost' have active connections. Use KILL CONNECTION if they should not be used anymore.
 drop database mysqltest;
 connection root;
 create database mysqltest;
@@ -248,13 +254,15 @@ ERROR 42000: UPDATE command denied to user 'mysqltest_1'@'localhost' for column 
 update v2 set c=a+c;
 ERROR 42000: UPDATE command denied to user 'mysqltest_1'@'localhost' for column 'c' in table 'v2'
 update t2,v3 set v3.a=v3.a+v3.c where t2.x=v3.c;
-ERROR 42000: UPDATE command denied to user 'mysqltest_1'@'localhost' for table 'v3'
+ERROR 42000: UPDATE command denied to user 'mysqltest_1'@'localhost' for table `mysqltest`.`v3`
 update v3 set a=a+c;
-ERROR 42000: UPDATE command denied to user 'mysqltest_1'@'localhost' for table 'v3'
-use test;
+ERROR 42000: UPDATE command denied to user 'mysqltest_1'@'localhost' for table `mysqltest`.`v3`
 connection root;
+use test;
 REVOKE ALL PRIVILEGES, GRANT OPTION FROM mysqltest_1@localhost;
 drop user mysqltest_1@localhost;
+Warnings:
+Note	4227	Dropped users 'mysqltest_1'@'localhost' have active connections. Use KILL CONNECTION if they should not be used anymore.
 drop database mysqltest;
 connection root;
 create database mysqltest;
@@ -281,13 +289,15 @@ select * from t1;
 a	b
 5	10
 delete v2 from t2,v2 where t2.x=v2.c;
-ERROR 42000: DELETE command denied to user 'mysqltest_1'@'localhost' for table 'v2'
+ERROR 42000: DELETE command denied to user 'mysqltest_1'@'localhost' for table `mysqltest`.`v2`
 delete from v2 where c < 4;
-ERROR 42000: DELETE command denied to user 'mysqltest_1'@'localhost' for table 'v2'
-use test;
+ERROR 42000: DELETE command denied to user 'mysqltest_1'@'localhost' for table `mysqltest`.`v2`
 connection root;
+use test;
 REVOKE ALL PRIVILEGES, GRANT OPTION FROM mysqltest_1@localhost;
 drop user mysqltest_1@localhost;
+Warnings:
+Note	4227	Dropped users 'mysqltest_1'@'localhost' have active connections. Use KILL CONNECTION if they should not be used anymore.
 drop database mysqltest;
 connection root;
 create database mysqltest;
@@ -316,13 +326,15 @@ a	b
 3	4
 5	6
 insert into v2 values (5,6);
-ERROR 42000: INSERT command denied to user 'mysqltest_1'@'localhost' for table 'v2'
+ERROR 42000: INSERT command denied to user 'mysqltest_1'@'localhost' for table `mysqltest`.`v2`
 insert into v2 select x,y from t2;
-ERROR 42000: INSERT command denied to user 'mysqltest_1'@'localhost' for table 'v2'
-use test;
+ERROR 42000: INSERT command denied to user 'mysqltest_1'@'localhost' for table `mysqltest`.`v2`
 connection root;
+use test;
 REVOKE ALL PRIVILEGES, GRANT OPTION FROM mysqltest_1@localhost;
 drop user mysqltest_1@localhost;
+Warnings:
+Note	4227	Dropped users 'mysqltest_1'@'localhost' have active connections. Use KILL CONNECTION if they should not be used anymore.
 drop database mysqltest;
 connection root;
 create database mysqltest;
@@ -333,10 +345,11 @@ grant update on mysqltest.t1 to mysqltest_1@localhost;
 grant update(b) on mysqltest.t2 to mysqltest_1@localhost;
 grant create view,update on test.* to mysqltest_1@localhost;
 connection user1;
+use test;
 create view v1 as select * from mysqltest.t1;
 create view v2 as select b from mysqltest.t2;
 create view mysqltest.v1 as select * from mysqltest.t1;
-ERROR 42000: CREATE VIEW command denied to user 'mysqltest_1'@'localhost' for table 'v1'
+ERROR 42000: CREATE VIEW command denied to user 'mysqltest_1'@'localhost' for table `mysqltest`.`v1`
 create view v3 as select a from mysqltest.t2;
 ERROR 42000: ANY command denied to user 'mysqltest_1'@'localhost' for column 'a' in table 't2'
 connection root;
@@ -364,6 +377,8 @@ create view v4 as select b+1 from mysqltest.t2;
 connection root;
 REVOKE ALL PRIVILEGES, GRANT OPTION FROM mysqltest_1@localhost;
 drop user mysqltest_1@localhost;
+Warnings:
+Note	4227	Dropped users 'mysqltest_1'@'localhost' have active connections. Use KILL CONNECTION if they should not be used anymore.
 drop database mysqltest;
 drop view v1,v2,v4;
 connection root;
@@ -374,10 +389,12 @@ grant all privileges on mysqltest.* to mysqltest_1@localhost;
 connection user1;
 use mysqltest;
 create view v1 as select * from t1;
-use test;
 connection root;
+use test;
 revoke all privileges on mysqltest.* from mysqltest_1@localhost;
 drop user mysqltest_1@localhost;
+Warnings:
+Note	4227	Dropped users 'mysqltest_1'@'localhost' have active connections. Use KILL CONNECTION if they should not be used anymore.
 drop database mysqltest;
 connection root;
 create database mysqltest;
@@ -386,6 +403,7 @@ create user mysqltest_1@localhost;
 grant select on mysqltest.t1 to mysqltest_1@localhost;
 grant create view,select on test.* to mysqltest_1@localhost;
 connection user1;
+use test;
 create view v1 as select * from mysqltest.t1;
 connection root;
 show create view v1;
@@ -399,6 +417,8 @@ select * from v1;
 a	b
 REVOKE ALL PRIVILEGES, GRANT OPTION FROM mysqltest_1@localhost;
 drop user mysqltest_1@localhost;
+Warnings:
+Note	4227	Dropped users 'mysqltest_1'@'localhost' have active connections. Use KILL CONNECTION if they should not be used anymore.
 drop view v1;
 drop database mysqltest;
 connection root;
@@ -410,8 +430,6 @@ create table t2 (s1 int);
 drop function if exists f2;
 create function f2 () returns int begin declare v int; select s1 from t2
 into v; return v; end//
-Warnings:
-Warning	1287	'<select expression> INTO <destination>;' is deprecated and will be removed in a future release. Please use 'SELECT <select list> INTO <destination> FROM...' instead
 create algorithm=TEMPTABLE view v1 as select f2() from t1;
 create algorithm=MERGE view v2 as select f2() from t1;
 create algorithm=TEMPTABLE SQL SECURITY INVOKER view v3 as select f2() from t1;
@@ -437,7 +455,6 @@ select * from v4;
 ERROR HY000: View 'mysqltest.v4' references invalid table(s) or column(s) or function(s) or definer/invoker of view lack rights to use them
 select * from v5;
 ERROR HY000: View 'mysqltest.v5' references invalid table(s) or column(s) or function(s) or definer/invoker of view lack rights to use them
-use test;
 connection root;
 drop view v1, v2, v3, v4, v5;
 drop function f2;
@@ -445,6 +462,8 @@ drop table t1, t2;
 use test;
 REVOKE ALL PRIVILEGES, GRANT OPTION FROM mysqltest_1@localhost;
 drop user mysqltest_1@localhost;
+Warnings:
+Note	4227	Dropped users 'mysqltest_1'@'localhost' have active connections. Use KILL CONNECTION if they should not be used anymore.
 drop database mysqltest;
 connection root;
 create database mysqltest;
@@ -455,8 +474,6 @@ create table t2 (s1 int);
 drop function if exists f2;
 create function f2 () returns int begin declare v int; select s1 from t2
 into v; return v; end//
-Warnings:
-Warning	1287	'<select expression> INTO <destination>;' is deprecated and will be removed in a future release. Please use 'SELECT <select list> INTO <destination> FROM...' instead
 create user mysqltest_1@localhost;
 grant select on t1 to mysqltest_1@localhost;
 grant execute on function f2 to mysqltest_1@localhost;
@@ -467,7 +484,6 @@ create algorithm=TEMPTABLE view v1 as select f2() from t1;
 create algorithm=MERGE view v2 as select f2() from t1;
 create algorithm=TEMPTABLE SQL SECURITY INVOKER view v3 as select f2() from t1;
 create algorithm=MERGE SQL SECURITY INVOKER view v4 as select f2() from t1;
-use test;
 connection root;
 create view v5 as select * from v1;
 revoke execute on function f2 from mysqltest_1@localhost;
@@ -489,6 +505,8 @@ drop table t1, t2;
 use test;
 REVOKE ALL PRIVILEGES, GRANT OPTION FROM mysqltest_1@localhost;
 drop user mysqltest_1@localhost;
+Warnings:
+Note	4227	Dropped users 'mysqltest_1'@'localhost' have active connections. Use KILL CONNECTION if they should not be used anymore.
 drop database mysqltest;
 connection root;
 create database mysqltest;
@@ -508,7 +526,6 @@ create algorithm=MERGE view v2 as select *, a as b from t1;
 create algorithm=TEMPTABLE SQL SECURITY INVOKER view v3 as select *, a as b from t1;
 create algorithm=MERGE SQL SECURITY INVOKER view v4 as select *, a as b from t1;
 create view v5 as select * from v1;
-use test;
 connection root;
 revoke select on t1 from mysqltest_1@localhost;
 select * from v1;
@@ -527,6 +544,8 @@ drop table t1;
 use test;
 REVOKE ALL PRIVILEGES, GRANT OPTION FROM mysqltest_1@localhost;
 drop user mysqltest_1@localhost;
+Warnings:
+Note	4227	Dropped users 'mysqltest_1'@'localhost' have active connections. Use KILL CONNECTION if they should not be used anymore.
 drop database mysqltest;
 connection root;
 create database mysqltest;
@@ -558,13 +577,14 @@ select * from v4;
 ERROR HY000: View 'mysqltest.v4' references invalid table(s) or column(s) or function(s) or definer/invoker of view lack rights to use them
 select * from v5;
 ERROR HY000: View 'mysqltest.v5' references invalid table(s) or column(s) or function(s) or definer/invoker of view lack rights to use them
-use test;
 connection root;
 drop view v1, v2, v3, v4, v5;
 drop table t1;
 use test;
 REVOKE ALL PRIVILEGES, GRANT OPTION FROM mysqltest_1@localhost;
 drop user mysqltest_1@localhost;
+Warnings:
+Note	4227	Dropped users 'mysqltest_1'@'localhost' have active connections. Use KILL CONNECTION if they should not be used anymore.
 drop database mysqltest;
 create user 'test14256'@'%';
 grant all on test.* to 'test14256'@'%';
@@ -603,20 +623,21 @@ create user mysqltest_1@localhost;
 GRANT SELECT, LOCK TABLES ON mysqltest.* TO mysqltest_1@localhost;
 connection user1;
 use mysqltest;
-use test;
 connection root;
 use test;
 drop user mysqltest_1@localhost;
+Warnings:
+Note	4227	Dropped users 'mysqltest_1'@'localhost' have active connections. Use KILL CONNECTION if they should not be used anymore.
 drop database mysqltest;
 disconnect user1;
 disconnect root;
 connection default;
 create definer=some_user@`` sql security invoker view v1 as select 1;
 Warnings:
-Note	1449	The user specified as a definer ('some_user'@'%') does not exist
+Note	1446	The user specified as a definer ('some_user'@'%') does not exist
 create definer=some_user@localhost sql security invoker view v2 as select 1;
 Warnings:
-Note	1449	The user specified as a definer ('some_user'@'localhost') does not exist
+Note	1446	The user specified as a definer ('some_user'@'localhost') does not exist
 show create view v1;
 View	Create View	character_set_client	collation_connection
 v1	CREATE ALGORITHM=UNDEFINED DEFINER=`some_user`@`%` SQL SECURITY INVOKER VIEW `v1` AS select 1 AS `1`	latin1	latin1_swedish_ci
@@ -660,29 +681,30 @@ ERROR HY000: View 'mysqltest1.v_t1' references invalid table(s) or column(s) or 
 SELECT 1 FROM mysqltest1.v_t1;
 ERROR HY000: View 'mysqltest1.v_t1' references invalid table(s) or column(s) or function(s) or definer/invoker of view lack rights to use them
 SELECT * FROM mysqltest1.t1;
-ERROR 42000: SELECT command denied to user 'readonly'@'localhost' for table 't1'
+ERROR 42000: SELECT command denied to user 'readonly'@'localhost' for table `mysqltest1`.`t1`
 SELECT * FROM mysqltest1.v_ts;
 x
 1
 2
 SELECT * FROM mysqltest1.v_ts, mysqltest1.t1 WHERE mysqltest1.t1.x = mysqltest1.v_ts.x;
-ERROR 42000: SELECT command denied to user 'readonly'@'localhost' for table 't1'
+ERROR 42000: SELECT command denied to user 'readonly'@'localhost' for table `mysqltest1`.`t1`
 SELECT * FROM mysqltest1.v_ti;
-ERROR 42000: SELECT command denied to user 'readonly'@'localhost' for table 'v_ti'
+ERROR 42000: SELECT command denied to user 'readonly'@'localhost' for table `mysqltest1`.`v_ti`
 INSERT INTO mysqltest1.v_ts VALUES (100);
-ERROR 42000: INSERT command denied to user 'readonly'@'localhost' for table 'v_ts'
+ERROR 42000: INSERT command denied to user 'readonly'@'localhost' for table `mysqltest1`.`v_ts`
 INSERT INTO mysqltest1.v_ti VALUES (100);
 UPDATE mysqltest1.v_ts SET x= 200 WHERE x = 100;
-ERROR 42000: UPDATE command denied to user 'readonly'@'localhost' for table 'v_ts'
+ERROR 42000: UPDATE command denied to user 'readonly'@'localhost' for table `mysqltest1`.`v_ts`
 UPDATE mysqltest1.v_ts SET x= 200;
-ERROR 42000: UPDATE command denied to user 'readonly'@'localhost' for table 'v_ts'
+ERROR 42000: UPDATE command denied to user 'readonly'@'localhost' for table `mysqltest1`.`v_ts`
 UPDATE mysqltest1.v_tu SET x= 200 WHERE x = 100;
+ERROR 42000: SELECT command denied to user 'readonly'@'localhost' for column 'x' in table 'v_tu'
 UPDATE mysqltest1.v_tus SET x= 200 WHERE x = 100;
 UPDATE mysqltest1.v_tu SET x= 200;
 DELETE FROM mysqltest1.v_ts WHERE x= 200;
-ERROR 42000: DELETE command denied to user 'readonly'@'localhost' for table 'v_ts'
+ERROR 42000: DELETE command denied to user 'readonly'@'localhost' for table `mysqltest1`.`v_ts`
 DELETE FROM mysqltest1.v_ts;
-ERROR 42000: DELETE command denied to user 'readonly'@'localhost' for table 'v_ts'
+ERROR 42000: DELETE command denied to user 'readonly'@'localhost' for table `mysqltest1`.`v_ts`
 DELETE FROM mysqltest1.v_td WHERE x= 200;
 ERROR 42000: SELECT command denied to user 'readonly'@'localhost' for column 'x' in table 'v_td'
 DELETE FROM mysqltest1.v_tds WHERE x= 200;
@@ -703,12 +725,12 @@ CREATE TABLE t1 (a INT PRIMARY KEY);
 INSERT INTO t1 VALUES (1), (2), (3);
 CREATE DEFINER = 'no-such-user'@localhost VIEW v AS SELECT a from t1;
 Warnings:
-Note	1449	The user specified as a definer ('no-such-user'@'localhost') does not exist
+Note	1446	The user specified as a definer ('no-such-user'@'localhost') does not exist
 SHOW CREATE VIEW v;
 View	Create View	character_set_client	collation_connection
 v	CREATE ALGORITHM=UNDEFINED DEFINER=`no-such-user`@`localhost` SQL SECURITY DEFINER VIEW `v` AS select `test`.`t1`.`a` AS `a` from `t1`	latin1	latin1_swedish_ci
 Warnings:
-Note	1449	The user specified as a definer ('no-such-user'@'localhost') does not exist
+Note	1446	The user specified as a definer ('no-such-user'@'localhost') does not exist
 SELECT * FROM v;
 ERROR HY000: The user specified as a definer ('no-such-user'@'localhost') does not exist
 DROP VIEW v;
@@ -716,7 +738,7 @@ DROP TABLE t1;
 USE test;
 CREATE USER mysqltest_db1@localhost identified by 'PWD';
 GRANT ALL ON mysqltest_db1.* TO mysqltest_db1@localhost WITH GRANT OPTION;
-connect  session1,localhost,mysqltest_db1,PWD,test;
+connect  session1,localhost,mysqltest_db1,PWD,"*NO-ONE*";
 CREATE SCHEMA mysqltest_db1 ;
 USE mysqltest_db1 ;
 CREATE TABLE t1 (f1 INTEGER);
@@ -831,6 +853,8 @@ CREATE VIEW v1 AS SELECT * FROM t1;
 connection root;
 GRANT SELECT ON db17254.v1 TO inv_17254@localhost;
 DROP USER def_17254@localhost;
+Warnings:
+Note	4227	Dropped users 'def_17254'@'localhost' have active connections. Use KILL CONNECTION if they should not be used anymore.
 connect  inv,localhost,inv_17254,,db17254;
 connection inv;
 for a user without SET USER
@@ -895,11 +919,11 @@ REVOKE SELECT ON t2 FROM mysqltest_u2@localhost;
 UPDATE t2 SET s = 'private' WHERE s = 'public';
 connection conn2;
 SELECT * FROM mysqltest_db1.v1, mysqltest_db1.t2;
-ERROR 42000: SELECT command denied to user 'mysqltest_u2'@'localhost' for table 't2'
+ERROR 42000: SELECT command denied to user 'mysqltest_u2'@'localhost' for table `mysqltest_db1`.`t2`
 EXECUTE stmt1;
-ERROR 42000: SELECT command denied to user 'mysqltest_u2'@'localhost' for table 't2'
+ERROR 42000: SELECT command denied to user 'mysqltest_u2'@'localhost' for table `mysqltest_db1`.`t2`
 EXECUTE stmt2;
-ERROR 42000: SELECT command denied to user 'mysqltest_u2'@'localhost' for table 't2'
+ERROR 42000: SELECT command denied to user 'mysqltest_u2'@'localhost' for table `mysqltest_db1`.`t2`
 disconnect conn2;
 disconnect conn1;
 connection default;
@@ -924,16 +948,18 @@ GRANT SELECT ON db26813.t1 TO u26813@localhost;
 connect  u1,localhost,u26813,,db26813;
 connection u1;
 ALTER VIEW v1 AS SELECT f2 FROM t1;
-ERROR 42000: CREATE VIEW command denied to user 'u26813'@'localhost' for table 'v1'
+ERROR 42000: CREATE VIEW command denied to user 'u26813'@'localhost' for table `db26813`.`v1`
 ALTER VIEW v2 AS SELECT f2 FROM t1;
-ERROR 42000: DROP command denied to user 'u26813'@'localhost' for table 'v2'
+ERROR 42000: DROP command denied to user 'u26813'@'localhost' for table `db26813`.`v2`
 ALTER VIEW v3 AS SELECT f2 FROM t1;
-ERROR 42000: Access denied; you need (at least one of) the SUPER, SET USER privilege(s) for this operation
+ERROR 42000: Access denied; you need (at least one of) the SET USER privilege(s) for this operation
 connection root;
 SHOW CREATE VIEW v3;
 View	Create View	character_set_client	collation_connection
 v3	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v3` AS select `t1`.`f1` AS `f1` from `t1`	latin1	latin1_swedish_ci
 DROP USER u26813@localhost;
+Warnings:
+Note	4227	Dropped users 'u26813'@'localhost' have active connections. Use KILL CONNECTION if they should not be used anymore.
 DROP DATABASE db26813;
 disconnect u1;
 #
@@ -956,9 +982,9 @@ GRANT SELECT, DROP, CREATE VIEW, SHOW VIEW ON mysqltest_29908.v2 TO u29908_2@loc
 GRANT SELECT ON mysqltest_29908.t1 TO u29908_2@localhost;
 connect  u2,localhost,u29908_2,,mysqltest_29908;
 ALTER VIEW v1 AS SELECT f2 FROM t1;
-ERROR 42000: Access denied; you need (at least one of) the SUPER, SET USER privilege(s) for this operation
+ERROR 42000: Access denied; you need (at least one of) the SET USER privilege(s) for this operation
 ALTER VIEW v2 AS SELECT f2 FROM t1;
-ERROR 42000: Access denied; you need (at least one of) the SUPER, SET USER privilege(s) for this operation
+ERROR 42000: Access denied; you need (at least one of) the SET USER privilege(s) for this operation
 SHOW CREATE VIEW v2;
 View	Create View	character_set_client	collation_connection
 v2	CREATE ALGORITHM=UNDEFINED DEFINER=`u29908_1`@`localhost` SQL SECURITY INVOKER VIEW `v2` AS select `t1`.`f1` AS `f1` from `t1`	latin1	latin1_swedish_ci
@@ -981,7 +1007,11 @@ SHOW CREATE VIEW v2;
 View	Create View	character_set_client	collation_connection
 v2	CREATE ALGORITHM=UNDEFINED DEFINER=`u29908_1`@`localhost` SQL SECURITY INVOKER VIEW `v2` AS select `t1`.`f1` AS `f1` from `t1`	latin1	latin1_swedish_ci
 DROP USER u29908_1@localhost;
+Warnings:
+Note	4227	Dropped users 'u29908_1'@'localhost' have active connections. Use KILL CONNECTION if they should not be used anymore.
 DROP USER u29908_2@localhost;
+Warnings:
+Note	4227	Dropped users 'u29908_2'@'localhost' have active connections. Use KILL CONNECTION if they should not be used anymore.
 DROP DATABASE mysqltest_29908;
 disconnect u1;
 disconnect u2;
@@ -1089,13 +1119,13 @@ f1
 SELECT f2 FROM t1;
 ERROR 42000: SELECT command denied to user 'foo'@'localhost' for column 'f2' in table 't1'
 SELECT * FROM t1;
-ERROR 42000: SELECT command denied to user 'foo'@'localhost' for table 't1'
+ERROR 42000: SELECT command denied to user 'foo'@'localhost' for table `db1`.`t1`
 SELECT f1 FROM v1;
 f1
 SELECT f2 FROM v1;
 ERROR 42000: SELECT command denied to user 'foo'@'localhost' for column 'f2' in table 'v1'
 SELECT * FROM v1;
-ERROR 42000: SELECT command denied to user 'foo'@'localhost' for table 'v1'
+ERROR 42000: SELECT command denied to user 'foo'@'localhost' for table `db1`.`v1`
 connection default;
 disconnect root;
 disconnect addconfoo;
@@ -1192,9 +1222,9 @@ disconnect test11765687;
 connect  test11765687,localhost,cecil,,mysqltest1;
 connection test11765687;
 select * from v1;
-ERROR 42000: SELECT command denied to user 'cecil'@'localhost' for table 'v1'
+ERROR 42000: SELECT command denied to user 'cecil'@'localhost' for table `mysqltest1`.`v1`
 explain select * from v1;
-ERROR 42000: SELECT command denied to user 'cecil'@'localhost' for table 'v1'
+ERROR 42000: SELECT command denied to user 'cecil'@'localhost' for table `mysqltest1`.`v1`
 disconnect test11765687;
 ... as dan
 connect  test11765687,localhost,dan,,mysqltest1;
@@ -1222,11 +1252,11 @@ show create view v2;
 View	Create View	character_set_client	collation_connection
 v2	CREATE ALGORITHM=UNDEFINED DEFINER=`alice`@`localhost` SQL SECURITY DEFINER VIEW `v2` AS select `v1`.`i` AS `i`,`t2`.`j` AS `j` from (`v1` join `t2`)	latin1	latin1_swedish_ci
 explain select * from t1;
-ERROR 42000: SELECT command denied to user 'fiona'@'localhost' for table 't1'
+ERROR 42000: SELECT command denied to user 'fiona'@'localhost' for table `mysqltest1`.`t1`
 explain select * from v1;
-ERROR 42000: SELECT command denied to user 'fiona'@'localhost' for table 'v1'
+ERROR 42000: SELECT command denied to user 'fiona'@'localhost' for table `mysqltest1`.`v1`
 explain select * from t2;
-ERROR 42000: SELECT command denied to user 'fiona'@'localhost' for table 't2'
+ERROR 42000: SELECT command denied to user 'fiona'@'localhost' for table `mysqltest1`.`t2`
 explain select * from v2;
 ERROR HY000: ANALYZE/EXPLAIN/SHOW can not be issued; lacking privileges for underlying table
 disconnect test11765687;
@@ -1236,7 +1266,7 @@ connection test11765687;
 select * from v2;
 i	j
 explain select * from v1;
-ERROR 42000: SELECT command denied to user 'greg'@'localhost' for table 'v1'
+ERROR 42000: SELECT command denied to user 'greg'@'localhost' for table `mysqltest1`.`v1`
 explain select * from v2;
 ERROR HY000: ANALYZE/EXPLAIN/SHOW can not be issued; lacking privileges for underlying table
 disconnect test11765687;
@@ -1244,9 +1274,9 @@ disconnect test11765687;
 connect  test11765687,localhost,han,,mysqltest1;
 connection test11765687;
 select * from t3;
-ERROR 42000: SELECT command denied to user 'han'@'localhost' for table 't3'
+ERROR 42000: SELECT command denied to user 'han'@'localhost' for table `mysqltest1`.`t3`
 explain select * from t3;
-ERROR 42000: SELECT command denied to user 'han'@'localhost' for table 't3'
+ERROR 42000: SELECT command denied to user 'han'@'localhost' for table `mysqltest1`.`t3`
 select k from t3;
 k
 explain select k from t3;
@@ -1286,9 +1316,9 @@ disconnect test11765687;
 connect  test11765687,localhost,lena,,mysqltest1;
 connection test11765687;
 select * from v2;
-ERROR 42000: SELECT command denied to user 'lena'@'localhost' for table 'v2'
+ERROR 42000: SELECT command denied to user 'lena'@'localhost' for table `mysqltest1`.`v2`
 explain select * from v2;
-ERROR 42000: SELECT command denied to user 'lena'@'localhost' for table 'v2'
+ERROR 42000: SELECT command denied to user 'lena'@'localhost' for table `mysqltest1`.`v2`
 disconnect test11765687;
 ... as mhairi
 connect  test11765687,localhost,mhairi,,mysqltest1;
@@ -1370,28 +1400,28 @@ View	Create View	character_set_client	collation_connection
 v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select `t1`.`i` AS `i` from `t1`	latin1	latin1_swedish_ci
 ALTER DEFINER=no_such@user_1 VIEW v1 AS SELECT * FROM t1;
 Warnings:
-Note	1449	The user specified as a definer ('no_such'@'user_1') does not exist
+Note	1446	The user specified as a definer ('no_such'@'user_1') does not exist
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
 v1	CREATE ALGORITHM=UNDEFINED DEFINER=`no_such`@`user_1` SQL SECURITY DEFINER VIEW `v1` AS select `test`.`t1`.`i` AS `i` from `t1`	latin1	latin1_swedish_ci
 Warnings:
-Note	1449	The user specified as a definer ('no_such'@'user_1') does not exist
+Note	1446	The user specified as a definer ('no_such'@'user_1') does not exist
 ALTER ALGORITHM=MERGE VIEW v1 AS SELECT * FROM t1;
 Warnings:
-Note	1449	The user specified as a definer ('no_such'@'user_1') does not exist
+Note	1446	The user specified as a definer ('no_such'@'user_1') does not exist
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
 v1	CREATE ALGORITHM=MERGE DEFINER=`no_such`@`user_1` SQL SECURITY DEFINER VIEW `v1` AS select `test`.`t1`.`i` AS `i` from `t1`	latin1	latin1_swedish_ci
 Warnings:
-Note	1449	The user specified as a definer ('no_such'@'user_1') does not exist
+Note	1446	The user specified as a definer ('no_such'@'user_1') does not exist
 ALTER ALGORITHM=TEMPTABLE DEFINER=no_such@user_2 VIEW v1 AS SELECT * FROM t1;
 Warnings:
-Note	1449	The user specified as a definer ('no_such'@'user_2') does not exist
+Note	1446	The user specified as a definer ('no_such'@'user_2') does not exist
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
 v1	CREATE ALGORITHM=TEMPTABLE DEFINER=`no_such`@`user_2` SQL SECURITY DEFINER VIEW `v1` AS select `test`.`t1`.`i` AS `i` from `t1`	latin1	latin1_swedish_ci
 Warnings:
-Note	1449	The user specified as a definer ('no_such'@'user_2') does not exist
+Note	1446	The user specified as a definer ('no_such'@'user_2') does not exist
 DROP VIEW v1;
 DROP TABLE t1;
 CREATE USER mysqluser1@localhost;
@@ -1408,9 +1438,9 @@ connect  connection1, localhost, mysqluser1, , mysqltest1;
 This would lead to failed assertion.
 CREATE VIEW v1 AS SELECT a, b FROM t1, t2;
 SELECT * FROM v1;
-ERROR 42000: SELECT command denied to user 'mysqluser1'@'localhost' for table 'v1'
+ERROR 42000: SELECT command denied to user 'mysqluser1'@'localhost' for table `mysqltest1`.`v1`
 SELECT b FROM v1;
-ERROR 42000: SELECT command denied to user 'mysqluser1'@'localhost' for table 'v1'
+ERROR 42000: SELECT command denied to user 'mysqluser1'@'localhost' for table `mysqltest1`.`v1`
 disconnect connection1;
 connection default;
 DROP TABLE t1, t2;
@@ -1427,11 +1457,11 @@ CREATE TABLE t2 ( a INT, b INT );
 CREATE VIEW v1 AS SELECT a, b FROM t1;
 GRANT SELECT( a ) ON v1 TO mysqluser1@localhost;
 GRANT UPDATE( b ) ON t2 TO mysqluser1@localhost;
-connect  connection1, localhost, mysqluser1, , test;
+connect  connection1, localhost, mysqluser1, ,mysqltest1;
 SELECT * FROM mysqltest1.v1;
-ERROR 42000: SELECT command denied to user 'mysqluser1'@'localhost' for table 'v1'
+ERROR 42000: SELECT command denied to user 'mysqluser1'@'localhost' for table `mysqltest1`.`v1`
 CREATE VIEW v1 AS SELECT * FROM mysqltest1.t2;
-ERROR 42000: ANY command denied to user 'mysqluser1'@'localhost' for table 't2'
+ERROR 42000: CREATE VIEW command denied to user 'mysqluser1'@'localhost' for table `mysqltest1`.`v1`
 disconnect connection1;
 connection default;
 DROP TABLE t1, t2;
@@ -1454,9 +1484,9 @@ connection default;
 REVOKE SELECT ON mysqltest1.* FROM mysqluser1@localhost;
 connection connection1;
 EXECUTE stmt_v1;
-ERROR 42000: SELECT command denied to user 'mysqluser1'@'localhost' for table 'v1'
+ERROR 42000: SELECT command denied to user 'mysqluser1'@'localhost' for table `mysqltest1`.`v1`
 EXECUTE stmt_v2;
-ERROR 42000: SELECT command denied to user 'mysqluser1'@'localhost' for table 'v2'
+ERROR 42000: SELECT command denied to user 'mysqluser1'@'localhost' for table `mysqltest1`.`v2`
 disconnect connection1;
 connect  connection2, localhost, mysqluser1,,;
 PREPARE stmt FROM "SELECT a FROM v3";
@@ -1616,11 +1646,11 @@ REVOKE SHOW VIEW ON v_f1 FROM mysqluser1@localhost;
 REVOKE SHOW VIEW ON v_v1 FROM mysqluser1@localhost;
 connection connection1;
 SHOW CREATE VIEW mysqltest1.v_t1;
-ERROR 42000: SHOW VIEW command denied to user 'mysqluser1'@'localhost' for table 'v_t1'
+ERROR 42000: SHOW VIEW command denied to user 'mysqluser1'@'localhost' for table `mysqltest1`.`v_t1`
 SHOW CREATE VIEW mysqltest1.v_f1;
-ERROR 42000: SHOW VIEW command denied to user 'mysqluser1'@'localhost' for table 'v_f1'
+ERROR 42000: SHOW VIEW command denied to user 'mysqluser1'@'localhost' for table `mysqltest1`.`v_f1`
 SHOW CREATE VIEW mysqltest1.v_v1;
-ERROR 42000: SHOW VIEW command denied to user 'mysqluser1'@'localhost' for table 'v_v1'
+ERROR 42000: SHOW VIEW command denied to user 'mysqluser1'@'localhost' for table `mysqltest1`.`v_v1`
 SHOW CREATE VIEW v_mysqluser1_t1;
 View	Create View	character_set_client	collation_connection
 v_mysqluser1_t1	CREATE ALGORITHM=UNDEFINED DEFINER=`mysqluser1`@`localhost` SQL SECURITY DEFINER VIEW `v_mysqluser1_t1` AS select `mysqltest1`.`t1`.`a` AS `a` from `mysqltest1`.`t1`	latin1	latin1_swedish_ci
@@ -1645,12 +1675,12 @@ USE test;
 CREATE TABLE t1( a INT );
 CREATE DEFINER = no_such_user@no_such_host VIEW v1 AS SELECT * FROM t1;
 Warnings:
-Note	1449	The user specified as a definer ('no_such_user'@'no_such_host') does not exist
+Note	1446	The user specified as a definer ('no_such_user'@'no_such_host') does not exist
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
 v1	CREATE ALGORITHM=UNDEFINED DEFINER=`no_such_user`@`no_such_host` SQL SECURITY DEFINER VIEW `v1` AS select `test`.`t1`.`a` AS `a` from `t1`	latin1	latin1_swedish_ci
 Warnings:
-Note	1449	The user specified as a definer ('no_such_user'@'no_such_host') does not exist
+Note	1446	The user specified as a definer ('no_such_user'@'no_such_host') does not exist
 DROP TABLE t1;
 DROP VIEW v1;
 #
@@ -1682,7 +1712,7 @@ USE test;
 DROP VIEW IF EXISTS v1;
 CREATE DEFINER=`unknown`@`unknown` SQL SECURITY DEFINER VIEW v1 AS SELECT 1;
 Warnings:
-Note	1449	The user specified as a definer ('unknown'@'unknown') does not exist
+Note	1446	The user specified as a definer ('unknown'@'unknown') does not exist
 DROP VIEW v1;
 #
 # Bug #58499 "DEFINER-security view selecting from INVOKER-security view
@@ -1852,7 +1882,7 @@ where t2.id = v1.id;
 create sql security invoker view v42 as
 select v2.id as id, v2.val as val from mysqltest2.t2 as t2, mysqltest2.v2_merge as v2
 where t2.id = v2.id;
-connect  conn_11766767, localhost, user_11766767,,;
+connect  conn_11766767, localhost, user_11766767,,mysqltest2;
 #
 # A) Check how we handle privilege checking in multi-update for 
 #    directly used views.
@@ -1869,7 +1899,7 @@ update mysqltest2.t2 as t2, mysqltest1.v1_temp as v1 set t2.val= 'test4'
 #      Temptable views can't be updated.
 update mysqltest2.t2 as t2, mysqltest1.v1_merge as v1 set v1.val= 'test5'
   where t2.id= v1.id;
-ERROR 42000: UPDATE command denied to user 'user_11766767'@'localhost' for table 'v1_merge'
+ERROR 42000: UPDATE command denied to user 'user_11766767'@'localhost' for table `mysqltest1`.`v1_merge`
 update mysqltest1.t1 as t1, mysqltest2.v2_merge as v2 set v2.val= 'test6'
   where t1.id= v2.id;
 #
@@ -1893,7 +1923,7 @@ update mysqltest2.t2 as t2, mysqltest1.v11_temp as v11 set t2.val= 'test10'
 #      on a view.
 update mysqltest2.t2 as t2, mysqltest1.v11_merge as v11 set v11.val= 'test11'
   where t2.id= v11.id;
-ERROR 42000: UPDATE command denied to user 'user_11766767'@'localhost' for table 'v11_merge'
+ERROR 42000: UPDATE command denied to user 'user_11766767'@'localhost' for table `mysqltest1`.`v11_merge`
 update mysqltest1.t1 as t1, mysqltest2.v21_merge as v21 set v21.val= 'test12'
   where t1.id= v21.id;
 #      As before, temptable views are not updateable.
@@ -1953,9 +1983,10 @@ drop database mysqltest2;
 CREATE SCHEMA foo;
 CREATE VIEW foo.v AS SELECT * FROM JSON_TABLE('[1,2,3]', '$[*]' COLUMNS (num INT PATH '$[0]')) AS jt;
 CREATE USER foo@localhost;
+GRANT SELECT on test.* to foo@localhost;
 connect  con1,localhost,foo,,;
 SELECT * FROM foo.v;
-ERROR 42000: SELECT command denied to user 'foo'@'localhost' for table 'v'
+ERROR 42000: SELECT command denied to user 'foo'@'localhost' for table `foo`.`v`
 #
 # Clean-up.
 #

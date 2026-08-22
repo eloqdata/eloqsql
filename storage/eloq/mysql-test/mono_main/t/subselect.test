@@ -374,8 +374,13 @@ insert into t12 values (33, 10),(22, 11),(2, 12);
 insert into t2 values (1, 21),(2, 12),(3, 23);
 select * from t11;
 select * from t12;
--- error ER_UPDATE_TABLE_USED
 delete t11.*, t12.* from t11,t12 where t11.a = t12.a and t11.b = (select b from t12 where t11.a = t12.a);
+select * from t11;
+select * from t12;
+delete from t11;
+delete from t12;
+insert into t11 values (0, 10),(1, 11),(2, 12);
+insert into t12 values (33, 10),(22, 11),(2, 12);
 -- error ER_SUBQUERY_NO_1_ROW
 delete t11.*, t12.* from t11,t12 where t11.a = t12.a and t11.b = (select b from t2);
 delete t11.*, t12.* from t11,t12 where t11.a = t12.a and t11.b = (select b from t2 where t11.a = t2.a);
@@ -389,7 +394,6 @@ create table t2 (a int) ENGINE=eloq;
 create table t3 (b int);
 insert into t2 values (1);
 insert into t3 values (1),(2);
--- error ER_UPDATE_TABLE_USED
 INSERT INTO t1 (x) VALUES ((SELECT x FROM t1));
 -- error ER_SUBQUERY_NO_1_ROW
 INSERT INTO t1 (x) VALUES ((SELECT b FROM t3));
@@ -426,7 +430,7 @@ create table t3 (a int);
 insert into t2 values (1);
 insert into t3 values (1),(2);
 select * from t1;
--- error ER_UPDATE_TABLE_USED
+-- error ER_BAD_NULL_ERROR
 replace into t1 (x, y) VALUES ((SELECT x FROM t1), (SELECT a+1 FROM t2));
 -- error ER_SUBQUERY_NO_1_ROW
 replace into t1 (x, y) VALUES ((SELECT a FROM t3), (SELECT a+1 FROM t2));
@@ -471,9 +475,9 @@ EXPLAIN EXTENDED SELECT * FROM t2 WHERE id IN (SELECT 1 UNION SELECT 3);
 --disable_prepare_warnings
 SELECT * FROM t2 WHERE id IN (SELECT 5 UNION SELECT 3);
 SELECT * FROM t2 WHERE id IN (SELECT 5 UNION SELECT 2);
--- error ER_UPDATE_TABLE_USED
+-- error ER_SUBQUERY_NO_1_ROW
 INSERT INTO t2 VALUES ((SELECT * FROM t2));
--- error ER_UPDATE_TABLE_USED
+-- error ER_SUBQUERY_NO_1_ROW
 INSERT INTO t2 VALUES ((SELECT id FROM t2));
 SELECT * FROM t2;
 CREATE TABLE t1 (id int(11) default NULL, KEY id (id)) ENGINE=eloq CHARSET=latin1;
@@ -5853,6 +5857,13 @@ flush status;
 SELECT (SELECT MIN(b) FROM t1, t2 WHERE b = a AND (b = alias1.b OR EXISTS (SELECT * FROM t3)))
 FROM t2 alias1, t1 alias2, t1 alias3;
 
+# Subquery_cache_hit/miss are global counters (sql_expression_cache.cc) and
+# their values are not reproducible here: the same query, same plan and the
+# identical Handler_read_% figures below still yield different hit/miss counts
+# between a full-suite run and running this test on its own. Keep the statement
+# so the counters are still exercised, but do not assert the exact numbers --
+# the same assertion further down this file is already #FIXME:-disabled.
+--replace_column 2 NUM
 show status like "subquery_cache%";
 show status like '%Handler_read%';
 

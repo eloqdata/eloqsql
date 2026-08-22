@@ -1,5 +1,6 @@
 #
 --source include/have_eloq.inc
+--source include/eloq_errors.inc
 --source include/long_test.inc
 
 --disable_warnings
@@ -247,7 +248,7 @@ SELECT count(*) FROM t1 FORCE INDEX(idx_c3);
 ## fault injection
 SET SESSION debug_dbug="+d,eloq;trigger_flush_kv_error;node_id=-1";
 ## handle flush kv error
---error 210 # ERROR 210 (HY000): Eloq: failed to create index.
+--error $HA_ERR_ELOQ_CREATE_INDEX_FAILED
 CREATE INDEX idx_c3c4 ON t1(c3(256), c4);
 --error 1176 # ER_KEY_DOES_NOT_EXISTS (1176)
 SELECT * FROM t1 FORCE INDEX(idx_c3c4);

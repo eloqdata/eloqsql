@@ -1,6 +1,7 @@
 # This case is to test what will happen if remote node 1 crash before it acquire and send message.
 
 --source include/have_eloq.inc
+--source include/eloq_errors.inc
 --source include/long_test.inc
 --sleep 8 #Here is bug, If not sleep, the mysqld will not return result.
 
@@ -98,7 +99,7 @@ insert into t1 values(2,2);
 select * from t1;
 
 SET SESSION debug_dbug="+d,eloq;term_TemplateCcMap_Execute_ReadCc;node_id=-1";
---error 216
+--error $HA_ERR_ELOQ_RW_CONFLICT
 select * from t1 where i=1;
 
 SET SESSION debug_dbug="-d,eloq;term_TemplateCcMap_Execute_ReadCc;node_id=-1";

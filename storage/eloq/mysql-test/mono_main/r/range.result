@@ -266,7 +266,7 @@ INSERT INTO t1 VALUES
 (33,5),(33,5),(33,5),(33,5),(34,5),(35,5);
 EXPLAIN SELECT * FROM t1 WHERE a IN(1,2) AND b=5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	ref|filter	a,b	b|a	5|5	const	13 (5%)	Using where; Using rowid filter
+1	SIMPLE	t1	range	a,b	a	5	NULL	2	Using index condition; Using where
 SELECT * FROM t1 WHERE a IN(1,2) AND b=5;
 a	b
 DROP TABLE t1;
@@ -1222,7 +1222,7 @@ Z
 In following EXPLAIN the access method should be ref, #rows~=500 (and not 2)
 explain select * from t2 where a=1000 and b<11;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	ref	a	a	5	const	426	Using index condition
+1	SIMPLE	t2	ALL	a	NULL	NULL	NULL	1000	Using where
 drop table t1, t2;
 CREATE TABLE t1( a INT, b INT, KEY( a, b ) );
 CREATE TABLE t2( a INT, b INT, KEY( a, b ) );
@@ -1610,8 +1610,6 @@ str_to_date('2007-20-00', '%Y-%m-%d') >= '2007/10/20' AND
 str_to_date('2007-20-00', '%Y-%m-%d') <= ''
 NULL
 Warnings:
-Warning	1411	Incorrect datetime value: '2007-20-00' for function str_to_date
-Warning	1411	Incorrect datetime value: '2007-20-00' for function str_to_date
 Warning	1411	Incorrect datetime value: '2007-20-00' for function str_to_date
 Warning	1411	Incorrect datetime value: '2007-20-00' for function str_to_date
 SELECT str_to_date('2007-10-00', '%Y-%m-%d') BETWEEN '' AND '2007/10/20';
@@ -2090,7 +2088,7 @@ id int AUTO_INCREMENT,
 fd varchar(20),
 primary key(id),
 index ix_fd(fd)
-)engine=eloq default charset=UTF8;
+)engine=eloq default charset=UTF8 collate=utf8_bin;
 INSERT INTO t1(id, fd) VALUES (null, ''),(null, 'matt'),(null, 'pitt'),(null, 'lee'),(null, 'kim');
 INSERT INTO t1 (fd) SELECT fd FROM t1;
 INSERT INTO t1 (fd) SELECT fd FROM t1;
@@ -2151,7 +2149,7 @@ col1 int,
 PRIMARY KEY (key1varchar,key2int),
 KEY key1varchar (key1varchar),
 KEY key2int (key2int)
-) DEFAULT CHARSET=utf8;
+) DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 insert into t1 values 
 ('value1',0, 0),
 ('value1',1, 0),
@@ -2219,6 +2217,8 @@ INSERT INTO t2 VALUES ('2001-01-01 11:22:33');
 EXPLAIN SELECT * FROM t2 WHERE b=CAST('2001-01-01' AS DATE);
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t2	index	b	b	67	NULL	5	Using where; Using index
+Warnings:
+Note	1105	Cannot use key `b` part[0] for lookup: `test`.`t2`.`b` of type `varchar` = "cast('2001-01-01' as date)" of type `date`
 SELECT * FROM t2 WHERE b=CAST('2001-01-01' AS DATE);
 b
 2001#01#01
@@ -2233,6 +2233,8 @@ EXPLAIN SELECT * FROM t1, t2 WHERE a=b ORDER BY BINARY a, BINARY b;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	2	Using temporary; Using filesort
 1	SIMPLE	t2	ALL	b	NULL	NULL	NULL	5	Range checked for each record (index map: 0x1)
+Warnings:
+Note	1105	Cannot use key `b` part[0] for lookup: `test`.`t2`.`b` of type `varchar` = "`t1`.`a`" of type `datetime`
 SELECT * FROM t1, t2 WHERE a=b ORDER BY BINARY a, BINARY b;
 a	b
 2001-01-01 00:00:00	2001#01#01
@@ -2245,6 +2247,8 @@ EXPLAIN SELECT * FROM t1, t2 WHERE b=a ORDER BY BINARY a, BINARY b;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	2	Using temporary; Using filesort
 1	SIMPLE	t2	ALL	b	NULL	NULL	NULL	5	Range checked for each record (index map: 0x1)
+Warnings:
+Note	1105	Cannot use key `b` part[0] for lookup: `test`.`t2`.`b` of type `varchar` = "`t1`.`a`" of type `datetime`
 SELECT * FROM t1, t2 WHERE b=a ORDER BY BINARY a, BINARY b;
 a	b
 2001-01-01 00:00:00	2001#01#01
@@ -2354,7 +2358,7 @@ DROP TABLE t1;
 # MDEV-8613 Full table scan for WHERE indexed_varchar_column <=> 'bad-character'
 #
 SET NAMES utf8;
-CREATE TABLE t1 (a VARCHAR(10) CHARACTER SET utf8, KEY(a)) ENGINE=eloq;
+CREATE TABLE t1 (a VARCHAR(10) CHARACTER SET utf8 COLLATE utf8_bin, KEY(a)) ENGINE=eloq;
 INSERT INTO t1 VALUES ('a'),('b'),('c'),('d'),('e');
 EXPLAIN SELECT * FROM t1 WHERE a<=>'😎';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
@@ -2408,17 +2412,24 @@ EXPLAIN
 {
   "query_block": {
     "select_id": 1,
-    "table": {
-      "table_name": "t1",
-      "access_type": "range",
-      "possible_keys": ["idx"],
-      "key": "idx",
-      "key_length": "10",
-      "used_key_parts": ["a", "b"],
-      "rows": 6,
-      "filtered": 100,
-      "attached_condition": "(t1.a,t1.b) in (<cache>((2,3)),<cache>((3,3)),<cache>((8,8)),<cache>((7,7)))"
-    }
+    "cost": "COST_REPLACED",
+    "nested_loop": [
+      {
+        "table": {
+          "table_name": "t1",
+          "access_type": "range",
+          "possible_keys": ["idx"],
+          "key": "idx",
+          "key_length": "10",
+          "used_key_parts": ["a", "b"],
+          "loops": 1,
+          "rows": 6,
+          "cost": "COST_REPLACED",
+          "filtered": 100,
+          "attached_condition": "(t1.a,t1.b) in (<cache>((2,3)),<cache>((3,3)),<cache>((8,8)),<cache>((7,7)))"
+        }
+      }
+    ]
   }
 }
 select * from t1 where (a,b) IN ((2, 3),(3,3),(8,8),(7,7)) order by a,b;
@@ -2468,17 +2479,24 @@ EXPLAIN
 {
   "query_block": {
     "select_id": 1,
-    "table": {
-      "table_name": "t1",
-      "access_type": "range",
-      "possible_keys": ["idx"],
-      "key": "idx",
-      "key_length": "5",
-      "used_key_parts": ["a"],
-      "rows": 7,
-      "filtered": 100,
-      "attached_condition": "(t1.a,t1.b + t1.a) in (<cache>((4,9)),<cache>((8,8)),<cache>((7,7)))"
-    }
+    "cost": "COST_REPLACED",
+    "nested_loop": [
+      {
+        "table": {
+          "table_name": "t1",
+          "access_type": "range",
+          "possible_keys": ["idx"],
+          "key": "idx",
+          "key_length": "5",
+          "used_key_parts": ["a"],
+          "loops": 1,
+          "rows": 7,
+          "cost": "COST_REPLACED",
+          "filtered": 100,
+          "attached_condition": "(t1.a,t1.b + t1.a) in (<cache>((4,9)),<cache>((8,8)),<cache>((7,7)))"
+        }
+      }
+    ]
   }
 }
 select * from t1 where (a,b+a) IN ((4,9),(8,8),(7,7));
@@ -2494,17 +2512,24 @@ EXPLAIN
 {
   "query_block": {
     "select_id": 1,
-    "table": {
-      "table_name": "t1",
-      "access_type": "range",
-      "possible_keys": ["idx"],
-      "key": "idx",
-      "key_length": "5",
-      "used_key_parts": ["a"],
-      "rows": 7,
-      "filtered": 100,
-      "attached_condition": "(t1.a,t1.b) in ((4,t1.a - 1),(8,t1.a + 8),(7,t1.a + 7))"
-    }
+    "cost": "COST_REPLACED",
+    "nested_loop": [
+      {
+        "table": {
+          "table_name": "t1",
+          "access_type": "range",
+          "possible_keys": ["idx"],
+          "key": "idx",
+          "key_length": "5",
+          "used_key_parts": ["a"],
+          "loops": 1,
+          "rows": 7,
+          "cost": "COST_REPLACED",
+          "filtered": 100,
+          "attached_condition": "(t1.a,t1.b) in ((4,t1.a - 1),(8,t1.a + 8),(7,t1.a + 7))"
+        }
+      }
+    ]
   }
 }
 select * from t1 where (a,b) IN ((4,a-1),(8,a+8),(7,a+7));
@@ -2530,7 +2555,7 @@ test.t2	analyze	status	OK
 explain select * from t1,t2
 where a = d and (a,e) in ((3,3),(7,7),(2,2)) order by a,b,c;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	range|filter	idx1,idx2	idx1|idx2	5|5	NULL	3 (45%)	Using index condition; Using where; Using temporary; Using filesort; Using rowid filter
+1	SIMPLE	t2	range	idx1,idx2	idx1	5	NULL	3	Using index condition; Using where; Using temporary; Using filesort
 1	SIMPLE	t1	ref	idx	idx	5	test.t2.d	3	
 explain format=json select * from t1,t2
 where a = d and (a,e) in ((3,3),(7,7),(2,2)) order by a,b,c;
@@ -2538,40 +2563,43 @@ EXPLAIN
 {
   "query_block": {
     "select_id": 1,
+    "cost": "COST_REPLACED",
     "filesort": {
       "sort_key": "t1.a, t1.b, t1.c",
       "temporary_table": {
-        "table": {
-          "table_name": "t2",
-          "access_type": "range",
-          "possible_keys": ["idx1", "idx2"],
-          "key": "idx1",
-          "key_length": "5",
-          "used_key_parts": ["d"],
-          "rowid_filter": {
-            "range": {
-              "key": "idx2",
-              "used_key_parts": ["e"]
-            },
-            "rows": 9,
-            "selectivity_pct": 45
+        "nested_loop": [
+          {
+            "table": {
+              "table_name": "t2",
+              "access_type": "range",
+              "possible_keys": ["idx1", "idx2"],
+              "key": "idx1",
+              "key_length": "5",
+              "used_key_parts": ["d"],
+              "loops": 1,
+              "rows": 3,
+              "cost": "COST_REPLACED",
+              "filtered": 45,
+              "index_condition": "t2.d is not null",
+              "attached_condition": "(t2.d,t2.e) in (<cache>((3,3)),<cache>((7,7)),<cache>((2,2)))"
+            }
           },
-          "rows": 3,
-          "filtered": 45,
-          "index_condition": "t2.d is not null",
-          "attached_condition": "(t2.d,t2.e) in (<cache>((3,3)),<cache>((7,7)),<cache>((2,2)))"
-        },
-        "table": {
-          "table_name": "t1",
-          "access_type": "ref",
-          "possible_keys": ["idx"],
-          "key": "idx",
-          "key_length": "5",
-          "used_key_parts": ["a"],
-          "ref": ["test.t2.d"],
-          "rows": 3,
-          "filtered": 100
-        }
+          {
+            "table": {
+              "table_name": "t1",
+              "access_type": "ref",
+              "possible_keys": ["idx"],
+              "key": "idx",
+              "key_length": "5",
+              "used_key_parts": ["a"],
+              "ref": ["test.t2.d"],
+              "loops": 1.35,
+              "rows": 3,
+              "cost": "COST_REPLACED",
+              "filtered": 100
+            }
+          }
+        ]
       }
     }
   }
@@ -2627,40 +2655,51 @@ EXPLAIN
 {
   "query_block": {
     "select_id": 1,
+    "cost": "COST_REPLACED",
     "filesort": {
       "sort_key": "t1.a, t1.b, t1.c",
       "temporary_table": {
-        "table": {
-          "table_name": "t2",
-          "access_type": "range",
-          "possible_keys": ["idx1", "idx2"],
-          "key": "idx1",
-          "key_length": "5",
-          "used_key_parts": ["d"],
-          "rowid_filter": {
-            "range": {
-              "key": "idx2",
-              "used_key_parts": ["e"]
-            },
-            "rows": 22,
-            "selectivity_pct": 21.15384615
+        "nested_loop": [
+          {
+            "table": {
+              "table_name": "t2",
+              "access_type": "range",
+              "possible_keys": ["idx1", "idx2"],
+              "key": "idx1",
+              "key_length": "5",
+              "used_key_parts": ["d"],
+              "rowid_filter": {
+                "range": {
+                  "key": "idx2",
+                  "used_key_parts": ["e"]
+                },
+                "rows": 22,
+                "selectivity_pct": 21.15384615
+              },
+              "loops": 1,
+              "rows": 12,
+              "cost": "COST_REPLACED",
+              "filtered": 21.15384674,
+              "index_condition": "t2.d is not null",
+              "attached_condition": "(t2.d,t2.e) in (<cache>((3,3)),<cache>((7,7)),<cache>((8,8))) and octet_length(t2.f) = 1"
+            }
           },
-          "rows": 12,
-          "filtered": 21.15384674,
-          "index_condition": "t2.d is not null",
-          "attached_condition": "(t2.d,t2.e) in (<cache>((3,3)),<cache>((7,7)),<cache>((8,8))) and octet_length(t2.f) = 1"
-        },
-        "table": {
-          "table_name": "t1",
-          "access_type": "ref",
-          "possible_keys": ["idx"],
-          "key": "idx",
-          "key_length": "5",
-          "used_key_parts": ["a"],
-          "ref": ["test.t2.d"],
-          "rows": 3,
-          "filtered": 100
-        }
+          {
+            "table": {
+              "table_name": "t1",
+              "access_type": "ref",
+              "possible_keys": ["idx"],
+              "key": "idx",
+              "key_length": "5",
+              "used_key_parts": ["a"],
+              "ref": ["test.t2.d"],
+              "loops": 2.538461538,
+              "rows": 3,
+              "cost": "COST_REPLACED",
+              "filtered": 100
+            }
+          }
+        ]
       }
     }
   }
@@ -2741,36 +2780,47 @@ EXPLAIN
 {
   "query_block": {
     "select_id": 1,
-    "table": {
-      "table_name": "t2",
-      "access_type": "range",
-      "possible_keys": ["idx1", "idx2"],
-      "key": "idx2",
-      "key_length": "5",
-      "used_key_parts": ["e"],
-      "rowid_filter": {
-        "range": {
-          "key": "idx1",
-          "used_key_parts": ["d"]
-        },
-        "rows": 11,
-        "selectivity_pct": 10.57692308
+    "cost": "COST_REPLACED",
+    "nested_loop": [
+      {
+        "table": {
+          "table_name": "t2",
+          "access_type": "range",
+          "possible_keys": ["idx1", "idx2"],
+          "key": "idx2",
+          "key_length": "5",
+          "used_key_parts": ["e"],
+          "rowid_filter": {
+            "range": {
+              "key": "idx1",
+              "used_key_parts": ["d"]
+            },
+            "rows": 11,
+            "selectivity_pct": 10.57692308
+          },
+          "loops": 1,
+          "rows": 9,
+          "cost": "COST_REPLACED",
+          "filtered": 10.57692337,
+          "attached_condition": "(t2.d,t2.e) in (<cache>((4,4)),<cache>((7,7)),<cache>((8,8))) and octet_length(t2.f) = 1 and t2.d is not null"
+        }
       },
-      "rows": 9,
-      "filtered": 10.57692337,
-      "attached_condition": "(t2.d,t2.e) in (<cache>((4,4)),<cache>((7,7)),<cache>((8,8))) and octet_length(t2.f) = 1 and t2.d is not null"
-    },
-    "table": {
-      "table_name": "t1",
-      "access_type": "ref",
-      "possible_keys": ["idx"],
-      "key": "idx",
-      "key_length": "5",
-      "used_key_parts": ["a"],
-      "ref": ["test.t2.d"],
-      "rows": 5,
-      "filtered": 100
-    }
+      {
+        "table": {
+          "table_name": "t1",
+          "access_type": "ref",
+          "possible_keys": ["idx"],
+          "key": "idx",
+          "key_length": "5",
+          "used_key_parts": ["a"],
+          "ref": ["test.t2.d"],
+          "loops": 1,
+          "rows": 5,
+          "cost": "COST_REPLACED",
+          "filtered": 100
+        }
+      }
+    ]
   }
 }
 select * from t1,t2 
@@ -2797,36 +2847,47 @@ EXPLAIN
 {
   "query_block": {
     "select_id": 1,
-    "table": {
-      "table_name": "t2",
-      "access_type": "range",
-      "possible_keys": ["idx1", "idx2"],
-      "key": "idx2",
-      "key_length": "5",
-      "used_key_parts": ["e"],
-      "rowid_filter": {
-        "range": {
-          "key": "idx1",
-          "used_key_parts": ["d"]
-        },
-        "rows": 11,
-        "selectivity_pct": 10.57692308
+    "cost": "COST_REPLACED",
+    "nested_loop": [
+      {
+        "table": {
+          "table_name": "t2",
+          "access_type": "range",
+          "possible_keys": ["idx1", "idx2"],
+          "key": "idx2",
+          "key_length": "5",
+          "used_key_parts": ["e"],
+          "rowid_filter": {
+            "range": {
+              "key": "idx1",
+              "used_key_parts": ["d"]
+            },
+            "rows": 11,
+            "selectivity_pct": 10.57692308
+          },
+          "loops": 1,
+          "rows": 9,
+          "cost": "COST_REPLACED",
+          "filtered": 10.57692337,
+          "attached_condition": "(t2.d,t2.e) in (<cache>((4,4)),<cache>((7,7)),<cache>((8,8))) and octet_length(t2.f) = 1 and t2.d is not null"
+        }
       },
-      "rows": 9,
-      "filtered": 10.57692337,
-      "attached_condition": "(t2.d,t2.e) in (<cache>((4,4)),<cache>((7,7)),<cache>((8,8))) and octet_length(t2.f) = 1 and t2.d is not null"
-    },
-    "table": {
-      "table_name": "t1",
-      "access_type": "ref",
-      "possible_keys": ["idx"],
-      "key": "idx",
-      "key_length": "5",
-      "used_key_parts": ["a"],
-      "ref": ["test.t2.d"],
-      "rows": 5,
-      "filtered": 100
-    }
+      {
+        "table": {
+          "table_name": "t1",
+          "access_type": "ref",
+          "possible_keys": ["idx"],
+          "key": "idx",
+          "key_length": "5",
+          "used_key_parts": ["a"],
+          "ref": ["test.t2.d"],
+          "loops": 1,
+          "rows": 5,
+          "cost": "COST_REPLACED",
+          "filtered": 100
+        }
+      }
+    ]
   }
 }
 select * from t1,t2 
@@ -2853,29 +2914,40 @@ EXPLAIN
 {
   "query_block": {
     "select_id": 1,
-    "table": {
-      "table_name": "t2",
-      "access_type": "range",
-      "possible_keys": ["idx1"],
-      "key": "idx1",
-      "key_length": "5",
-      "used_key_parts": ["d"],
-      "rows": 11,
-      "filtered": 100,
-      "index_condition": "t2.d is not null",
-      "attached_condition": "(t2.d,t2.e) in ((4,t2.d + 1),(7,t2.d + 1),(8,t2.d + 1)) and octet_length(t2.f) = 1"
-    },
-    "table": {
-      "table_name": "t1",
-      "access_type": "ref",
-      "possible_keys": ["idx"],
-      "key": "idx",
-      "key_length": "5",
-      "used_key_parts": ["a"],
-      "ref": ["test.t2.d"],
-      "rows": 5,
-      "filtered": 100
-    }
+    "cost": "COST_REPLACED",
+    "nested_loop": [
+      {
+        "table": {
+          "table_name": "t2",
+          "access_type": "range",
+          "possible_keys": ["idx1"],
+          "key": "idx1",
+          "key_length": "5",
+          "used_key_parts": ["d"],
+          "loops": 1,
+          "rows": 11,
+          "cost": "COST_REPLACED",
+          "filtered": 100,
+          "index_condition": "t2.d is not null",
+          "attached_condition": "(t2.d,t2.e) in ((4,t2.d + 1),(7,t2.d + 1),(8,t2.d + 1)) and octet_length(t2.f) = 1"
+        }
+      },
+      {
+        "table": {
+          "table_name": "t1",
+          "access_type": "ref",
+          "possible_keys": ["idx"],
+          "key": "idx",
+          "key_length": "5",
+          "used_key_parts": ["a"],
+          "ref": ["test.t2.d"],
+          "loops": 11,
+          "rows": 5,
+          "cost": "COST_REPLACED",
+          "filtered": 100
+        }
+      }
+    ]
   }
 }
 select * from t1,t2
@@ -2910,31 +2982,42 @@ EXPLAIN
 {
   "query_block": {
     "select_id": 1,
-    "read_sorted_file": {
-      "filesort": {
-        "sort_key": "t1.b, t1.c",
+    "cost": "COST_REPLACED",
+    "nested_loop": [
+      {
+        "read_sorted_file": {
+          "filesort": {
+            "sort_key": "t1.b, t1.c",
+            "table": {
+              "table_name": "t1",
+              "access_type": "ALL",
+              "possible_keys": ["idx"],
+              "loops": 1,
+              "rows": 144,
+              "cost": "COST_REPLACED",
+              "filtered": 100,
+              "attached_condition": "t1.a is not null"
+            }
+          }
+        }
+      },
+      {
         "table": {
-          "table_name": "t1",
-          "access_type": "ALL",
-          "possible_keys": ["idx"],
-          "rows": 144,
+          "table_name": "t2",
+          "access_type": "ref",
+          "possible_keys": ["idx1", "idx2"],
+          "key": "idx1",
+          "key_length": "5",
+          "used_key_parts": ["d"],
+          "ref": ["test.t1.a"],
+          "loops": 144,
+          "rows": 3,
+          "cost": "COST_REPLACED",
           "filtered": 100,
-          "attached_condition": "t1.a is not null"
+          "attached_condition": "(t1.a,t2.e) in ((t2.e,t1.a + 1),<cache>((7,7)),<cache>((8,8))) and octet_length(t2.f) = 1"
         }
       }
-    },
-    "table": {
-      "table_name": "t2",
-      "access_type": "ref",
-      "possible_keys": ["idx1", "idx2"],
-      "key": "idx1",
-      "key_length": "5",
-      "used_key_parts": ["d"],
-      "ref": ["test.t1.a"],
-      "rows": 3,
-      "filtered": 100,
-      "attached_condition": "(t1.a,t2.e) in ((t2.e,t1.a + 1),<cache>((7,7)),<cache>((8,8))) and octet_length(t2.f) = 1"
-    }
+    ]
   }
 }
 select * from t1,t2
@@ -2963,35 +3046,46 @@ EXPLAIN
 {
   "query_block": {
     "select_id": 1,
-    "read_sorted_file": {
-      "filesort": {
-        "sort_key": "t2.e, t2.f",
+    "cost": "COST_REPLACED",
+    "nested_loop": [
+      {
+        "read_sorted_file": {
+          "filesort": {
+            "sort_key": "t2.e, t2.f",
+            "table": {
+              "table_name": "t2",
+              "access_type": "range",
+              "possible_keys": ["idx1"],
+              "key": "idx1",
+              "key_length": "5",
+              "used_key_parts": ["d"],
+              "loops": 1,
+              "rows": 9,
+              "cost": "COST_REPLACED",
+              "filtered": 100,
+              "index_condition": "t2.d is not null",
+              "attached_condition": "(t2.d,2) in (<cache>((2,2)),<cache>((7,7)),<cache>((8,8))) and octet_length(t2.f) = 1"
+            }
+          }
+        }
+      },
+      {
         "table": {
-          "table_name": "t2",
-          "access_type": "range",
-          "possible_keys": ["idx1"],
-          "key": "idx1",
+          "table_name": "t1",
+          "access_type": "ref",
+          "possible_keys": ["idx"],
+          "key": "idx",
           "key_length": "5",
-          "used_key_parts": ["d"],
-          "rows": 9,
+          "used_key_parts": ["a"],
+          "ref": ["test.t2.d"],
+          "loops": 9,
+          "rows": 5,
+          "cost": "COST_REPLACED",
           "filtered": 100,
-          "index_condition": "t2.d is not null",
-          "attached_condition": "(t2.d,2) in (<cache>((2,2)),<cache>((7,7)),<cache>((8,8))) and octet_length(t2.f) = 1"
+          "attached_condition": "octet_length(t1.c) = 1"
         }
       }
-    },
-    "table": {
-      "table_name": "t1",
-      "access_type": "ref",
-      "possible_keys": ["idx"],
-      "key": "idx",
-      "key_length": "5",
-      "used_key_parts": ["a"],
-      "ref": ["test.t2.d"],
-      "rows": 5,
-      "filtered": 100,
-      "attached_condition": "octet_length(t1.c) = 1"
-    }
+    ]
   }
 }
 select * from t1,t2
@@ -3049,46 +3143,59 @@ EXPLAIN
 {
   "query_block": {
     "select_id": 1,
-    "table": {
-      "table_name": "t3",
-      "access_type": "const",
-      "possible_keys": ["PRIMARY"],
-      "key": "PRIMARY",
-      "key_length": "4",
-      "used_key_parts": ["id"],
-      "ref": ["const"],
-      "rows": 1,
-      "filtered": 100
-    },
-    "read_sorted_file": {
-      "filesort": {
-        "sort_key": "t2.e, t2.f",
+    "cost": "COST_REPLACED",
+    "nested_loop": [
+      {
         "table": {
-          "table_name": "t2",
-          "access_type": "range",
-          "possible_keys": ["idx1"],
-          "key": "idx1",
+          "table_name": "t3",
+          "access_type": "const",
+          "possible_keys": ["PRIMARY"],
+          "key": "PRIMARY",
+          "key_length": "4",
+          "used_key_parts": ["id"],
+          "ref": ["const"],
+          "rows": 1,
+          "filtered": 100
+        }
+      },
+      {
+        "read_sorted_file": {
+          "filesort": {
+            "sort_key": "t2.e, t2.f",
+            "table": {
+              "table_name": "t2",
+              "access_type": "range",
+              "possible_keys": ["idx1"],
+              "key": "idx1",
+              "key_length": "5",
+              "used_key_parts": ["d"],
+              "loops": 1,
+              "rows": 9,
+              "cost": "COST_REPLACED",
+              "filtered": 100,
+              "index_condition": "t2.d is not null",
+              "attached_condition": "(t2.d,1 + 1) in (<cache>((2,2)),<cache>((7,7)),<cache>((8,8))) and octet_length(t2.f) = 1"
+            }
+          }
+        }
+      },
+      {
+        "table": {
+          "table_name": "t1",
+          "access_type": "ref",
+          "possible_keys": ["idx"],
+          "key": "idx",
           "key_length": "5",
-          "used_key_parts": ["d"],
-          "rows": 9,
+          "used_key_parts": ["a"],
+          "ref": ["test.t2.d"],
+          "loops": 9,
+          "rows": 5,
+          "cost": "COST_REPLACED",
           "filtered": 100,
-          "index_condition": "t2.d is not null",
-          "attached_condition": "(t2.d,1 + 1) in (<cache>((2,2)),<cache>((7,7)),<cache>((8,8))) and octet_length(t2.f) = 1"
+          "attached_condition": "octet_length(t1.c) = 1"
         }
       }
-    },
-    "table": {
-      "table_name": "t1",
-      "access_type": "ref",
-      "possible_keys": ["idx"],
-      "key": "idx",
-      "key_length": "5",
-      "used_key_parts": ["a"],
-      "ref": ["test.t2.d"],
-      "rows": 5,
-      "filtered": 100,
-      "attached_condition": "octet_length(t1.c) = 1"
-    }
+    ]
   }
 }
 select * from t1,t2,t3
@@ -3345,7 +3452,7 @@ test.t2	analyze	status	OK
 # expected type=range, rows=1487 , reason=using index dives
 analyze SELECT * FROM t1 where a in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198);
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	r_rows	filtered	r_filtered	Extra
-1	SIMPLE	t1	range	a	a	5	NULL	#	1199.00	100.00	100.00	Using where; Using index
+1	SIMPLE	t1	index	a	a	5	NULL	#	2000.00	61.05	59.95	Using where; Using index
 insert into t2 values (200),(201);
 # expected type=range, rows=201 , reason=using index statistics
 analyze SELECT * FROM t1 where a in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,200,201);
@@ -3581,7 +3688,7 @@ test.t2	analyze	status	OK
 explain SELECT * FROM t1,t2 WHERE t1.subset_id=t2.id and t1.m=0 ;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	range	idx	idx	9	NULL	437	Using where; Using index
-1	SIMPLE	t2	ref	id,id_2	id_2	5	test.t1.subset_id	1	
+1	SIMPLE	t2	ref	id,id_2	id	5	test.t1.subset_id	1	
 SELECT * FROM t1,t2 WHERE t1.subset_id=t2.id and t1.m=0 ;
 id	subset_id	m	id	col
 0	0	0	0	0

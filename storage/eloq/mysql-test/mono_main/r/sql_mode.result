@@ -19,7 +19,7 @@ t1	CREATE TABLE `t1` (
   `email` varchar(60) NOT NULL DEFAULT '',
   PRIMARY KEY (`a`),
   KEY `email` (`email`) USING BTREE
-) ENGINE=ELOQ DEFAULT CHARSET=latin1 ROW_FORMAT=DYNAMIC
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci ROW_FORMAT=DYNAMIC
 set @@sql_mode="ansi_quotes";
 show variables like 'sql_mode';
 Variable_name	Value
@@ -32,7 +32,7 @@ t1	CREATE TABLE "t1" (
   "email" varchar(60) NOT NULL DEFAULT '',
   PRIMARY KEY ("a"),
   KEY "email" ("email") USING BTREE
-) ENGINE=ELOQ DEFAULT CHARSET=latin1 ROW_FORMAT=DYNAMIC
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci ROW_FORMAT=DYNAMIC
 set @@sql_mode="no_table_options";
 show variables like 'sql_mode';
 Variable_name	Value
@@ -58,7 +58,7 @@ t1	CREATE TABLE `t1` (
   `email` varchar(60) NOT NULL DEFAULT '',
   PRIMARY KEY (`a`),
   KEY `email` (`email`)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1 ROW_FORMAT=DYNAMIC
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci ROW_FORMAT=DYNAMIC
 set @@sql_mode="no_field_options,mysql323,mysql40";
 show variables like 'sql_mode';
 Variable_name	Value
@@ -67,8 +67,8 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) NOT NULL,
-  `pseudo` varchar(35) binary NOT NULL DEFAULT '',
-  `email` varchar(60) binary NOT NULL DEFAULT '',
+  `pseudo` varchar(35) NOT NULL DEFAULT '',
+  `email` varchar(60) NOT NULL DEFAULT '',
   PRIMARY KEY (`a`),
   KEY `email` (`email`)
 ) TYPE=ELOQ ROW_FORMAT=DYNAMIC
@@ -96,14 +96,14 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` char(10) DEFAULT NULL,
-  `b` char(10) DEFAULT NULL,
+  `b` char(10) CHARACTER SET latin1 COLLATE latin1_bin DEFAULT NULL,
   `c` binary(10) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci
 set @@sql_mode="mysql323";
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` char(10) binary DEFAULT NULL,
+  `a` char(10) DEFAULT NULL,
   `b` char(10) binary DEFAULT NULL,
   `c` binary(10) DEFAULT NULL
 ) TYPE=ELOQ
@@ -111,7 +111,7 @@ set @@sql_mode="mysql40";
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` char(10) binary DEFAULT NULL,
+  `a` char(10) DEFAULT NULL,
   `b` char(10) binary DEFAULT NULL,
   `c` binary(10) DEFAULT NULL
 ) TYPE=ELOQ
@@ -122,7 +122,7 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `min_num` decimal(6,6) DEFAULT 0.000001
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1 ;
 set session sql_mode = 'IGNORE_SPACE';
 create table t1 ( min_num   dec(6,6)     default 0.000001);
@@ -130,14 +130,14 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `min_num` decimal(6,6) DEFAULT 0.000001
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1 ;
 create table t1 ( min_num   dec(6,6)     default .000001);
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `min_num` decimal(6,6) DEFAULT 0.000001
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1 ;
 set @@SQL_MODE=NULL;
 ERROR 42000: Variable 'sql_mode' can't be set to the value of 'NULL'
@@ -148,7 +148,7 @@ f2 timestamp not null default current_timestamp on update current_timestamp);
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE "t1" (
-  "f1" int(11) NOT NULL AUTO_INCREMENT,
+  "f1" int(11) NOT NULL,
   "f2" timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY ("f1")
 )
@@ -159,7 +159,7 @@ t1	CREATE TABLE `t1` (
   `f1` int(11) NOT NULL,
   `f2` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`f1`)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 SET @OLD_SQL_MODE=@@SQL_MODE, @@SQL_MODE='';
 show local variables like 'SQL_MODE';
@@ -505,7 +505,7 @@ connection default;
 set @OLD_SQL_MODE=@@SESSION.SQL_MODE;
 set session sql_mode='PAD_CHAR_TO_FULL_LENGTH';
 flush privileges;
-connect  user_32753,localhost,mysqltest_32753,,test,$MASTER_MYPORT,$MASTER_MYSOCK;
+connect  user_32753,localhost,mysqltest_32753,,"*NO-ONE*",$MASTER_MYPORT,$MASTER_MYSOCK;
 select current_user();
 current_user()
 mysqltest_32753@localhost
@@ -535,7 +535,9 @@ SET SESSION SQL_MODE = @OLD_SQL_MODE;
 DROP USER 'user_no_PCTFL'@'localhost';
 FLUSH PRIVILEGES;
 SELECT * FROM mysql.db WHERE Host = 'localhost' AND User LIKE 'user_%PCTFL';
-Host	Db	User	Select_priv	Insert_priv	Update_priv	Delete_priv	Create_priv	Drop_priv	Grant_priv	References_priv	Index_priv	Alter_priv	Create_tmp_table_priv	Lock_tables_priv	Create_view_priv	Show_view_priv	Create_routine_priv	Alter_routine_priv	Execute_priv	Event_priv	Trigger_priv	Delete_history_priv
+Host	Db	User	Select_priv	Insert_priv	Update_priv	Delete_priv	Create_priv	Drop_priv	Grant_priv	References_priv	Index_priv	Alter_priv	Create_tmp_table_priv	Lock_tables_priv	Create_view_priv	Show_view_priv	Create_routine_priv	Alter_routine_priv	Execute_priv	Event_priv	Trigger_priv	Delete_history_priv	Show_create_routine_priv
+Warnings:
+Warning	4202	2 values were longer than max_sort_length. Sorting used only the first 1024 bytes
 SELECT * FROM mysql.tables_priv WHERE Host = 'localhost' AND User LIKE 'user_%PCTFL';
 Host	Db	User	Table_name	Grantor	Timestamp	Table_priv	Column_priv
 SELECT * FROM mysql.columns_priv WHERE Host = 'localhost' AND User LIKE 'user_%PCTFL';

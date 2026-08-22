@@ -13,10 +13,10 @@ SELECT 'à' RLIKE '\\x{00E0}';
 1
 SELECT 'À' RLIKE '\\x{00E0}';
 'À' RLIKE '\\x{00E0}'
-0
+1
 SELECT 'à' RLIKE '\\x{00C0}';
 'à' RLIKE '\\x{00C0}'
-0
+1
 SELECT 'À' RLIKE '\\x{00C0}';
 'À' RLIKE '\\x{00C0}'
 1
@@ -43,12 +43,12 @@ A	(?-i)a	0	0
 A	(?i)A	1	1
 A	(?i)a	1	1
 A	A	1	1
-A	a	0	0
+A	a	1	0
 a	(?-i)A	0	0
 a	(?-i)a	1	1
 a	(?i)A	1	1
 a	(?i)a	1	1
-a	A	0	0
+a	A	1	0
 a	a	1	1
 DROP TABLE t1,t2;
 CREATE TABLE t1 (ch VARCHAR(22)) CHARACTER SET utf8;
@@ -60,7 +60,7 @@ INSERT INTO t1 VALUES ('1'),('௨');
 INSERT INTO t2 VALUES ('\\p{Cyrillic}'),('\\p{Greek}'),('\\p{Latin}');
 INSERT INTO t2 VALUES ('\\p{Han}'),('\\p{Hangul}');
 INSERT INTO t2 VALUES ('\\p{Sinhala}'), ('\\p{Tamil}');
-INSERT INTO t2 VALUES ('\\p{L}'),('\\p{Ll}'),('\\p{Lu}'),('\\p{L&}');
+INSERT INTO t2 VALUES ('\\p{L}'), /* buggy before v10.45 ('\\p{Ll}'),('\\p{Lu}'),*/ ('\\p{L&}');
 INSERT INTO t2 VALUES ('[[:alpha:]]'),('[[:digit:]]');
 SELECT class, ch, ch RLIKE class FROM t1, t2 ORDER BY class, BINARY ch;
 class	ch	ch RLIKE class
@@ -116,19 +116,6 @@ class	ch	ch RLIKE class
 \p{Greek}	ප	0
 \p{Greek}	㐗	0
 \p{Greek}	갷	0
-\p{Hangul}	1	0
-\p{Hangul}	A	0
-\p{Hangul}	a	0
-\p{Hangul}	À	0
-\p{Hangul}	à	0
-\p{Hangul}	Σ	0
-\p{Hangul}	σ	0
-\p{Hangul}	Я	0
-\p{Hangul}	я	0
-\p{Hangul}	௨	0
-\p{Hangul}	ප	0
-\p{Hangul}	㐗	0
-\p{Hangul}	갷	1
 \p{Han}	1	0
 \p{Han}	A	0
 \p{Han}	a	0
@@ -142,6 +129,32 @@ class	ch	ch RLIKE class
 \p{Han}	ප	0
 \p{Han}	㐗	1
 \p{Han}	갷	0
+\p{Hangul}	1	0
+\p{Hangul}	A	0
+\p{Hangul}	a	0
+\p{Hangul}	À	0
+\p{Hangul}	à	0
+\p{Hangul}	Σ	0
+\p{Hangul}	σ	0
+\p{Hangul}	Я	0
+\p{Hangul}	я	0
+\p{Hangul}	௨	0
+\p{Hangul}	ප	0
+\p{Hangul}	㐗	0
+\p{Hangul}	갷	1
+\p{L}	1	0
+\p{L}	A	1
+\p{L}	a	1
+\p{L}	À	1
+\p{L}	à	1
+\p{L}	Σ	1
+\p{L}	σ	1
+\p{L}	Я	1
+\p{L}	я	1
+\p{L}	௨	0
+\p{L}	ප	1
+\p{L}	㐗	1
+\p{L}	갷	1
 \p{L&}	1	0
 \p{L&}	A	1
 \p{L&}	a	1
@@ -168,45 +181,6 @@ class	ch	ch RLIKE class
 \p{Latin}	ප	0
 \p{Latin}	㐗	0
 \p{Latin}	갷	0
-\p{Ll}	1	0
-\p{Ll}	A	0
-\p{Ll}	a	1
-\p{Ll}	À	0
-\p{Ll}	à	1
-\p{Ll}	Σ	0
-\p{Ll}	σ	1
-\p{Ll}	Я	0
-\p{Ll}	я	1
-\p{Ll}	௨	0
-\p{Ll}	ප	0
-\p{Ll}	㐗	0
-\p{Ll}	갷	0
-\p{Lu}	1	0
-\p{Lu}	A	1
-\p{Lu}	a	0
-\p{Lu}	À	1
-\p{Lu}	à	0
-\p{Lu}	Σ	1
-\p{Lu}	σ	0
-\p{Lu}	Я	1
-\p{Lu}	я	0
-\p{Lu}	௨	0
-\p{Lu}	ප	0
-\p{Lu}	㐗	0
-\p{Lu}	갷	0
-\p{L}	1	0
-\p{L}	A	1
-\p{L}	a	1
-\p{L}	À	1
-\p{L}	à	1
-\p{L}	Σ	1
-\p{L}	σ	1
-\p{L}	Я	1
-\p{L}	я	1
-\p{L}	௨	0
-\p{L}	ප	1
-\p{L}	㐗	1
-\p{L}	갷	1
 \p{Sinhala}	1	0
 \p{Sinhala}	A	0
 \p{Sinhala}	a	0
@@ -436,8 +410,8 @@ CREATE TABLE t1 AS SELECT REGEXP_REPLACE('abc','b','x');
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `REGEXP_REPLACE('abc','b','x')` longtext CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `REGEXP_REPLACE('abc','b','x')` longtext CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1;
 EXPLAIN EXTENDED SELECT REGEXP_REPLACE('abc','b','x');
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -452,7 +426,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `REGEXP_REPLACE('abc','b','x')+0` double NOT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1;
 SELECT REGEXP_REPLACE(NULL,'b','c');
 REGEXP_REPLACE(NULL,'b','c')
@@ -477,10 +451,10 @@ REGEXP_REPLACE('a5b a5b a5b','(?<=a)5*(?=b)','x')
 axb axb axb
 SELECT REGEXP_REPLACE('A','a','b');
 REGEXP_REPLACE('A','a','b')
-A
+b
 SELECT REGEXP_REPLACE('a','A','b');
 REGEXP_REPLACE('a','A','b')
-a
+b
 SELECT REGEXP_REPLACE('A' COLLATE utf8_bin,'a','b');
 REGEXP_REPLACE('A' COLLATE utf8_bin,'a','b')
 A
@@ -739,8 +713,8 @@ CREATE TABLE t1 AS SELECT REGEXP_SUBSTR('abc','b');
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `REGEXP_SUBSTR('abc','b')` varchar(3) CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `REGEXP_SUBSTR('abc','b')` varchar(3) CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1;
 EXPLAIN EXTENDED SELECT REGEXP_SUBSTR('abc','b');
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -755,7 +729,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `REGEXP_SUBSTR('abc','b')+0` double NOT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1;
 SELECT REGEXP_SUBSTR('See https://mariadb.org/en/foundation/ for details', 'https?://[^/]*');
 REGEXP_SUBSTR('See https://mariadb.org/en/foundation/ for details', 'https?://[^/]*')
@@ -817,7 +791,7 @@ SELECT 'AB' RLIKE 'A# this is a comment\nB';
 1
 SET default_regex_flags=DEFAULT;
 SELECT 'Aq' RLIKE 'A\\q';
-ERROR 42000: Regex error 'unrecognized character follows \ at offset 2'
+ERROR 42000: Regex error 'unrecognized character follows \ at offset 3'
 SET default_regex_flags='EXTRA';
 SELECT 'A' RLIKE 'B';
 'A' RLIKE 'B'

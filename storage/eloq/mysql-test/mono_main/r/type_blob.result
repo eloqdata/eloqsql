@@ -27,12 +27,12 @@ Table	Create Table
 t3	CREATE TABLE `t3` (
   `a` mediumtext DEFAULT NULL,
   `b` mediumblob DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 show create TABLE t4;
 Table	Create Table
 t4	CREATE TABLE `t4` (
-  `c` mediumtext CHARACTER SET utf8mb3 NOT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `c` mediumtext CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci NOT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1,t2,t3,t4;
 CREATE TABLE t1 (a char(257) default "hello");
 ERROR 42000: Column length too big for column 'a' (max = 255); use BLOB or TEXT instead
@@ -46,13 +46,13 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` mediumtext DEFAULT 'hello'
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 CREATE TABLE t2 (a blob default "hello");
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `a` blob DEFAULT 'hello'
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1,t2;
 create table t1 (nr int(5) not null auto_increment,b blob,str char(10), primary key (nr));
 insert into t1 values (null,"a","A");
@@ -371,14 +371,12 @@ a	1
 hello	1
 drop table t1;
 create table t1 (a text, key (a(2100)));
-Warnings:
-Note	1071	Specified key was too long; max key length is 1024 bytes
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` text DEFAULT NULL,
-  KEY `a` (`a`(1024))
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  KEY `a` (`a`(2100))
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 CREATE TABLE t1 (
 t1_id bigint(21) NOT NULL auto_increment,
@@ -521,7 +519,7 @@ charset(load_file('../../std_data/words.dat')),
 collation(load_file('../../std_data/words.dat')),
 coercibility(load_file('../../std_data/words.dat'));
 charset(load_file('../../std_data/words.dat'))	collation(load_file('../../std_data/words.dat'))	coercibility(load_file('../../std_data/words.dat'))
-binary	binary	4
+binary	binary	6
 explain extended select
 charset(load_file('MYSQLTEST_VARDIR/std_data/words.dat')),
 collation(load_file('MYSQLTEST_VARDIR/std_data/words.dat')),
@@ -722,7 +720,7 @@ t1	CREATE TABLE `t1` (
   `e` int(11) DEFAULT NULL,
   PRIMARY KEY (`a`,`b`,`c`(255),`d`),
   KEY `a` (`a`,`b`,`d`,`e`)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 CREATE table t1 (a blob);
 insert into t1 values ('b'),('a\0'),('a'),('a '),('aa'),(NULL);
@@ -805,7 +803,7 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` text DEFAULT ''
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 insert into t1 values (default);
 select * from t1;
 a
@@ -817,7 +815,7 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` text DEFAULT ''
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 set @@sql_mode='';
 CREATE TABLE t (c TEXT);
@@ -892,31 +890,33 @@ CREATE TABLE b15776 (a char(4294967296));
 ERROR 42000: Column length too big for column 'a' (max = 255); use BLOB or TEXT instead
 CREATE TABLE b15776 (a year(?));
 Warnings:
-Note	1287	'YEAR(?)' is deprecated and will be removed in a future release. Please use YEAR(4) instead
+Warning	1287	'YEAR(?)' is deprecated and will be removed in a future release. Please use 'YEAR(4)' instead
 INSERT INTO b15776 VALUES (42);
 SELECT * FROM b15776;
 a
 2042
 DROP TABLE b15776;
 CREATE TABLE b15776 (a year(4294967296));
+Warnings:
+Warning	1287	'YEAR(4294967295)' is deprecated and will be removed in a future release. Please use 'YEAR(4)' instead
 SHOW CREATE TABLE b15776;
 Table	Create Table
 b15776	CREATE TABLE `b15776` (
   `a` year(4) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE b15776;
 CREATE TABLE b15776 (a year(0));
 Warnings:
-Note	1287	'YEAR(0)' is deprecated and will be removed in a future release. Please use YEAR(4) instead
+Warning	1287	'YEAR(0)' is deprecated and will be removed in a future release. Please use 'YEAR(4)' instead
 DROP TABLE b15776;
 CREATE TABLE b15776 (a year(-2));
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '-2))' at line 1
 CREATE TABLE b15776 (a timestamp(4294967294));
-ERROR 42000: Too big precision 4294967294 specified for 'a'. Maximum is 6
+ERROR 42000: Too big precision specified for 'a'. Maximum is 6
 CREATE TABLE b15776 (a timestamp(4294967295));
-ERROR 42000: Too big precision 4294967295 specified for 'a'. Maximum is 6
+ERROR 42000: Too big precision specified for 'a'. Maximum is 6
 CREATE TABLE b15776 (a timestamp(4294967296));
-ERROR 42000: Too big precision 4294967296 specified for 'a'. Maximum is 6
+ERROR 42000: Too big precision specified for 'a'. Maximum is 6
 CREATE TABLE b15776 (a timestamp(-1));
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '-1))' at line 1
 CREATE TABLE b15776 (a timestamp(-2));
@@ -926,11 +926,13 @@ ERROR 42000: Display width out of range for 'a' (max = 255)
 CREATE TABLE b15776 (a char(999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999));
 ERROR 42000: Column length too big for column 'a' (max = 255); use BLOB or TEXT instead
 CREATE TABLE b15776 (a year(999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999));
+Warnings:
+Warning	1287	'YEAR(4294967295)' is deprecated and will be removed in a future release. Please use 'YEAR(4)' instead
 SHOW CREATE TABLE b15776;
 Table	Create Table
 b15776	CREATE TABLE `b15776` (
   `a` year(4) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE b15776;
 set @save_collation_connection=@@collation_connection;
 set @@collation_connection=latin1_bin;
@@ -1079,8 +1081,8 @@ CREATE TABLE t1 (a TEXT(1431655798) CHARACTER SET utf8);
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` longtext CHARACTER SET utf8mb3 DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+  `a` longtext CHARACTER SET utf8mb3 COLLATE utf8mb3_uca1400_ai_ci DEFAULT NULL
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1;
 create table t1 (a int, b blob default "foo");
 show create table t1;
@@ -1088,7 +1090,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL,
   `b` blob DEFAULT 'foo'
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 drop table t1;
 #
 # End of 10.2 test
@@ -1131,7 +1133,7 @@ CREATE TABLE t1 (a INT, b BLOB) ENGINE=eloq;
 INSERT INTO t1 VALUES (1,'foo'),(2,'bar');
 CREATE TABLE t2 (c BIT, d BLOB, KEY(d)) ENGINE=eloq;
 Warnings:
-Note	1071	Specified key was too long; max key length is 1024 bytes
+Note	1071	Specified key was too long; max key length is 3072 bytes
 INSERT INTO t2 SELECT * FROM t1;
 ERROR 22001: Data too long for column 'c' at row 2
 select * from t2;

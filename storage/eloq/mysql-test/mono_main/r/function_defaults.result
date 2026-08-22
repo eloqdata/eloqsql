@@ -483,7 +483,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL,
   `b` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1;
 #
 # Test of INSERT SELECT.
@@ -547,7 +547,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `a` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t2;
 a
 1970-04-11 20:13:57
@@ -556,7 +556,7 @@ SHOW CREATE TABLE t3;
 Table	Create Table
 t3	CREATE TABLE `t3` (
   `b` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t3;
 b
 1970-04-11 20:13:57
@@ -565,7 +565,7 @@ SHOW CREATE TABLE t4;
 Table	Create Table
 t4	CREATE TABLE `t4` (
   `c` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00' ON UPDATE current_timestamp()
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t4;
 c
 0000-00-00 00:00:00
@@ -574,7 +574,7 @@ SHOW CREATE TABLE t5;
 Table	Create Table
 t5	CREATE TABLE `t5` (
   `d` timestamp NOT NULL DEFAULT '1986-09-27 03:00:00'
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t5;
 d
 1986-09-27 03:00:00
@@ -583,7 +583,7 @@ SHOW CREATE TABLE t6;
 Table	Create Table
 t6	CREATE TABLE `t6` (
   `e` timestamp NULL DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t6;
 e
 NULL
@@ -592,7 +592,7 @@ SHOW CREATE TABLE t7;
 Table	Create Table
 t7	CREATE TABLE `t7` (
   `f` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t7;
 f
 1970-04-11 20:13:57
@@ -601,7 +601,7 @@ SHOW CREATE TABLE t8;
 Table	Create Table
 t8	CREATE TABLE `t8` (
   `g` datetime DEFAULT current_timestamp()
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t8;
 g
 1970-04-11 20:13:57
@@ -610,7 +610,7 @@ SHOW CREATE TABLE t9;
 Table	Create Table
 t9	CREATE TABLE `t9` (
   `h` datetime DEFAULT NULL ON UPDATE current_timestamp()
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t9;
 h
 NULL
@@ -619,7 +619,7 @@ SHOW CREATE TABLE t10;
 Table	Create Table
 t10	CREATE TABLE `t10` (
   `i` datetime DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t10;
 i
 NULL
@@ -628,7 +628,7 @@ SHOW CREATE TABLE t11;
 Table	Create Table
 t11	CREATE TABLE `t11` (
   `j` datetime DEFAULT '1986-09-27 03:00:00'
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t11;
 j
 1986-09-27 03:00:00
@@ -670,7 +670,7 @@ t12	CREATE TABLE `t12` (
   `h` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   `i` datetime DEFAULT NULL,
   `j` datetime DEFAULT '1986-09-27 03:00:00'
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12;
 # 1970-04-11 20:13:57 UTC
 SET TIMESTAMP = 8712837.164953;
@@ -689,7 +689,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `a` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t2;
 a
 1970-04-11 20:13:57
@@ -698,7 +698,7 @@ SHOW CREATE TABLE t3;
 Table	Create Table
 t3	CREATE TABLE `t3` (
   `b` datetime DEFAULT current_timestamp()
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t3;
 b
 1970-04-11 20:13:57
@@ -707,7 +707,7 @@ SHOW CREATE TABLE t4;
 Table	Create Table
 t4	CREATE TABLE `t4` (
   `c` datetime DEFAULT NULL ON UPDATE current_timestamp()
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t4;
 c
 NULL
@@ -716,7 +716,7 @@ SHOW CREATE TABLE t5;
 Table	Create Table
 t5	CREATE TABLE `t5` (
   `d` datetime DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t5;
 d
 NULL
@@ -725,7 +725,7 @@ SHOW CREATE TABLE t6;
 Table	Create Table
 t6	CREATE TABLE `t6` (
   `e` datetime DEFAULT '1986-09-27 03:00:00'
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t6;
 e
 1986-09-27 03:00:00
@@ -745,7 +745,7 @@ Table	Create Table
 t2	CREATE TABLE `t2` (
   `b` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `a` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SET TIMESTAMP = 2000.876543;
 INSERT INTO t2( a ) VALUES ( 3 );
 SELECT * FROM t2;
@@ -1129,7 +1129,7 @@ t1	CREATE TABLE `t1` (
   `g` timestamp NULL DEFAULT NULL,
   `h` int(11) DEFAULT NULL,
   `i` int(11) NOT NULL DEFAULT 42
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 LOAD DATA INFILE "file1.dat" IGNORE INTO table t1;
 Warnings:
 Warning	1261	Row 1 doesn't contain data for all columns
@@ -1202,7 +1202,7 @@ t1	CREATE TABLE `t1` (
   `g` timestamp NULL DEFAULT NULL,
   `h` int(11) DEFAULT NULL,
   `i` int(11) NOT NULL DEFAULT 42
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 LOAD DATA INFILE "file2.dat" IGNORE INTO table t1;
 Warnings:
 Warning	1263	Column set to default value; NULL supplied to NOT NULL column 'c' at row 1
@@ -1242,7 +1242,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL,
   `b` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 INSERT INTO t1 ( a ) VALUES ( 1 );
 SELECT * FROM t1;
 a	b
@@ -1797,7 +1797,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL,
   `b` timestamp(6) NOT NULL DEFAULT current_timestamp(6) ON UPDATE current_timestamp(6)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1;
 #
 # Test of INSERT SELECT.
@@ -1861,7 +1861,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `a` timestamp(6) NOT NULL DEFAULT current_timestamp(6) ON UPDATE current_timestamp(6)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t2;
 a
 1970-04-11 20:13:57.657897
@@ -1870,7 +1870,7 @@ SHOW CREATE TABLE t3;
 Table	Create Table
 t3	CREATE TABLE `t3` (
   `b` timestamp(6) NOT NULL DEFAULT current_timestamp(6)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t3;
 b
 1970-04-11 20:13:57.657897
@@ -1879,7 +1879,7 @@ SHOW CREATE TABLE t4;
 Table	Create Table
 t4	CREATE TABLE `t4` (
   `c` timestamp(6) NOT NULL DEFAULT '0000-00-00 00:00:00.000000' ON UPDATE current_timestamp(6)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t4;
 c
 0000-00-00 00:00:00.000000
@@ -1888,7 +1888,7 @@ SHOW CREATE TABLE t5;
 Table	Create Table
 t5	CREATE TABLE `t5` (
   `d` timestamp(6) NOT NULL DEFAULT '1986-09-27 03:00:00.098765'
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t5;
 d
 1986-09-27 03:00:00.098765
@@ -1897,7 +1897,7 @@ SHOW CREATE TABLE t6;
 Table	Create Table
 t6	CREATE TABLE `t6` (
   `e` timestamp(6) NULL DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t6;
 e
 NULL
@@ -1906,7 +1906,7 @@ SHOW CREATE TABLE t7;
 Table	Create Table
 t7	CREATE TABLE `t7` (
   `f` datetime(6) DEFAULT current_timestamp(6) ON UPDATE current_timestamp(6)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t7;
 f
 1970-04-11 20:13:57.657897
@@ -1915,7 +1915,7 @@ SHOW CREATE TABLE t8;
 Table	Create Table
 t8	CREATE TABLE `t8` (
   `g` datetime(6) DEFAULT current_timestamp(6)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t8;
 g
 1970-04-11 20:13:57.657897
@@ -1924,7 +1924,7 @@ SHOW CREATE TABLE t9;
 Table	Create Table
 t9	CREATE TABLE `t9` (
   `h` datetime(6) DEFAULT NULL ON UPDATE current_timestamp(6)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t9;
 h
 NULL
@@ -1933,7 +1933,7 @@ SHOW CREATE TABLE t10;
 Table	Create Table
 t10	CREATE TABLE `t10` (
   `i` datetime(6) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t10;
 i
 NULL
@@ -1942,7 +1942,7 @@ SHOW CREATE TABLE t11;
 Table	Create Table
 t11	CREATE TABLE `t11` (
   `j` datetime(6) DEFAULT '1986-09-27 03:00:00.098765'
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t11;
 j
 1986-09-27 03:00:00.098765
@@ -1984,7 +1984,7 @@ t12	CREATE TABLE `t12` (
   `h` datetime(6) DEFAULT NULL ON UPDATE current_timestamp(6),
   `i` datetime(6) DEFAULT NULL,
   `j` datetime(6) DEFAULT '1986-09-27 03:00:00.098765'
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12;
 # 1970-04-11 20:13:57 UTC
 SET TIMESTAMP = 8712837.164953;
@@ -2003,7 +2003,7 @@ SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (
   `a` datetime(6) DEFAULT current_timestamp(6) ON UPDATE current_timestamp(6)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t2;
 a
 1970-04-11 20:13:57.164953
@@ -2012,7 +2012,7 @@ SHOW CREATE TABLE t3;
 Table	Create Table
 t3	CREATE TABLE `t3` (
   `b` datetime(6) DEFAULT current_timestamp(6)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t3;
 b
 1970-04-11 20:13:57.164953
@@ -2021,7 +2021,7 @@ SHOW CREATE TABLE t4;
 Table	Create Table
 t4	CREATE TABLE `t4` (
   `c` datetime(6) DEFAULT NULL ON UPDATE current_timestamp(6)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t4;
 c
 NULL
@@ -2030,7 +2030,7 @@ SHOW CREATE TABLE t5;
 Table	Create Table
 t5	CREATE TABLE `t5` (
   `d` datetime(6) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t5;
 d
 NULL
@@ -2039,7 +2039,7 @@ SHOW CREATE TABLE t6;
 Table	Create Table
 t6	CREATE TABLE `t6` (
   `e` datetime(6) DEFAULT '1986-09-27 03:00:00.098765'
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SELECT * FROM t6;
 e
 1986-09-27 03:00:00.098765
@@ -2059,7 +2059,7 @@ Table	Create Table
 t2	CREATE TABLE `t2` (
   `b` timestamp(6) NOT NULL DEFAULT current_timestamp(6) ON UPDATE current_timestamp(6),
   `a` int(11) DEFAULT NULL
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 SET TIMESTAMP = 2000.876543;
 INSERT INTO t2( a ) VALUES ( 3 );
 SELECT * FROM t2;
@@ -2443,7 +2443,7 @@ t1	CREATE TABLE `t1` (
   `g` timestamp(6) NULL DEFAULT NULL,
   `h` int(11) DEFAULT NULL,
   `i` int(11) NOT NULL DEFAULT 42
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 LOAD DATA INFILE "file1.dat" IGNORE INTO table t1;
 Warnings:
 Warning	1261	Row 1 doesn't contain data for all columns
@@ -2516,7 +2516,7 @@ t1	CREATE TABLE `t1` (
   `g` timestamp(6) NULL DEFAULT NULL,
   `h` int(11) DEFAULT NULL,
   `i` int(11) NOT NULL DEFAULT 42
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 LOAD DATA INFILE "file2.dat" IGNORE INTO table t1;
 Warnings:
 Warning	1263	Column set to default value; NULL supplied to NOT NULL column 'c' at row 1
@@ -2556,7 +2556,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` int(11) DEFAULT NULL,
   `b` timestamp(6) NOT NULL DEFAULT current_timestamp(6) ON UPDATE current_timestamp(6)
-) ENGINE=ELOQ DEFAULT CHARSET=latin1
+) ENGINE=ELOQ DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 INSERT INTO t1 ( a ) VALUES ( 1 );
 SELECT * FROM t1;
 a	b

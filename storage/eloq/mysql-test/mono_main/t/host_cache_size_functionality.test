@@ -15,15 +15,13 @@
 #              * Value Check                                                  #
 #              * Scope Check                                                  #
 #              * Functionality Check                                          #
-#              * Accessability Check                                          #
+#              * Accessibility Check                                          #
 #                                                                             #               
 # This test does not perform the crash recovery on this variable              # 
 # For crash recovery test on default change please run the ibtest             #
 ###############################################################################
 
--- source include/have_innodb.inc
 -- source include/not_embedded.inc
--- source include/have_innodb_16k.inc
 --disable_warnings
 echo '#________________________VAR_06_Host_Cache_Size__________________#'
 echo '##'
@@ -43,10 +41,10 @@ select @@global.Host_Cache_Size > 0;
 --echo # Restart server with Host_Cache_Size 1
 
 let $restart_file= $MYSQLTEST_VARDIR/tmp/mysqld.1.expect;
---exec echo "wait" > $restart_file
+--write_line wait $restart_file
 --shutdown_server
 --source include/wait_until_disconnected.inc
--- exec echo "restart:--host_cache_size=1  " > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--write_line "restart:--host_cache_size=1  " $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
 -- enable_reconnect
 -- source include/wait_until_connected_again.inc
 

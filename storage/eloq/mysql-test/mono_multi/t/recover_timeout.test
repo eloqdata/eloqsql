@@ -1,5 +1,6 @@
 #This case is to simulate the situation that log replay timeouts during cc node leader transfer.
 --source include/have_eloq.inc
+--source include/eloq_errors.inc
 
 --let $mono_server_count=3
 --source include/mono_init.inc
@@ -29,7 +30,7 @@ SET SESSION debug_dbug="+d,eloq;log_during_log_shipping;node_id=0;action=sleep#5
 
 --connection serv_3
 # cc node group 1 won't recover as log shipping will always timeout
---error 216
+--error $HA_ERR_ELOQ_RW_CONFLICT
 select * from t3;
 
 SET SESSION debug_dbug="-d,eloq;log_during_log_shipping";
