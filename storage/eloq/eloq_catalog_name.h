@@ -54,7 +54,10 @@ inline bool is_tmp_table_of(const std::string &tablename, uint32_t node_id)
   if (std::regex_match(tablename, m, re_tmp_tablename))
   {
     std::string node= m[re_tmp_tablename.mark_count()].str();
-    uint32_t nid= std::strtoul(node.c_str(), nullptr, 10);
+    // build_tmptable_filename() writes the node id in hex (%x), like the
+    // other numbers of the name: parsed in decimal, ids from 10 up would name
+    // another node (10, written "a", would parse as 0).
+    uint32_t nid= std::strtoul(node.c_str(), nullptr, 16);
     return nid == node_id;
   }
   else
